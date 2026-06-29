@@ -1,0 +1,121 @@
+{
+	"info": {
+		"_postman_id": "c1c7b7a4-2e6e-4b2a-9e1f-d2b3c4d5e7f8",
+		"name": "WoodenToys Catalog API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Create Category (Admin/Staff)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"Educational Toys\",\n    \"slug\": \"educational-toys\",\n    \"type\": \"Educational\",\n    \"description\": \"Toys that promote cognitive growth.\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/category",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"category"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "2. Create Product (Admin/Staff)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"Wooden Abacus\",\n    \"slug\": \"wooden-abacus\",\n    \"description\": \"Classic counting tool for kids.\",\n    \"category\": \"<REPLACE_WITH_CATEGORY_ID>\",\n    \"price\": 19.99,\n    \"compareAtPrice\": 24.99,\n    \"images\": [\"https://example.com/abacus.jpg\"],\n    \"ageGroup\": \"3-5 Years\",\n    \"materialType\": \"Pine Wood\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/product",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"product"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "3. Initialize Inventory (Admin/Staff)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"product\": \"<REPLACE_WITH_PRODUCT_ID>\",\n    \"sku\": \"WT-ABACUS-01\",\n    \"stockQuantity\": 50,\n    \"warehouseLocation\": \"Zone A - Rack 2\",\n    \"lowStockThreshold\": 5\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/inventory",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"inventory"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4. Get All Products (Public)",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{baseUrl}}/product",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"product"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5000/api/catalog"
+		}
+	]
+}
