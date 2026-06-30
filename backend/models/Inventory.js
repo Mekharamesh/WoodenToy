@@ -5,7 +5,10 @@ const inventorySchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Product',
         required: true,
-        unique: true,
+    },
+    variantKey: {
+        type: String,
+        default: 'default',
     },
     sku: {
         type: String,
@@ -29,5 +32,7 @@ const inventorySchema = new mongoose.Schema({
         default: 10,
     }
 }, { timestamps: true });
+
+inventorySchema.index({ product: 1, variantKey: 1 }, { unique: true });
 
 module.exports = mongoose.model('Inventory', inventorySchema);

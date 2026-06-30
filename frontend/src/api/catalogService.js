@@ -48,7 +48,7 @@ const authenticatedRequest = async (url, options = {}) => {
     if (!response.ok) {
       throw new Error(data.message || 'Request failed');
     }
-    return data;
+    return data.data ? data.data : data;
   } catch (error) {
     throw error;
   }
@@ -70,7 +70,7 @@ export const catalogService = {
         throw new Error(data.message || 'Failed to fetch products');
       }
 
-      return data;
+      return data.data ? data.data : data;
     } catch (error) {
       console.error('Catalog API Error:', error);
       throw error;
@@ -80,7 +80,7 @@ export const catalogService = {
   // Get all categories
   getCategories: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/category`, {
+      const response = await fetch(`${API_BASE_URL}/category?limit=1000`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -92,9 +92,22 @@ export const catalogService = {
         throw new Error(data.message || 'Failed to fetch categories');
       }
 
-      return data;
+      return data.data ? data.data : data;
     } catch (error) {
       console.error('Category API Error:', error);
+      throw error;
+    }
+  },
+
+  // Create category
+  createCategory: async (data) => {
+    try {
+      return await authenticatedRequest(`${API_BASE_URL}/category`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      console.error('Create Category API Error:', error);
       throw error;
     }
   },
@@ -108,6 +121,53 @@ export const catalogService = {
       });
     } catch (error) {
       console.error('Update Category API Error:', error);
+      throw error;
+    }
+  },
+
+  // Bulk create a category
+  bulkCreateCategory: async (categoryData) => {
+    try {
+      return await authenticatedRequest(`${API_BASE_URL}/categories/bulk`, {
+        method: 'POST',
+        body: JSON.stringify(categoryData),
+      });
+    } catch (error) {
+      console.error('Bulk Create Category API Error:', error);
+      throw error;
+    }
+  },
+
+  // Toggle Category Status
+  toggleCategoryStatus: async (categoryId) => {
+    try {
+      return await authenticatedRequest(`${API_BASE_URL}/categories/${categoryId}/toggle-status`, {
+        method: 'PATCH',
+      });
+    } catch (error) {
+      console.error('Toggle Category Status API Error:', error);
+      throw error;
+    }
+  },
+
+  // Get Sub Categories
+  getSubCategories: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subcategories?limit=1000`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch subcategories');
+      }
+
+      return data.data ? data.data : data;
+    } catch (error) {
+      console.error('Subcategory API Error:', error);
       throw error;
     }
   },

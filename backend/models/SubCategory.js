@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
-const categorySchema = new mongoose.Schema({
-    brand: {
-        type: String,
-        trim: true,
-        default: 'General'
-    },
+const subCategorySchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
@@ -17,21 +12,16 @@ const categorySchema = new mongoose.Schema({
         unique: true,
         lowercase: true,
     },
-    parentCategory: {
+    category: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Category',
-        default: null,
-    },
-    type: {
-        type: String,
-        enum: ['Main', 'AgeWise', 'Educational', 'Montessori', 'Puzzle'],
-        default: 'Main',
+        required: true,
     },
     description: {
         type: String,
     },
     image: {
-        type: String, // URL to the category image
+        type: String, // URL to the subcategory image
     },
     displayOrder: {
         type: Number,
@@ -41,27 +31,11 @@ const categorySchema = new mongoose.Schema({
         type: Boolean,
         default: true,
     },
-    // Attributes mapped to this category (age-wise, color-wise, wood-wise, etc.)
+    // Attributes mapped to this subcategory
     attributes: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Attribute',
     }],
-    subCategoriesList: {
-        type: [String],
-        default: []
-    },
-    availableAges: {
-        type: [String],
-        default: []
-    },
-    availableColors: {
-        type: [String],
-        default: []
-    },
-    availableWoodTypes: {
-        type: [String],
-        default: []
-    },
     seoTitle: {
         type: String,
     },
@@ -74,10 +48,7 @@ const categorySchema = new mongoose.Schema({
         default: [],
     },
     banner: {
-        type: String, // URL to category banner image
-    },
-    icon: {
-        type: String, // URL to category icon
+        type: String,
     },
     isArchived: {
         type: Boolean,
@@ -101,7 +72,7 @@ const categorySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for v2 queries
-categorySchema.index({ isDeleted: 1, isActive: 1, displayOrder: 1 });
-categorySchema.index({ name: 'text' });
+subCategorySchema.index({ category: 1, isDeleted: 1, isActive: 1 });
+subCategorySchema.index({ name: 'text' });
 
-module.exports = mongoose.model('Category', categorySchema);
+module.exports = mongoose.model('SubCategory', subCategorySchema);
