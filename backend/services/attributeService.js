@@ -165,7 +165,7 @@ const getAttributeById = async (id) => {
 const createAttribute = async (data, auditContext) => {
     const { 
         name, slug, code, type, description, displayOrder, isActive, category, subCategory,
-        isRequired, isSearchable, isFilterable, isComparable, 
+        isRequired, isSearchable, isFilterable, isComparable, isVariant,
         visibleOnProduct, visibleOnWebsite, values 
     } = data;
 
@@ -197,6 +197,7 @@ const createAttribute = async (data, auditContext) => {
         isSearchable: isSearchable !== undefined ? isSearchable : false,
         isFilterable: isFilterable !== undefined ? isFilterable : false,
         isComparable: isComparable !== undefined ? isComparable : false,
+        isVariant: isVariant !== undefined ? isVariant : false,
         visibleOnProduct: visibleOnProduct !== undefined ? visibleOnProduct : true,
         visibleOnWebsite: visibleOnWebsite !== undefined ? visibleOnWebsite : true,
         createdBy: auditContext.userId,
@@ -247,7 +248,7 @@ const updateAttribute = async (id, data, auditContext) => {
     const fields = [
         'name', 'slug', 'code', 'type', 'description', 'displayOrder', 'category', 'subCategory',
         'isActive', 'isArchived', 'isRequired', 'isSearchable',
-        'isFilterable', 'isComparable', 'visibleOnProduct', 'visibleOnWebsite'
+        'isFilterable', 'isComparable', 'isVariant', 'visibleOnProduct', 'visibleOnWebsite'
     ];
 
     const nextCategory = data.category || attribute.category;
@@ -283,7 +284,7 @@ const updateAttribute = async (id, data, auditContext) => {
                 isActive: attribute.isActive,
             },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     const afterState = await getAttributeById(id);

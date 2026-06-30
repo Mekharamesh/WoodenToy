@@ -74,7 +74,7 @@ const getProductById = async (req, res) => {
 // @access  Private/Admin
 const updateProduct = async (req, res) => {
     try {
-        const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+        const product = await Product.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
         if (product) {
             res.json(product);
         } else {
@@ -136,7 +136,7 @@ const getCategories = async (req, res) => {
 // @access  Private/Admin
 const updateCategory = async (req, res) => {
     try {
-        const category = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true }).populate('parentCategory', 'name slug');
+        const category = await Category.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true }).populate('parentCategory', 'name slug');
         if (category) {
             res.json(category);
         } else {
@@ -192,7 +192,7 @@ const updateInventory = async (req, res) => {
         const inventory = await Inventory.findOneAndUpdate(
             { product: req.params.productId }, 
             req.body, 
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         );
         if (inventory) {
             res.json(inventory);

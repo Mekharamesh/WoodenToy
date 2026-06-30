@@ -109,6 +109,7 @@ export const AttributesPage = () => {
                 isRequired: attr.isRequired !== undefined ? attr.isRequired : false,
                 isSearchable: attr.isSearchable !== undefined ? attr.isSearchable : false,
                 isFilterable: attr.isFilterable !== undefined ? attr.isFilterable : false,
+                isVariant: attr.isVariant !== undefined ? attr.isVariant : false,
                 visibleOnProduct: attr.visibleOnProduct !== undefined ? attr.visibleOnProduct : true,
                 visibleOnWebsite: attr.visibleOnWebsite !== undefined ? attr.visibleOnWebsite : true,
                 values: attr.values ? attr.values.map(v => ({
@@ -131,6 +132,7 @@ export const AttributesPage = () => {
                 isRequired: false,
                 isSearchable: false,
                 isFilterable: false,
+                isVariant: false,
                 visibleOnProduct: true,
                 visibleOnWebsite: true,
                 values: [],
@@ -175,21 +177,30 @@ export const AttributesPage = () => {
     const handleAddValueOption = () => {
         if (!newValue.trim()) return;
 
-        // Prevent duplicates
-        if (formData.values.some(v => v.value.toLowerCase() === newValue.trim().toLowerCase())) {
-            setErrorMsg('Value option already exists in this list');
+        const inputs = newValue.split(',').map(s => s.trim()).filter(Boolean);
+        let newValues = [...formData.values];
+        let displayOrder = newValues.length + 1;
+        let addedCount = 0;
+
+        inputs.forEach(inputVal => {
+            if (!newValues.some(v => v.value.toLowerCase() === inputVal.toLowerCase())) {
+                newValues.push({
+                    value: inputVal,
+                    colorCode: formData.type === 'ColorPicker' ? newColorCode : undefined,
+                    displayOrder: displayOrder++
+                });
+                addedCount++;
+            }
+        });
+
+        if (addedCount === 0) {
+            setErrorMsg('Value option(s) already exist in this list');
             return;
         }
 
-        const option = {
-            value: newValue.trim(),
-            colorCode: formData.type === 'ColorPicker' ? newColorCode : undefined,
-            displayOrder: formData.values.length + 1
-        };
-
         setFormData(prev => ({
             ...prev,
-            values: [...prev.values, option]
+            values: newValues
         }));
         setNewValue('');
         setErrorMsg('');
@@ -520,7 +531,7 @@ export const AttributesPage = () => {
                                     </label>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 border-t border-gray-100 pt-4">
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-4 border-t border-gray-100 pt-4">
                                     <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
                                         <input
                                             type="checkbox"
@@ -547,6 +558,15 @@ export const AttributesPage = () => {
                                             className="rounded text-amber-600 focus:ring-amber-500"
                                         />
                                         Filterable
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.isVariant}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, isVariant: e.target.checked }))}
+                                            className="rounded text-amber-600 focus:ring-amber-500"
+                                        />
+                                        Is Variant
                                     </label>
                                     <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
                                         <input

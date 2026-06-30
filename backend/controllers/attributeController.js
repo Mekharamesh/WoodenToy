@@ -10,7 +10,7 @@ const AttributeValue = require('../models/AttributeValue');
 // @access  Private/Admin
 const createAttribute = async (req, res) => {
     try {
-        const { name, slug, type, description, displayOrder } = req.body;
+        const { name, slug, type, description, displayOrder, isVariant } = req.body;
 
         // Validate input
         if (!name || !type) {
@@ -37,6 +37,7 @@ const createAttribute = async (req, res) => {
             type,
             description,
             displayOrder: displayOrder || 1,
+            isVariant: isVariant || false,
             isActive: true,
         });
 
@@ -135,7 +136,7 @@ const getAttributeById = async (req, res) => {
 // @access  Private/Admin
 const updateAttribute = async (req, res) => {
     try {
-        const { name, type, description, displayOrder, isActive } = req.body;
+        const { name, type, description, displayOrder, isActive, isVariant } = req.body;
 
         let attribute = await Attribute.findById(req.params.id);
         if (!attribute) {
@@ -156,6 +157,7 @@ const updateAttribute = async (req, res) => {
         if (description) attribute.description = description;
         if (displayOrder !== undefined) attribute.displayOrder = displayOrder;
         if (isActive !== undefined) attribute.isActive = isActive;
+        if (isVariant !== undefined) attribute.isVariant = isVariant;
 
         attribute = await attribute.save();
 

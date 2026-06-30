@@ -7,6 +7,7 @@ const categoryController = require('../controllers/categoryController');
 const subCategoryController = require('../controllers/subCategoryController');
 const attributeController = require('../controllers/attributeController');
 const productController = require('../controllers/productController');
+const productVariantController = require('../controllers/productVariantController');
 const catalogController = require('../controllers/catalogController');
 const uploadController = require('../controllers/uploadController');
 
@@ -85,6 +86,19 @@ router.post('/product', protect, authorize('admin', 'staff'), productController.
 router.get('/product/:id', productController.getProductById);
 router.put('/product/:id', protect, authorize('admin', 'staff'), productController.updateProduct);
 router.delete('/product/:id', protect, authorize('admin', 'staff'), productController.deleteProduct);
+
+// ==========================================
+// PRODUCT VARIANT ROUTES
+// ==========================================
+router.post('/products/:productId/variants/generate', productVariantController.generateVariants);
+router.get('/products/:productId/variants', productVariantController.getProductVariants);
+router.get('/products/:productId/variants/config', productVariantController.getVariantConfig);
+router.put('/variants/:variantId', productVariantController.updateVariant);
+router.put('/products/:productId/variants/bulk-update', productVariantController.bulkUpdateVariants);
+router.delete('/variants/:variantId', productVariantController.deleteVariant);
+router.delete('/products/:productId/variants/bulk-delete', productVariantController.bulkDeleteVariants);
+router.post('/variants/:variantId/images', productVariantController.addVariantImages);
+router.delete('/variants/:variantId/images/:imageIndex', productVariantController.removeVariantImage);
 
 // ==========================================
 // INVENTORY ROUTES (Legacy)

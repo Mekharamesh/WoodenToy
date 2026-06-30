@@ -6,6 +6,7 @@ import ConfirmDialog from '../../../components/admin/ConfirmDialog';
 import BulkActions from '../../../components/admin/BulkActions';
 import ImageUploader from '../../../components/admin/ImageUploader';
 import DynamicFormBuilder from '../../../components/admin/DynamicFormBuilder';
+import VariantManagement from '../../../components/admin/VariantManagement';
 
 export const ProductsPage = () => {
     // List/Table state
@@ -108,6 +109,7 @@ export const ProductsPage = () => {
             setMappedAttributes([]);
         }
     }, [formData.subCategory]);
+
 
     const fetchProducts = async () => {
         setLoading(true);
@@ -227,7 +229,15 @@ export const ProductsPage = () => {
                         metaKeywords: Array.isArray(prod.metaKeywords) ? prod.metaKeywords.join(', ') : '',
                         tags: Array.isArray(prod.tags) ? prod.tags.join(', ') : '',
                         images: prod.images || [],
-                        variants: prod.variants || [],
+                        variants: (prod.variants || []).map(v => ({
+                            ...v,
+                            images: Array.isArray(v.images) ? v.images.map((imgStr, idx) => ({
+                                url: imgStr,
+                                altText: `Variant Image ${idx + 1}`,
+                                isThumbnail: idx === 0,
+                                displayOrder: idx + 1
+                            })) : []
+                        })),
                         attributeValues: attrVals,
                     });
                 }
@@ -367,32 +377,12 @@ export const ProductsPage = () => {
         }));
     };
 
-    const handleAddVariant = () => {
-        const variant = {
-            sku: `${formData.sku || 'PROD'}-VAR-${formData.variants.length + 1}`.toUpperCase(),
-            price: formData.price,
-            stock: 0,
-            variantAttributes: [] // will map dynamically
-        };
-        setFormData(prev => ({
-            ...prev,
-            variants: [...prev.variants, variant]
-        }));
-    };
-
     const handleVariantChange = (index, field, value) => {
         setFormData(prev => {
             const updated = [...prev.variants];
             updated[index] = { ...updated[index], [field]: value };
             return { ...prev, variants: updated };
         });
-    };
-
-    const handleRemoveVariant = (index) => {
-        setFormData(prev => ({
-            ...prev,
-            variants: prev.variants.filter((_, idx) => idx !== index)
-        }));
     };
 
     return (
@@ -837,65 +827,28 @@ export const ProductsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Section 5: Variants list */}
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                                        <Layers size={18} className="text-amber-700" />
-                                        Product Variants
-                                    </h3>
-                                    <Button type="button" variant="outline" size="sm" onClick={handleAddVariant}>
-                                        Add Variant Row
-                                    </Button>
-                                </div>
-
-                                {formData.variants.length === 0 ? (
-                                    <p className="text-xs text-gray-400 italic">No variants created. The base product details will be used for inventory tracking.</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {formData.variants.map((variant, idx) => (
-                                            <div key={idx} className="flex gap-3 items-center bg-gray-50 p-4 border border-gray-200 rounded-xl">
-                                                <div className="flex-1 grid grid-cols-3 gap-3">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-[10px] font-bold text-gray-500">Variant SKU</span>
-                                                        <input
-                                                            type="text"
-                                                            value={variant.sku}
-                                                            onChange={(e) => handleVariantChange(idx, 'sku', e.target.value.toUpperCase())}
-                                                            className="px-3 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-amber-500 font-mono"
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-[10px] font-bold text-gray-500">Price ($)</span>
-                                                        <input
-                                                            type="number"
-                                                            value={variant.price}
-                                                            onChange={(e) => handleVariantChange(idx, 'price', e.target.value)}
-                                                            className="px-3 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-amber-500"
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-[10px] font-bold text-gray-500">Stock Qty</span>
-                                                        <input
-                                                            type="number"
-                                                            value={variant.stock}
-                                                            onChange={(e) => handleVariantChange(idx, 'stock', e.target.value)}
-                                                            className="px-3 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-amber-500"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRemoveVariant(idx)}
-                                                    className="p-2 text-gray-400 hover:text-red-500 transition-colors self-end"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        ))}
+                            {/* Section 5: Dynamic Variants Table */}
+                            {/* Section 5: Dynamic Variants Management */}
+                            {mappedAttributes.some(m => m.attribute?.isVariant) && (
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                        <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                            <Layers size={18} className="text-amber-700" />
+                                            Variant Management
+                                        </h3>
                                     </div>
-                                )}
-                            </div>
+                                    <VariantManagement 
+                                        variants={formData.variants}
+                                        onChange={(variants) => setFormData(prev => ({ ...prev, variants }))}
+                                        mappedAttributes={mappedAttributes}
+                                        attributeValues={formData.attributeValues}
+                                        baseSku={formData.sku}
+                                        basePrice={formData.price}
+                                        baseCostPrice={formData.costPrice}
+                                        baseWeight={formData.shippingWeight}
+                                    />
+                                </div>
+                            )}
 
                             {/* Section 6: SEO */}
                             <div className="border-t border-gray-100 pt-6 mt-6">

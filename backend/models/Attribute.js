@@ -63,6 +63,11 @@ const attributeSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    // === VARIANT SYSTEM ===
+    isVariant: {
+        type: Boolean,
+        default: false,
+    },
     visibleOnProduct: {
         type: Boolean,
         default: true,

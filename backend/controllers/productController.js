@@ -75,7 +75,7 @@ const createProduct = async (req, res) => {
                         value: Array.isArray(value) ? value.join(', ') : String(value),
                         values: Array.isArray(value) ? value : [String(value)],
                     },
-                    { upsert: true, new: true }
+                    { upsert: true, returnDocument: 'after' }
                 );
             }
         }
@@ -236,7 +236,7 @@ const updateProduct = async (req, res) => {
                             value: Array.isArray(value) ? undefined : value,
                             values: Array.isArray(value) ? value : undefined,
                         },
-                        { upsert: true, new: true }
+                        { upsert: true, returnDocument: 'after' }
                     );
                 }
             }

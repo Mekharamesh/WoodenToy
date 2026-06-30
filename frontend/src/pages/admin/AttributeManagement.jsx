@@ -27,6 +27,7 @@ const AttributeManagement = () => {
         type: 'Dropdown',
         description: '',
         displayOrder: 1,
+        isVariant: false,
     });
 
     const [valueFormData, setValueFormData] = useState({
@@ -114,7 +115,7 @@ const AttributeManagement = () => {
     // Open modal for create
     const handleCreateClick = () => {
         setEditingAttribute(null);
-        setFormData({ name: '', type: 'Dropdown', description: '', displayOrder: 1 });
+        setFormData({ name: '', type: 'Dropdown', description: '', displayOrder: 1, isVariant: false });
         setShowModal(true);
     };
 
@@ -126,6 +127,7 @@ const AttributeManagement = () => {
             type: attribute.type,
             description: attribute.description,
             displayOrder: attribute.displayOrder,
+            isVariant: attribute.isVariant || false,
         });
         setShowModal(true);
     };
@@ -245,17 +247,27 @@ const AttributeManagement = () => {
     ];
 
     const columns = [
-        { field: 'name', label: 'Attribute Name', width: '30%' },
+        { field: 'name', label: 'Attribute Name', width: '25%' },
         {
             field: 'type',
             label: 'Type',
-            width: '20%',
+            width: '15%',
             render: (value) => <Badge variant="amber">{value}</Badge>,
+        },
+        {
+            field: 'isVariant',
+            label: 'Variant',
+            width: '12%',
+            render: (value) => (
+                <Badge variant={value ? 'green' : 'gray'} size="sm">
+                    {value ? 'Yes' : 'No'}
+                </Badge>
+            ),
         },
         {
             field: 'valuesCount',
             label: 'Values',
-            width: '15%',
+            width: '13%',
         },
         {
             field: 'isActive',
@@ -421,6 +433,25 @@ const AttributeManagement = () => {
                             }
                             min="1"
                         />
+                    </FormGroup>
+
+                    <FormGroup>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={formData.isVariant}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, isVariant: e.target.checked })
+                                }
+                                className="w-4 h-4 rounded accent-blue-600"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                                Use for Product Variants
+                            </span>
+                        </label>
+                        <p className="text-xs text-gray-600 mt-1">
+                            Check this if variants should be created using this attribute
+                        </p>
                     </FormGroup>
 
                     <div className="flex gap-3 justify-end pt-4">

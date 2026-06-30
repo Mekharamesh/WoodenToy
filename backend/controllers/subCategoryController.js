@@ -262,7 +262,7 @@ const updateSubCategoryAttributes = async (req, res) => {
         let subCategory = await SubCategory.findByIdAndUpdate(
             req.params.id,
             { attributes },
-            { new: true }
+            { returnDocument: 'after' }
         ).populate(['category', 'attributes']);
 
         if (!subCategory) {

@@ -15,6 +15,8 @@ export const useAdminStore = create((set) => ({
         attribute: false,
         attributeValue: false,
         product: false,
+        variant: false,
+        variantGenerator: false,
     },
     openModal: (modalName) =>
         set((state) => ({
@@ -32,6 +34,8 @@ export const useAdminStore = create((set) => ({
         attribute: null,
         attributeValue: null,
         product: null,
+        variant: null,
+        variantOptions: {},
     },
     setFormData: (type, data) =>
         set((state) => ({
@@ -75,6 +79,11 @@ export const useAdminStore = create((set) => ({
             status: '',
             page: 1,
             limit: 10,
+        },
+        variant: {
+            search: '',
+            page: 1,
+            limit: 20,
         },
     },
     updateFilters: (type, filters) =>

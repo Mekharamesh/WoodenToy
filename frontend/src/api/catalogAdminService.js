@@ -81,6 +81,30 @@ export const productAPI = {
 };
 
 // ==========================================
+// PRODUCT VARIANT API
+// ==========================================
+export const variantAPI = {
+    generateVariants: (productId, variantAttributeOptions) =>
+        apiClient.post(`/catalog/products/${productId}/variants/generate`, { variantAttributeOptions }),
+    getVariants: (productId, params) =>
+        apiClient.get(`/catalog/products/${productId}/variants`, { params }),
+    getVariantConfig: (productId) =>
+        apiClient.get(`/catalog/products/${productId}/variants/config`),
+    updateVariant: (variantId, data) =>
+        apiClient.put(`/catalog/variants/${variantId}`, data),
+    bulkUpdateVariants: (productId, updates) =>
+        apiClient.put(`/catalog/products/${productId}/variants/bulk-update`, { updates }),
+    deleteVariant: (variantId) =>
+        apiClient.delete(`/catalog/variants/${variantId}`),
+    bulkDeleteVariants: (productId, variantIds) =>
+        apiClient.delete(`/catalog/products/${productId}/variants/bulk-delete`, { data: { variantIds } }),
+    addImages: (variantId, images) =>
+        apiClient.post(`/catalog/variants/${variantId}/images`, { images }),
+    removeImage: (variantId, imageIndex) =>
+        apiClient.delete(`/catalog/variants/${variantId}/images/${imageIndex}`),
+};
+
+// ==========================================
 // UPLOAD API
 // ==========================================
 export const uploadAPI = {

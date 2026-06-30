@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const ProductAttributeValue = require('../models/ProductAttributeValue');
-const ProductVariant = require('../models/catalog/ProductVariant');
+const ProductVariant = require('../models/ProductVariant');
+const ProductVariantOption = require('../models/ProductVariantOption');
 const ProductImage = require('../models/catalog/ProductImage');
 const CategoryAttributeMapping = require('../models/catalog/CategoryAttributeMapping');
 const auditService = require('./auditService');
@@ -158,7 +159,7 @@ const getProducts = async (query = {}) => {
         result.push({
             ...prod.toObject(),
             variantsCount: variants.length,
-            totalStock: variants.reduce((sum, v) => sum + (v.stock || 0), 0),
+            totalStock: variants.reduce((sum, v) => sum + (v.inventory || 0), 0),
             images: images.map(img => img.toObject()),
         });
     }
@@ -189,13 +190,20 @@ const getProductById = async (id) => {
         throw new Error('Product not found');
     }
 
-    const variants = await ProductVariant.find({ product: id }).sort({ displayOrder: 1 });
+    const variants = await ProductVariant.find({ product: id });
+    const variantOptions = await ProductVariantOption.find({ variant: { $in: variants.map(v => v._id) } });
     const images = await ProductImage.find({ product: id }).sort({ displayOrder: 1 });
     const attributeValues = await ProductAttributeValue.find({ product: id }).populate('attribute');
 
+    const mappedVariants = variants.map(v => {
+        const vObj = v.toObject();
+        vObj.options = variantOptions.filter(vo => vo.variant.toString() === v._id.toString()).map(vo => vo.toObject());
+        return vObj;
+    });
+
     return {
         ...product.toObject(),
-        variants: variants.map(v => v.toObject()),
+        variants: mappedVariants,
         images: images.map(img => img.toObject()),
         attributeValues: attributeValues.map(av => av.toObject()),
     };
@@ -304,22 +312,39 @@ const createProduct = async (data, auditContext) => {
     }
 
     // 3. Add Variants
-    let createdVariants = [];
     if (variants && Array.isArray(variants)) {
-        const variantDocs = variants.map((v, idx) => ({
-            product: product._id,
-            variantAttributes: v.variantAttributes || [],
-            sku: v.sku ? v.sku.toUpperCase() : `${sku}-V${idx + 1}`.toUpperCase(),
-            barcode: v.barcode,
-            price: v.price || price,
-            compareAtPrice: v.compareAtPrice,
-            costPrice: v.costPrice,
-            stock: v.stock || 0,
-            images: v.images || [],
-            displayOrder: v.displayOrder || (idx + 1),
-        }));
-        if (variantDocs.length > 0) {
-            createdVariants = await ProductVariant.insertMany(variantDocs);
+        for (let idx = 0; idx < variants.length; idx++) {
+            const v = variants[idx];
+            const variantDoc = await ProductVariant.create({
+                product: product._id,
+                sku: v.sku ? v.sku.toUpperCase() : `${sku}-V${idx + 1}`.toUpperCase(),
+                barcode: v.barcode,
+                basePrice: v.basePrice || price,
+                discountPrice: v.discountPrice,
+                costPrice: v.costPrice,
+                inventory: v.inventory || 0,
+                weight: v.weight,
+                length: v.length,
+                width: v.width,
+                height: v.height,
+                images: v.images ? v.images.map(img => img.url || img) : [],
+                isActive: v.isActive !== undefined ? v.isActive : true,
+                isPrimary: v.isPrimary || false,
+                variantCombination: v.variantCombination,
+                createdBy: auditContext.userId,
+            });
+            
+            if (v.options && Array.isArray(v.options)) {
+                const optionDocs = v.options.map(opt => ({
+                    variant: variantDoc._id,
+                    attribute: opt.attribute,
+                    value: opt.value,
+                    attributeValue: opt.attributeValue,
+                }));
+                if (optionDocs.length > 0) {
+                    await ProductVariantOption.insertMany(optionDocs);
+                }
+            }
         }
     }
 
@@ -410,21 +435,42 @@ const updateProduct = async (id, data, auditContext) => {
 
     // 3. Sync Variants
     if (data.variants && Array.isArray(data.variants)) {
+        const oldVariants = await ProductVariant.find({ product: id });
+        await ProductVariantOption.deleteMany({ variant: { $in: oldVariants.map(v => v._id) } });
         await ProductVariant.deleteMany({ product: id });
-        const variantDocs = data.variants.map((v, idx) => ({
-            product: id,
-            variantAttributes: v.variantAttributes || [],
-            sku: v.sku ? v.sku.toUpperCase() : `${product.sku}-V${idx + 1}`.toUpperCase(),
-            barcode: v.barcode,
-            price: v.price || product.price,
-            compareAtPrice: v.compareAtPrice,
-            costPrice: v.costPrice,
-            stock: v.stock || 0,
-            images: v.images || [],
-            displayOrder: v.displayOrder || (idx + 1),
-        }));
-        if (variantDocs.length > 0) {
-            await ProductVariant.insertMany(variantDocs);
+        
+        for (let idx = 0; idx < data.variants.length; idx++) {
+            const v = data.variants[idx];
+            const variantDoc = await ProductVariant.create({
+                product: id,
+                sku: v.sku ? v.sku.toUpperCase() : `${product.sku}-V${idx + 1}`.toUpperCase(),
+                barcode: v.barcode,
+                basePrice: v.basePrice || product.price,
+                discountPrice: v.discountPrice,
+                costPrice: v.costPrice,
+                inventory: v.inventory || 0,
+                weight: v.weight,
+                length: v.length,
+                width: v.width,
+                height: v.height,
+                images: v.images ? v.images.map(img => img.url || img) : [],
+                isActive: v.isActive !== undefined ? v.isActive : true,
+                isPrimary: v.isPrimary || false,
+                variantCombination: v.variantCombination,
+                createdBy: auditContext.userId,
+            });
+            
+            if (v.options && Array.isArray(v.options)) {
+                const optionDocs = v.options.map(opt => ({
+                    variant: variantDoc._id,
+                    attribute: opt.attribute,
+                    value: opt.value,
+                    attributeValue: opt.attributeValue,
+                }));
+                if (optionDocs.length > 0) {
+                    await ProductVariantOption.insertMany(optionDocs);
+                }
+            }
         }
     }
 
