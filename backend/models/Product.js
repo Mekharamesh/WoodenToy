@@ -154,9 +154,10 @@ const productSchema = new mongoose.Schema({
     returnPolicy: {
         type: String,
     },
-    additionalInfo: {
-        type: String,
-    },
+    additionalInfo: [{
+        key: String,
+        value: String
+    }],
     metaKeywords: {
         type: [String],
         default: [],

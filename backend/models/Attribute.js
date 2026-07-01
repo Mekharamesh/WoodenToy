@@ -5,7 +5,6 @@ const attributeSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        unique: true,
     },
     slug: {
         type: String,
@@ -99,7 +98,8 @@ const attributeSchema = new mongoose.Schema({
 
 attributeSchema.index({ isDeleted: 1, isActive: 1 });
 attributeSchema.index({ category: 1, subCategory: 1, isDeleted: 1, isActive: 1 });
-attributeSchema.index({ category: 1, subCategory: 1, slug: 1 }, { unique: true });
-attributeSchema.index({ category: 1, subCategory: 1, code: 1 }, { unique: true, sparse: true });
+// Non-unique indexes for query performance — same attribute name can exist in multiple sub-categories
+attributeSchema.index({ category: 1, subCategory: 1, slug: 1 });
+attributeSchema.index({ category: 1, subCategory: 1, code: 1 }, { sparse: true });
 
 module.exports = mongoose.model('Attribute', attributeSchema);

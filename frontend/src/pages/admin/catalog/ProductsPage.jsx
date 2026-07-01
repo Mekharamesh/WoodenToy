@@ -45,6 +45,7 @@ export const ProductsPage = () => {
         seoDescription: '',
         metaKeywords: '',
         tags: '',
+        additionalInfo: [], // Custom dynamic fields
         
         // Relational fields
         images: [],
@@ -228,6 +229,7 @@ export const ProductsPage = () => {
                         seoDescription: prod.seoDescription || '',
                         metaKeywords: Array.isArray(prod.metaKeywords) ? prod.metaKeywords.join(', ') : '',
                         tags: Array.isArray(prod.tags) ? prod.tags.join(', ') : '',
+                        additionalInfo: prod.additionalInfo || [],
                         images: prod.images || [],
                         variants: (prod.variants || []).map(v => ({
                             ...v,
@@ -271,6 +273,7 @@ export const ProductsPage = () => {
                 seoDescription: '',
                 metaKeywords: '',
                 tags: '',
+                additionalInfo: [],
                 images: [],
                 variants: [],
                 attributeValues: {},
@@ -307,6 +310,7 @@ export const ProductsPage = () => {
                 height: Number(formData.dimensions.height),
             },
             attributeValues: avArray,
+            additionalInfo: formData.additionalInfo.filter(info => info.key.trim() !== ''),
         };
 
         try {
@@ -383,6 +387,33 @@ export const ProductsPage = () => {
             updated[index] = { ...updated[index], [field]: value };
             return { ...prev, variants: updated };
         });
+    };
+
+    // Auto-generate unique SKU from category + sub-category initials
+    const generateSKU = async (categoryId, subCategoryId) => {
+        if (!categoryId || !subCategoryId || editId) return; // only for new products
+        const cat = categories.find(c => c._id === categoryId);
+        const sub = [...subCategories, ...formSubCategories].find(s => s._id === subCategoryId);
+        if (!cat || !sub) return;
+
+        const catInitial = cat.name.trim()[0].toUpperCase();
+        const subInitial = sub.name.trim()[0].toUpperCase();
+        const prefix = `${catInitial}${subInitial}`;
+
+        try {
+            // Fetch all products with this prefix to find the next unique number
+            const res = await productV2API.getAll({ search: prefix, limit: 1000 });
+            const existing = (res.products || []).map(p => p.sku || '');
+            let counter = 1;
+            let candidate = `${prefix}${String(counter).padStart(3, '0')}`;
+            while (existing.some(sku => sku.toUpperCase() === candidate)) {
+                counter++;
+                candidate = `${prefix}${String(counter).padStart(3, '0')}`;
+            }
+            setFormData(prev => ({ ...prev, sku: candidate }));
+        } catch (err) {
+            console.error('SKU generation failed', err);
+        }
     };
 
     return (
@@ -674,7 +705,11 @@ export const ProductsPage = () => {
                                         <select
                                             required
                                             value={formData.category}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                                            onChange={(e) => {
+                                                const newCatId = e.target.value;
+                                                setFormData(prev => ({ ...prev, category: newCatId }));
+                                                generateSKU(newCatId, formData.subCategory);
+                                            }}
                                             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm bg-white"
                                         >
                                             <option value="">Select Category</option>
@@ -688,7 +723,11 @@ export const ProductsPage = () => {
                                         <select
                                             required
                                             value={formData.subCategory}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, subCategory: e.target.value }))}
+                                            onChange={(e) => {
+                                                const newSubId = e.target.value;
+                                                setFormData(prev => ({ ...prev, subCategory: newSubId }));
+                                                generateSKU(formData.category, newSubId);
+                                            }}
                                             disabled={!formData.category}
                                             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm bg-white disabled:opacity-50"
                                         >
@@ -701,7 +740,16 @@ export const ProductsPage = () => {
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">Description *</label>
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-sm font-semibold text-gray-700">Description *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, additionalInfo: [...prev.additionalInfo, { key: '', value: '' }] }))}
+                                            className="text-xs font-bold text-amber-600 hover:text-amber-800 flex items-center gap-1"
+                                        >
+                                            <Plus size={14} /> Add Field
+                                        </button>
+                                    </div>
                                     <textarea
                                         required
                                         rows={4}
@@ -710,7 +758,54 @@ export const ProductsPage = () => {
                                         placeholder="Detailed description of the product features, benefits..."
                                         className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                                     />
+                                    
+                                    {formData.additionalInfo?.map((info, idx) => (
+                                        <div key={idx} className="flex gap-2 mt-2 items-start">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Field Name (e.g. Material)" 
+                                                value={info.key}
+                                                onChange={(e) => {
+                                                    const newArr = [...formData.additionalInfo];
+                                                    newArr[idx].key = e.target.value;
+                                                    setFormData(prev => ({ ...prev, additionalInfo: newArr }));
+                                                }}
+                                                className="w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                                            />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Value (e.g. Oak Wood)" 
+                                                value={info.value}
+                                                onChange={(e) => {
+                                                    const newArr = [...formData.additionalInfo];
+                                                    newArr[idx].value = e.target.value;
+                                                    setFormData(prev => ({ ...prev, additionalInfo: newArr }));
+                                                }}
+                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                                            />
+                                            <button 
+                                                type="button" 
+                                                onClick={() => {
+                                                    const newArr = formData.additionalInfo.filter((_, i) => i !== idx);
+                                                    setFormData(prev => ({ ...prev, additionalInfo: newArr }));
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
+                            </div>
+
+                            {/* Section: Product Images */}
+                            <div className="space-y-4">
+                                <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Product Images</h3>
+                                <ImageUploader 
+                                    images={formData.images || []}
+                                    onChange={(newImages) => setFormData(prev => ({ ...prev, images: newImages }))}
+                                    maxImages={8}
+                                />
                             </div>
 
                             {/* Section 2: Custom attributes */}
@@ -727,105 +822,6 @@ export const ProductsPage = () => {
                                     />
                                 </div>
                             )}
-
-                            {/* Section 3: Media Upload */}
-                            <div className="space-y-4">
-                                <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Product Gallery</h3>
-                                <ImageUploader
-                                    images={formData.images}
-                                    onChange={(images) => setFormData(prev => ({ ...prev, images }))}
-                                />
-                            </div>
-
-                            {/* Section 4: Inventory, Pricing & Shipping */}
-                            <div className="space-y-4">
-                                <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Pricing, Dimensions & Logistics</h3>
-                                
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm font-semibold text-gray-700">Base Price ($) *</label>
-                                        <input
-                                            type="number"
-                                            required
-                                            min="0"
-                                            step="0.01"
-                                            value={formData.price}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm font-semibold text-gray-700">Compare at Price ($)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={formData.compareAtPrice}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, compareAtPrice: e.target.value }))}
-                                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm font-semibold text-gray-700">Cost Price ($)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={formData.costPrice}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, costPrice: e.target.value }))}
-                                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-4 gap-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-semibold text-gray-700">Weight (kg)</label>
-                                        <input
-                                            type="number"
-                                            value={formData.shippingWeight}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, shippingWeight: e.target.value }))}
-                                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-semibold text-gray-700">Length (cm)</label>
-                                        <input
-                                            type="number"
-                                            value={formData.dimensions.length}
-                                            onChange={(e) => setFormData(prev => ({
-                                                ...prev,
-                                                dimensions: { ...prev.dimensions, length: e.target.value }
-                                            }))}
-                                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-semibold text-gray-700">Width (cm)</label>
-                                        <input
-                                            type="number"
-                                            value={formData.dimensions.width}
-                                            onChange={(e) => setFormData(prev => ({
-                                                ...prev,
-                                                dimensions: { ...prev.dimensions, width: e.target.value }
-                                            }))}
-                                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-semibold text-gray-700">Height (cm)</label>
-                                        <input
-                                            type="number"
-                                            value={formData.dimensions.height}
-                                            onChange={(e) => setFormData(prev => ({
-                                                ...prev,
-                                                dimensions: { ...prev.dimensions, height: e.target.value }
-                                            }))}
-                                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
 
                             {/* Section 5: Dynamic Variants Table */}
                             {/* Section 5: Dynamic Variants Management */}

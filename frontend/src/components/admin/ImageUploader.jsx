@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, X, Star, ArrowUp, ArrowDown } from 'lucide-react';
+import { Upload, X, Star, ArrowUp, ArrowDown, Loader } from 'lucide-react';
 import { Button } from './CommonComponents';
 
 export const ImageUploader = ({
@@ -9,6 +9,7 @@ export const ImageUploader = ({
 }) => {
     const fileInputRef = useRef(null);
     const [dragActive, setDragActive] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -20,26 +21,47 @@ export const ImageUploader = ({
         }
     };
 
-    const processFiles = (files) => {
+    const processFiles = async (files) => {
         const fileList = Array.from(files);
         const validImages = fileList.filter(file => file.type.startsWith('image/'));
-        
+
         if (validImages.length === 0) return;
 
-        // In a real application, you would upload to the backend here.
-        // For local development, we create ObjectURLs for immediate display and simulation.
-        const newImages = validImages.map((file, idx) => {
-            const url = URL.createObjectURL(file);
-            return {
-                url,
-                altText: file.name.split('.')[0],
-                isThumbnail: images.length === 0 && idx === 0, // set first image as thumbnail by default
-                displayOrder: images.length + idx + 1
-            };
-        });
+        setUploading(true);
 
-        const updated = [...images, ...newImages].slice(0, maxImages);
-        onChange(updated);
+        // Upload files to the backend to get permanent, persistent URLs
+        const formData = new FormData();
+        validImages.forEach(file => formData.append('images', file));
+
+        try {
+            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const uploadUrl = `${API_BASE.replace(/\/api$/, '')}/api/catalog/upload`;
+            const token = localStorage.getItem('token');
+
+            const res = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Upload failed');
+
+            const newImages = (data.data?.urls || []).map((url, idx) => ({
+                url,
+                altText: validImages[idx]?.name?.split('.')[0] || '',
+                isThumbnail: images.length === 0 && idx === 0, // first image is thumbnail
+                displayOrder: images.length + idx + 1,
+            }));
+
+            const updated = [...images, ...newImages].slice(0, maxImages);
+            onChange(updated);
+        } catch (err) {
+            console.error('Image upload failed:', err);
+            alert('Image upload failed: ' + err.message);
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleDrop = (e) => {
@@ -100,12 +122,14 @@ export const ImageUploader = ({
                 onDragEnter={handleDrag}
                 onDragOver={handleDrag}
                 onDragLeave={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-8 cursor-pointer transition-all duration-200 ${
-                    dragActive
-                        ? 'border-amber-600 bg-amber-50/50'
-                        : 'border-gray-300 hover:border-amber-500 hover:bg-gray-50/50'
+                onDrop={uploading ? undefined : handleDrop}
+                onClick={() => !uploading && fileInputRef.current?.click()}
+                className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-8 transition-all duration-200 ${
+                    uploading
+                        ? 'border-amber-400 bg-amber-50 cursor-wait'
+                        : dragActive
+                        ? 'border-amber-600 bg-amber-50/50 cursor-pointer'
+                        : 'border-gray-300 hover:border-amber-500 hover:bg-gray-50/50 cursor-pointer'
                 }`}
             >
                 <input
@@ -116,15 +140,25 @@ export const ImageUploader = ({
                     accept="image/*"
                     className="hidden"
                 />
-                <div className="p-4 bg-amber-50 rounded-full text-amber-700 mb-3">
-                    <Upload size={28} />
-                </div>
-                <p className="font-semibold text-gray-900 mb-1">
-                    Drag and drop images, or <span className="text-amber-700 hover:underline">browse</span>
-                </p>
-                <p className="text-gray-500 text-xs">
-                    Supports PNG, JPG, JPEG, WEBP up to 5MB (Max {maxImages} images)
-                </p>
+                {uploading ? (
+                    <>
+                        <Loader size={28} className="text-amber-600 animate-spin mb-3" />
+                        <p className="font-semibold text-amber-700">Uploading...</p>
+                        <p className="text-gray-400 text-xs">Please wait</p>
+                    </>
+                ) : (
+                    <>
+                        <div className="p-4 bg-amber-50 rounded-full text-amber-700 mb-3">
+                            <Upload size={28} />
+                        </div>
+                        <p className="font-semibold text-gray-900 mb-1">
+                            Drag and drop images, or <span className="text-amber-700 hover:underline">browse</span>
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                            Supports PNG, JPG, JPEG, WEBP up to 5MB (Max {maxImages} images)
+                        </p>
+                    </>
+                )}
             </div>
 
             {images.length > 0 && (

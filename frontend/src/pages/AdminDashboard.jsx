@@ -373,49 +373,14 @@ export default function AdminDashboard({ user, onNavigate }) {
 
             <div className="pt-2">
               <div className="px-4 py-2 text-[10px] font-bold text-brand-medium uppercase tracking-widest">Catalog Management</div>
-              <button 
-                onClick={() => setCurrentTab('catalog')}
-                className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${currentTab === 'catalog' ? 'bg-[#E6DFD4] text-brand-dark' : 'text-brand-medium hover:bg-brand-light hover:text-brand-dark'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-                  Categories
-                </div>
-              </button>
-              <button 
-                onClick={() => setCurrentTab('subcategories')}
-                className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${currentTab === 'subcategories' ? 'bg-[#E6DFD4] text-brand-dark' : 'text-brand-medium hover:bg-brand-light hover:text-brand-dark'}`}
-              >
-                <div className="flex items-center gap-3 pl-7">
-                  Sub Categories
-                </div>
-              </button>
-              <button 
-                className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-bold rounded-xl transition-colors text-brand-medium/50 cursor-not-allowed`}
-              >
-                <div className="flex items-center gap-3 pl-7">
-                  Age Groups
-                </div>
-              </button>
-              <button 
-                onClick={() => setCurrentTab('products')}
-                className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${currentTab === 'products' ? 'bg-[#E6DFD4] text-brand-dark' : 'text-brand-medium hover:bg-brand-light hover:text-brand-dark'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                  Products
-                </div>
-                <span className="text-brand-medium opacity-50 text-xs font-bold">&gt;</span>
-              </button>
             </div>
 
             <div className="pt-4 border-t border-[#E6DFD4]/50">
-              <div className="px-4 py-2 text-[10px] font-bold text-amber-700 uppercase tracking-widest">Catalog v2 (SaaS)</div>
               <button 
                 onClick={() => setCurrentTab('v2-categories')}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${currentTab === 'v2-categories' ? 'bg-amber-100 text-amber-950 font-extrabold shadow-xs' : 'text-gray-600 hover:bg-amber-50/50 hover:text-amber-900'}`}
               >
-                📦 Categories (v2)
+                📦 Categories
               </button>
               <button 
                 onClick={() => setCurrentTab('v2-subcategories')}

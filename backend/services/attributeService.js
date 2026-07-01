@@ -161,6 +161,9 @@ const getAttributeById = async (id) => {
 
 /**
  * Create attribute
+ * If an attribute with the same name/slug already exists for this sub-category,
+ * reuse it and upsert the CategoryAttributeMapping — no duplicate error thrown.
+ * This allows shared attributes (colour, age, wood, etc.) across all sub-categories.
  */
 const createAttribute = async (data, auditContext) => {
     const { 
@@ -174,50 +177,68 @@ const createAttribute = async (data, auditContext) => {
     const generatedSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     const generatedCode = code || name.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
 
-    const existingSlug = await Attribute.findOne({ category, subCategory, slug: generatedSlug, isDeleted: false });
-    if (existingSlug) {
-        throw new Error('Attribute with this name/slug already exists for this Sub Category');
-    }
-    const existingCode = await Attribute.findOne({ category, subCategory, code: generatedCode, isDeleted: false });
-    if (existingCode) {
-        throw new Error('Attribute with this code already exists for this Sub Category');
+    // Check if this attribute already exists for this sub-category — reuse it if so
+    let attribute = await Attribute.findOne({ category, subCategory, slug: generatedSlug, isDeleted: false });
+    if (!attribute) {
+        attribute = await Attribute.findOne({ category, subCategory, code: generatedCode, isDeleted: false });
     }
 
-    const attribute = await Attribute.create({
-        name,
-        slug: generatedSlug,
-        code: generatedCode,
-        category,
-        subCategory,
-        type: normalizeType(type),
-        description,
-        displayOrder: displayOrder || 1,
-        isActive: isActive !== undefined ? isActive : true,
-        isRequired: isRequired !== undefined ? isRequired : false,
-        isSearchable: isSearchable !== undefined ? isSearchable : false,
-        isFilterable: isFilterable !== undefined ? isFilterable : false,
-        isComparable: isComparable !== undefined ? isComparable : false,
-        isVariant: isVariant !== undefined ? isVariant : false,
-        visibleOnProduct: visibleOnProduct !== undefined ? visibleOnProduct : true,
-        visibleOnWebsite: visibleOnWebsite !== undefined ? visibleOnWebsite : true,
-        createdBy: auditContext.userId,
-    });
-
-    // Create values if provided
     let createdValues = [];
-    if (values && Array.isArray(values) && values.length > 0) {
-        const valDocs = normalizeValueDocs(attribute._id, values);
-        createdValues = await AttributeValue.insertMany(valDocs);
+
+    if (attribute) {
+        // Attribute already exists — append any new values provided
+        if (values && Array.isArray(values) && values.length > 0) {
+            const existingValues = await AttributeValue.find({ attribute: attribute._id });
+            const existingSet = new Set(existingValues.map(v => v.value.toLowerCase()));
+            const newValDocs = normalizeValueDocs(attribute._id, values).filter(
+                v => !existingSet.has(v.value.toLowerCase())
+            );
+            if (newValDocs.length > 0) {
+                createdValues = await AttributeValue.insertMany(newValDocs);
+            }
+        }
+    } else {
+        // Create a brand new attribute
+        attribute = await Attribute.create({
+            name,
+            slug: generatedSlug,
+            code: generatedCode,
+            category,
+            subCategory,
+            type: normalizeType(type),
+            description,
+            displayOrder: displayOrder || 1,
+            isActive: isActive !== undefined ? isActive : true,
+            isRequired: isRequired !== undefined ? isRequired : false,
+            isSearchable: isSearchable !== undefined ? isSearchable : false,
+            isFilterable: isFilterable !== undefined ? isFilterable : false,
+            isComparable: isComparable !== undefined ? isComparable : false,
+            isVariant: isVariant !== undefined ? isVariant : false,
+            visibleOnProduct: visibleOnProduct !== undefined ? visibleOnProduct : true,
+            visibleOnWebsite: visibleOnWebsite !== undefined ? visibleOnWebsite : true,
+            createdBy: auditContext.userId,
+        });
+
+        // Create values if provided
+        if (values && Array.isArray(values) && values.length > 0) {
+            const valDocs = normalizeValueDocs(attribute._id, values);
+            createdValues = await AttributeValue.insertMany(valDocs);
+        }
     }
 
-    await CategoryAttributeMapping.create({
-        category,
-        subCategory,
-        attribute: attribute._id,
-        isRequired: isRequired !== undefined ? isRequired : false,
-        displayOrder: displayOrder || 1,
-        isActive: isActive !== undefined ? isActive : true,
-    });
+    // Upsert CategoryAttributeMapping — safe even if mapping already exists
+    await CategoryAttributeMapping.findOneAndUpdate(
+        { category, subCategory, attribute: attribute._id },
+        {
+            category,
+            subCategory,
+            attribute: attribute._id,
+            isRequired: isRequired !== undefined ? isRequired : false,
+            displayOrder: displayOrder || 1,
+            isActive: isActive !== undefined ? isActive : true,
+        },
+        { upsert: true, returnDocument: 'after' }
+    );
 
     const fullAttr = {
         ...attribute.toObject(),
