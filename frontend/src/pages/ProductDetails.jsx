@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { catalogService } from '../api/catalogService';
 
 const finishOptions = ['Natural Maple', 'Oak Tint'];
@@ -147,7 +147,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
   const [selectedFinish, setSelectedFinish] = useState(finishOptions[0]);
   const [quantity, setQuantity] = useState(1);
   const [zipCode, setZipCode] = useState('');
-  const [showPolicy, setShowPolicy] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [product, setProduct] = useState(initialProduct);
 
   useEffect(() => {
@@ -276,14 +276,13 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                   <p className="text-sm uppercase tracking-[0.24em] text-slate-500">{categoryName || 'Wooden Toy'}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{product.price != null ? `$${product.price.toFixed(2)}` : '-'}</p>
                 </div>
-                <div className="flex items-center gap-3 text-slate-500">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
-                    <span>✓</span> BPA-Free
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
-                    <span>✓</span> FSC Wood
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(true)}
+                  className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 shadow-sm hover:bg-slate-50 transition"
+                >
+                  Share
+                </button>
               </div>
 
               <p className="mt-6 text-sm leading-7 text-slate-600">
@@ -291,21 +290,84 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
               </p>
 
               <div className="mt-8 space-y-5">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Finish</p>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {finishOptions.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setSelectedFinish(option)}
-                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${selectedFinish === option ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-slate-900'}`}
-                      >
-                        {option}
-                      </button>
-                    ))}
+
+                {Array.isArray(product.attributes) && product.attributes.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Attributes</p>
+                    <div className="mt-3 space-y-2">
+                      {product.attributes.map((attr) => {
+                        const label = attr.attribute?.name || attr.attribute?.slug || 'Attribute';
+                        const type = attr.attribute?.type || 'Text';
+
+                        let resolvedValues = [];
+                        if (type === 'Boolean') {
+                          resolvedValues = [attr.booleanValue === true ? 'Yes' : attr.booleanValue === false ? 'No' : '-'];
+                        } else if (type === 'Number') {
+                          resolvedValues = [attr.numericValue !== null && attr.numericValue !== undefined ? attr.numericValue.toString() : '-'];
+                        } else if (type === 'Date') {
+                          resolvedValues = [attr.dateValue ? new Date(attr.dateValue).toLocaleDateString() : '-'];
+                        } else if (Array.isArray(attr.values) && attr.values.length > 0) {
+                          resolvedValues = attr.values;
+                        } else if (attr.value) {
+                          resolvedValues = [attr.value];
+                        } else {
+                          resolvedValues = ['-'];
+                        }
+
+                        const renderValue = () => {
+                          if (type === 'Boolean') {
+                            const bool = resolvedValues[0];
+                            return (
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                                bool === 'Yes' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                              }`}>
+                                <span>{bool === 'Yes' ? '✓' : '✗'}</span> {bool}
+                              </span>
+                            );
+                          }
+                          if (type === 'ColorPicker') {
+                            return (
+                              <div className="flex flex-wrap gap-2">
+                                {resolvedValues.map((v, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <span className="inline-block h-5 w-5 rounded-full border border-slate-300 shadow-sm" style={{ backgroundColor: v }} />
+                                    <span className="text-xs text-slate-600">{v}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                          if (type === 'MultiSelect' || type === 'Checkbox') {
+                            return (
+                              <div className="flex flex-wrap gap-2">
+                                {resolvedValues.map((v, i) => (
+                                  <span key={i} className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700">{v}</span>
+                                ))}
+                              </div>
+                            );
+                          }
+                          if (type === 'Dropdown' || type === 'RadioButton') {
+                            return <span className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700">{resolvedValues[0]}</span>;
+                          }
+                          if (type === 'Number') {
+                            return <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">{resolvedValues[0]}</span>;
+                          }
+                          if (type === 'Date') {
+                            return <span className="text-sm text-slate-700">📅 {resolvedValues[0]}</span>;
+                          }
+                          return <span className="text-sm text-slate-700 break-words">{resolvedValues.join(', ')}</span>;
+                        };
+
+                        return (
+                          <div key={attr._id} className="flex items-start justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+                            <span className="text-xs uppercase tracking-[0.16em] text-slate-400 whitespace-nowrap pt-0.5">{label}</span>
+                            <div className="text-right">{renderValue()}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Quantity</p>
@@ -344,130 +406,53 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                     Add to Wishlist
                   </button>
                 </div>
-
-                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Delivery Estimator</p>
-                      <p className="mt-3 text-sm font-semibold text-slate-900">Enter Zip Code</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white hover:bg-slate-800"
-                    >
-                      Check
-                    </button>
-                  </div>
-                  <div className="mt-4">
-                    <input
-                      value={zipCode}
-                      onChange={(e) => setZipCode(e.target.value)}
-                      placeholder="Zip code"
-                      className="w-full rounded-full border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-slate-200 bg-white p-5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-slate-900">Return & Exchange Policy</p>
-                    <button
-                      type="button"
-                      onClick={() => setShowPolicy((value) => !value)}
-                      className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500"
-                    >
-                      {showPolicy ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                  {showPolicy && (
-                    <p className="mt-4 text-sm leading-7 text-slate-600">
-                      {product.returnPolicy || 'Return within 30 days for a full refund. Items must be in original condition and packaging.'}
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-3xl border border-slate-200 bg-white p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-slate-900">Share Product Link</p>
-                    <button
-                      type="button"
-                      className="rounded-full border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                  <input
-                    value={window.location.href}
-                    readOnly
-                    className="mt-4 w-full rounded-full border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600"
-                  />
-                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Material & Certifications</h2>
-            <p className="mt-4 text-sm leading-7 text-slate-600">
-              We believe play should be as safe as it is beautiful. Every toy in our Nordic collection is crafted with intention, ensuring a legacy of sustainability and safety for your little one.
-            </p>
-            <ul className="mt-6 space-y-3 text-sm text-slate-700">
-              {featureBullets.map((line) => (
-                <li key={line} className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3">{line}</li>
-              ))}
-            </ul>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {certifications.map((cert) => (
-                <div key={cert} className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-xs uppercase tracking-[0.18em] text-slate-700">
-                  {cert}
-                </div>
-              ))}
-            </div>
-          </div>
 
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Pairs Perfectly With</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Complete the set</h2>
-              </div>
-              <button className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-900 hover:bg-slate-50">
-                View All
+      </div>
+
+      {showShareModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        >
+          <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Share Product</h3>
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              >
+                ✕
               </button>
             </div>
-
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              {relatedProducts.map((item) => (
-                <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-center">
-                  <div className="mx-auto mb-4 h-28 w-full rounded-3xl bg-white" />
-                  <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                  <p className="mt-2 text-sm text-slate-500">{item.price}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-12 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Backend Product Data</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Every field from the API</h2>
-            </div>
-          </div>
-          <p className="mt-3 text-sm text-slate-600">This section renders every backend field found on the current product object, using the values returned from the server.</p>
-          <div className="mt-8 space-y-3">
-            {productFieldKeys.map((fieldKey) => (
-              <div key={fieldKey} className="grid gap-4 rounded-3xl bg-slate-50 p-4 sm:grid-cols-[220px_1fr]">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">{formatFieldLabel(fieldKey)}</div>
-                <div className="text-sm text-slate-700 break-words">{formatFieldValue(product[fieldKey], fieldKey)}</div>
+            <div className="mt-6">
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Product Link</p>
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={window.location.href}
+                  readOnly
+                  className="w-full rounded-full border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    alert('Link copied to clipboard!');
+                  }}
+                  className="rounded-full bg-slate-900 px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white hover:bg-slate-800 transition whitespace-nowrap"
+                >
+                  Copy
+                </button>
               </div>
-            ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
