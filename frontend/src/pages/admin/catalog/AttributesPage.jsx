@@ -231,6 +231,32 @@ export const AttributesPage = () => {
         ['Image', 'Image URL'],
     ];
 
+    // Auto-generate unique System Code from Attribute Name (only for new attributes)
+    const generateCode = (name) => {
+        if (editId) return; // Don't overwrite on edit
+        // Convert to SNAKE_UPPER_CASE: trim, replace spaces/special chars with _, uppercase
+        const base = name
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, ''); // strip leading/trailing underscores
+
+        if (!base) {
+            setFormData(prev => ({ ...prev, code: '' }));
+            return;
+        }
+
+        // Check against already-loaded attributes for uniqueness
+        const existingCodes = attributes.map(a => (a.code || '').toUpperCase());
+        let candidate = base;
+        let counter = 2;
+        while (existingCodes.includes(candidate)) {
+            candidate = `${base}_${counter}`;
+            counter++;
+        }
+        setFormData(prev => ({ ...prev, code: candidate }));
+    };
+
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header */}
@@ -467,7 +493,11 @@ export const AttributesPage = () => {
                                             type="text"
                                             required
                                             value={formData.name}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                            onChange={(e) => {
+                                                const newName = e.target.value;
+                                                setFormData(prev => ({ ...prev, name: newName }));
+                                                generateCode(newName);
+                                            }}
                                             placeholder="e.g. Toy Material"
                                             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                                         />

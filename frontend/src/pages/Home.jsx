@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { catalogService } from '../api/catalogService';
+import { productV2API } from '../api/catalogV2Service';
 
 // ── Mock data for the static sections ───────────────────────────────────────────
 const COLLECTIONS = [
@@ -55,15 +55,13 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
   const [products, setProducts] = useState([]);
 
   useEffect(() => {
-    // Fetch products from backend
-    catalogService.getProducts()
+    // Fetch products from the V2 backend (includes real uploaded images)
+    productV2API.getAll({ limit: 4, isActive: 'true' })
       .then(data => {
-        if (data && data.length > 0) {
-          // Just take the first 4 for the trending section
-          setProducts(data.slice(0, 4));
-        }
+        const list = data.products || data.data || [];
+        setProducts(list.slice(0, 4));
       })
-      .catch(err => console.error("Failed to load products", err));
+      .catch(err => console.error('Failed to load products', err));
   }, []);
 
   const handleAction = (type, product) => {
@@ -211,7 +209,13 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                 {/* Image block */}
                 <div className="aspect-square bg-[#F8F8F8] p-4 relative mb-4">
                   <img 
-                    src={p.images?.[0] || p.image || '/wooden_train_set.png'} 
+                    src={
+                      // images is [{url, isThumbnail, ...}] — extract the url string
+                      p.images?.find(img => img.isThumbnail)?.url ||
+                      p.images?.[0]?.url ||
+                      p.image ||
+                      '/wooden_train_set.png'
+                    } 
                     alt={p.name} 
                     className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => { e.target.style.display='none'; }}

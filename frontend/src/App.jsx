@@ -10,9 +10,11 @@ import CartOffcanvas from './components/CartOffcanvas';
 import WishlistOffcanvas from './components/WishlistOffcanvas';
 
 export default function App() {
-  const [view, setView] = useState('home'); // 'home' | 'login' | 'profile' | 'product-detail'
+  const [view, setView] = useState(() => {
+    return localStorage.getItem('currentView') || 'home';
+  }); // 'home' | 'login' | 'profile' | 'product-detail' | 'admin'
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => authService.getCurrentUser());
   
   // Profile query state
   const [profileData, setProfileData] = useState(null);
@@ -75,13 +77,7 @@ export default function App() {
     handleRemoveFromWishlist(index);
   };
 
-  // Load session from localStorage on mount
-  useEffect(() => {
-    const activeUser = authService.getCurrentUser();
-    if (activeUser) {
-      setUser(activeUser);
-    }
-  }, []);
+  // Removed redundant load session on mount since it's now initialized in useState
 
   const handleAuthSuccess = (data) => {
     setUser({
@@ -96,6 +92,7 @@ export default function App() {
     authService.logout();
     setUser(null);
     setView('home');
+    localStorage.setItem('currentView', 'home');
     setProfileData(null);
   };
 
@@ -106,6 +103,7 @@ export default function App() {
       return;
     }
     setView(targetView);
+    localStorage.setItem('currentView', targetView);
     setSelectedProduct(targetView === 'product-detail' ? payload : null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
