@@ -30,7 +30,13 @@ export default function App() {
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
   const handleAddToCart = (product) => {
-    const existingItemIndex = cartItems.findIndex(item => item._id === product._id || item.id === product.id);
+    const serializeAttributes = (attrs) => JSON.stringify(attrs || {});
+    const productKey = serializeAttributes(product.selectedAttributes);
+    const existingItemIndex = cartItems.findIndex((item) => {
+      const itemKey = serializeAttributes(item.selectedAttributes);
+      return (item._id === product._id || item.id === product.id) && itemKey === productKey;
+    });
+
     if (existingItemIndex >= 0) {
       const newCart = [...cartItems];
       newCart[existingItemIndex].quantity += 1;
@@ -59,7 +65,13 @@ export default function App() {
   };
 
   const handleAddToWishlist = (product) => {
-    const exists = wishlistItems.some(item => item._id === product._id || item.id === product.id);
+    const serializeAttributes = (attrs) => JSON.stringify(attrs || {});
+    const productKey = serializeAttributes(product.selectedAttributes);
+    const exists = wishlistItems.some((item) => {
+      const itemKey = serializeAttributes(item.selectedAttributes);
+      return (item._id === product._id || item.id === product.id) && itemKey === productKey;
+    });
+
     if (!exists) {
       setWishlistItems([...wishlistItems, product]);
     }
