@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { catalogService } from '../api/catalogService';
 
 const finishOptions = ['Natural Maple', 'Oak Tint'];
@@ -149,6 +149,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
   const [zipCode, setZipCode] = useState('');
   const [showShareModal, setShowShareModal] = useState(false);
   const [product, setProduct] = useState(initialProduct);
+  const [selectedAttributes, setSelectedAttributes] = useState({});
 
   useEffect(() => {
     if (!initialProduct?._id) return;
@@ -166,6 +167,53 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
 
     return () => { active = false; };
   }, [initialProduct?._id]);
+
+  useEffect(() => {
+    if (!Array.isArray(product?.attributes)) return;
+
+    const initialAttributes = {};
+    product.attributes.forEach((attr) => {
+      const label = attr.attribute?.name || attr.attribute?.slug || 'Attribute';
+      const type = attr.attribute?.type || 'Text';
+      const attrKey = label;
+
+      if ((type === 'MultiSelect' || type === 'Checkbox') && Array.isArray(attr.values) && attr.values.length) {
+        initialAttributes[attrKey] = [...attr.values];
+      } else if (Array.isArray(attr.values) && attr.values.length) {
+        initialAttributes[attrKey] = attr.values[0];
+      } else if (attr.value) {
+        initialAttributes[attrKey] = attr.value;
+      } else if (type === 'Boolean') {
+        initialAttributes[attrKey] = attr.booleanValue === true ? 'Yes' : attr.booleanValue === false ? 'No' : '-';
+      } else if (type === 'Number') {
+        initialAttributes[attrKey] = attr.numericValue ?? '';
+      }
+    });
+
+    setSelectedAttributes(initialAttributes);
+  }, [product]);
+
+  const handleAttributeValueClick = (attributeKey, type, option) => {
+    setSelectedAttributes((prev) => {
+      const currentValue = prev[attributeKey];
+
+      if (type === 'MultiSelect' || type === 'Checkbox') {
+        const currentArray = Array.isArray(currentValue) ? [...currentValue] : [];
+        const alreadySelected = currentArray.includes(option);
+        return {
+          ...prev,
+          [attributeKey]: alreadySelected
+            ? currentArray.filter((value) => value !== option)
+            : [...currentArray, option],
+        };
+      }
+
+      return {
+        ...prev,
+        [attributeKey]: option,
+      };
+    });
+  };
 
   const images = useMemo(() => {
     const imgs = [];
@@ -201,7 +249,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
       return;
     }
 
-    const item = { ...product, selectedFinish, quantity };
+    const item = { ...product, selectedFinish, quantity, selectedAttributes };
     if (type === 'Cart') {
       onAddToCart?.(item);
     } else {
@@ -298,6 +346,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                       {product.attributes.map((attr) => {
                         const label = attr.attribute?.name || attr.attribute?.slug || 'Attribute';
                         const type = attr.attribute?.type || 'Text';
+                        const attrKey = label;
 
                         let resolvedValues = [];
                         if (type === 'Boolean') {
@@ -314,6 +363,50 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                           resolvedValues = ['-'];
                         }
 
+                        const selectedValue = selectedAttributes[attrKey];
+                        const isSelectable = Array.isArray(attr.values) && attr.values.length > 0 && ['Dropdown', 'RadioButton', 'ColorPicker', 'MultiSelect', 'Checkbox'].includes(type);
+                        const currentValue = isSelectable
+                          ? (type === 'MultiSelect' || type === 'Checkbox'
+                              ? (Array.isArray(selectedValue) ? selectedValue : [])
+                              : selectedValue ?? attr.values?.[0])
+                          : resolvedValues;
+
+                        const renderInteractiveValues = () => (
+                          <div className="flex flex-wrap gap-2 justify-end">
+                            {attr.values.map((v, i) => {
+                              const valueText = typeof v === 'string' ? v : String(v);
+                              const isSelected = type === 'MultiSelect' || type === 'Checkbox'
+                                ? Array.isArray(currentValue) && currentValue.includes(valueText)
+                                : currentValue === valueText;
+
+                              return (
+                                <button
+                                  key={`${attrKey}-${valueText}-${i}`}
+                                  type="button"
+                                  onClick={() => handleAttributeValueClick(attrKey, type, valueText)}
+                                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                                    isSelected
+                                      ? 'bg-slate-900 text-white border-slate-900'
+                                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {type === 'ColorPicker' ? (
+                                    <>
+                                      <span
+                                        className="inline-block h-4 w-4 rounded-full border border-slate-300"
+                                        style={{ backgroundColor: valueText }}
+                                      />
+                                      {valueText}
+                                    </>
+                                  ) : (
+                                    valueText
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+
                         const renderValue = () => {
                           if (type === 'Boolean') {
                             const bool = resolvedValues[0];
@@ -325,9 +418,12 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                               </span>
                             );
                           }
+                          if (isSelectable) {
+                            return renderInteractiveValues();
+                          }
                           if (type === 'ColorPicker') {
                             return (
-                              <div className="flex flex-wrap gap-2">
+                              <div className="flex flex-wrap gap-2 justify-end">
                                 {resolvedValues.map((v, i) => (
                                   <div key={i} className="flex items-center gap-2">
                                     <span className="inline-block h-5 w-5 rounded-full border border-slate-300 shadow-sm" style={{ backgroundColor: v }} />
@@ -339,7 +435,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                           }
                           if (type === 'MultiSelect' || type === 'Checkbox') {
                             return (
-                              <div className="flex flex-wrap gap-2">
+                              <div className="flex flex-wrap gap-2 justify-end">
                                 {resolvedValues.map((v, i) => (
                                   <span key={i} className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700">{v}</span>
                                 ))}
@@ -359,7 +455,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                         };
 
                         return (
-                          <div key={attr._id} className="flex items-start justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+                          <div key={attr._id || attrKey} className="flex items-start justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
                             <span className="text-xs uppercase tracking-[0.16em] text-slate-400 whitespace-nowrap pt-0.5">{label}</span>
                             <div className="text-right">{renderValue()}</div>
                           </div>
