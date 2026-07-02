@@ -11,7 +11,15 @@ import WishlistOffcanvas from './components/WishlistOffcanvas';
 
 export default function App() {
   const [view, setView] = useState(() => {
-    return localStorage.getItem('currentView') || 'home';
+    const savedView = localStorage.getItem('currentView') || 'home';
+    const savedUser = authService.getCurrentUser();
+    // If the saved view requires auth but there is no user, reset to home
+    const authRequiredViews = ['admin', 'profile'];
+    if (authRequiredViews.includes(savedView) && !savedUser) {
+      localStorage.setItem('currentView', 'home');
+      return 'home';
+    }
+    return savedView;
   }); // 'home' | 'login' | 'profile' | 'product-detail' | 'admin'
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [user, setUser] = useState(() => authService.getCurrentUser());
@@ -85,7 +93,8 @@ export default function App() {
       id: data._id,
       name: data.name,
       email: data.email,
-      role: data.role
+      role: data.role,
+      isStaff: data.isStaff
     });
   };
 
@@ -93,13 +102,14 @@ export default function App() {
     authService.logout();
     setUser(null);
     setView('home');
-    localStorage.setItem('currentView', 'home');
+    localStorage.removeItem('currentView');
+    localStorage.removeItem('user');
     setProfileData(null);
   };
 
   const handleNavigate = (targetView, payload = null) => {
     const activeUser = (targetView === 'admin' && payload && payload.role) ? payload : user || authService.getCurrentUser();
-    if (targetView === 'admin' && (!activeUser || activeUser.role !== 'admin')) {
+    if (targetView === 'admin' && (!activeUser || (activeUser.role !== 'admin' && !activeUser.isStaff))) {
       alert("Unauthorized access");
       return;
     }
@@ -189,8 +199,8 @@ export default function App() {
           <Login onAuthSuccess={handleAuthSuccess} onNavigate={handleNavigate} />
         )}
 
-        {view === 'admin' && user?.role === 'admin' && (
-          <AdminDashboard user={user} onNavigate={handleNavigate} />
+        {view === 'admin' && (user?.role === 'admin' || user?.isStaff) && (
+          <AdminDashboard user={user} onNavigate={handleNavigate} onLogout={handleLogout} />
         )}
 
         {view === 'profile' && user && (

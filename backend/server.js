@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const catalogRoutes = require('./routes/catalogRoutes');
 const catalogV2Routes = require('./routes/catalogV2Routes');
 const staffRoutes = require('./routes/staffRoutes');
+const roleRoutes = require('./routes/roleRoutes');
 const seedAttributes = require('./seedAttributes');
 
 // Load env vars
@@ -36,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api/v2/catalog', catalogV2Routes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/roles', roleRoutes);
 
 
 app.get('/', (req, res) => {

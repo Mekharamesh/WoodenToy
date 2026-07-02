@@ -63,6 +63,7 @@ export const authService = {
           name: data.name,
           email: data.email,
           role: data.role,
+          isStaff: data.isStaff,
         });
       }
 

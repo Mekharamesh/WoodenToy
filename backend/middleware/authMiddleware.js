@@ -25,9 +25,17 @@ const protect = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token.trim(), process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id).select('-password');
+        let user = await User.findById(decoded.id).select('-password');
 
+        // If not found in User collection, check Staff collection
         if (!user) {
+            const Staff = require('../models/Staff');
+            const staff = await Staff.findById(decoded.id).select('-password');
+            if (staff) {
+                // Map staff fields to match expected user shape
+                req.user = { _id: staff._id, name: staff.fullName, email: staff.email, role: staff.role, isStaff: true, permissions: staff.permissions };
+                return next();
+            }
             return res
                 .status(401)
                 .json(getAuthFailureResponse('Not authorized, user not found', 'user_not_found'));
@@ -48,10 +56,18 @@ const authorize = (...roles) => {
             return res.status(401).json({ message: 'Not authorized, no user context' });
         }
 
-        if (!roles.includes(req.user.role)) {
-            return res.status(403).json({ message: `User role ${req.user.role} is not authorized to access this route` });
+        // Admin users always pass
+        if (roles.includes(req.user.role)) {
+            return next();
         }
-        next();
+
+        // Staff users with isStaff flag are allowed through admin routes
+        // (their access is controlled by permissions on the frontend)
+        if (req.user.isStaff) {
+            return next();
+        }
+
+        return res.status(403).json({ message: `User role ${req.user.role} is not authorized to access this route` });
     };
 };
 

@@ -7,8 +7,9 @@ import ProductsPage from './admin/catalog/ProductsPage';
 import StaffListPage from './admin/StaffListPage';
 import AddStaffPage from './admin/AddStaffPage';
 import RoleAssignPage from './admin/RoleAssignPage';
+import { staffAPI } from '../api/staffService';
 
-export default function AdminDashboard({ user, onNavigate }) {
+export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard' | 'catalog' | 'products'
@@ -23,6 +24,18 @@ export default function AdminDashboard({ user, onNavigate }) {
   const [roleAssignStaff, setRoleAssignStaff] = useState(null);
   const [staffMenuOpen, setStaffMenuOpen] = useState(false);
   const [catalogMenuOpen, setCatalogMenuOpen] = useState(true);
+
+  // Dynamic permissions for sidebar
+  const [userPermissions, setUserPermissions] = useState(null); // null = not loaded yet
+
+  // Admin users see everything; staff see only their permitted modules
+  const isAdmin = user?.role === 'admin';
+  const canView = (moduleKey) => {
+    if (isAdmin) return true;
+    if (!userPermissions) return false;
+    const perm = userPermissions.find(p => p.module === moduleKey);
+    return !!perm?.view;
+  };
 
   // Form Fields for Add/Edit Category
   const [editCategoryId, setEditCategoryId] = useState(null);
@@ -100,6 +113,15 @@ export default function AdminDashboard({ user, onNavigate }) {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load the current logged-in staff member's permissions dynamically
+  useEffect(() => {
+    if (!isAdmin && user?.id) {
+      staffAPI.getById(user.id)
+        .then(data => setUserPermissions(data.staff?.permissions || []))
+        .catch(() => setUserPermissions([]));
+    }
+  }, [user?.id, isAdmin]);
 
   // Update selected subcategory option when main category changes
   useEffect(() => {
@@ -384,7 +406,8 @@ export default function AdminDashboard({ user, onNavigate }) {
             <div className="pt-2">
               <div className="pt-4 border-t border-[#E6DFD4]/50">
 
-              {/* Staff Management */}
+            {/* Staff Management - only shown if user has staff_management view permission */}
+              {canView('staff_management') && (
               <button
                 onClick={() => setStaffMenuOpen(o => !o)}
                 className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
@@ -397,6 +420,7 @@ export default function AdminDashboard({ user, onNavigate }) {
                 </span>
                 <svg className={`w-3.5 h-3.5 transition-transform ${staffMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
+              )}
               {staffMenuOpen && (
                 <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
                   <button
@@ -429,7 +453,8 @@ export default function AdminDashboard({ user, onNavigate }) {
                 </div>
               )}
 
-              {/* Catalog Dropdown */}
+              {/* Catalog Dropdown - only shown if user has catalog view permission */}
+              {(isAdmin || canView('catalog')) && (
               <button
                 onClick={() => setCatalogMenuOpen(o => !o)}
                 className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mt-1 mb-0.5 ${
@@ -442,8 +467,10 @@ export default function AdminDashboard({ user, onNavigate }) {
                 </span>
                 <svg className={`w-3.5 h-3.5 transition-transform ${catalogMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
+              )}
               {catalogMenuOpen && (
                 <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
+                  {canView('categories') && (
                   <button
                     onClick={() => setCurrentTab('v2-categories')}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
@@ -453,6 +480,8 @@ export default function AdminDashboard({ user, onNavigate }) {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
                     Categories
                   </button>
+                  )}
+                  {canView('categories') && (
                   <button
                     onClick={() => setCurrentTab('v2-subcategories')}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
@@ -462,6 +491,8 @@ export default function AdminDashboard({ user, onNavigate }) {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                     Sub Categories
                   </button>
+                  )}
+                  {canView('categories') && (
                   <button
                     onClick={() => setCurrentTab('v2-attributes')}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
@@ -471,6 +502,8 @@ export default function AdminDashboard({ user, onNavigate }) {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                     Attributes
                   </button>
+                  )}
+                  {canView('products') && (
                   <button
                     onClick={() => setCurrentTab('v2-products')}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
@@ -480,6 +513,7 @@ export default function AdminDashboard({ user, onNavigate }) {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                     Products
                   </button>
+                  )}
                 </div>
               )}
               </div>{/* close pt-4 */}
@@ -490,7 +524,7 @@ export default function AdminDashboard({ user, onNavigate }) {
         <div className="p-4 border-t border-[#E6DFD4]">
           <div className="bg-brand-light p-3 rounded-2xl flex items-center gap-3 mb-4 border border-[#E6DFD4]">
             <div className="w-8 h-8 rounded-full bg-brand-dark text-white font-bold flex items-center justify-center text-sm">
-              {user?.name?.charAt(0).toUpperCase() || 'A'}
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
             </div>
             <div>
               <p className="text-xs font-bold text-brand-dark leading-tight">{user?.name || 'admin'}</p>
@@ -508,9 +542,14 @@ export default function AdminDashboard({ user, onNavigate }) {
           
           <button 
             onClick={() => {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              window.location.reload();
+              if (onLogout) {
+                onLogout();
+              } else {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.setItem('currentView', 'home');
+                window.location.reload();
+              }
             }}
             className="flex items-center gap-3 w-full px-4 py-2.5 text-xs font-medium text-red-600 hover:text-red-800 transition-colors mt-1"
           >

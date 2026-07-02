@@ -57,10 +57,11 @@ const loginUser = async (req, res) => {
     }
 
     try {
+        // First check the User collection
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
-            res.json({
+            return res.json({
                 _id: user._id,
                 name: user.name,
                 email: user.email,
@@ -68,9 +69,29 @@ const loginUser = async (req, res) => {
                 token: generateAccessToken(user._id),
                 refreshToken: generateRefreshToken(user._id)
             });
-        } else {
-            res.status(401).json({ message: 'Invalid email or password' });
         }
+
+        // If not found in User, check the Staff collection
+        const Staff = require('../models/Staff');
+        const staff = await Staff.findOne({ email: email.toLowerCase() });
+
+        if (staff && (await staff.matchPassword(password))) {
+            // Check if staff is active
+            if (staff.status !== 'active') {
+                return res.status(401).json({ message: 'Your account is inactive. Contact admin.' });
+            }
+            return res.json({
+                _id: staff._id,
+                name: staff.fullName,
+                email: staff.email,
+                role: staff.role,
+                isStaff: true,
+                token: generateAccessToken(staff._id),
+                refreshToken: generateRefreshToken(staff._id)
+            });
+        }
+
+        res.status(401).json({ message: 'Invalid email or password' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

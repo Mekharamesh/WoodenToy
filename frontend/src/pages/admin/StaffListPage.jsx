@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { staffAPI } from '../../api/staffService';
-
-const ROLES = ['Super Admin', 'Admin', 'Manager', 'Inventory Staff', 'Sales Staff', 'Customer Support'];
+import { roleAPI } from '../../api/roleService';
 
 const Badge = ({ status }) => (
   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -22,6 +21,11 @@ export default function StaffListPage({ onAddStaff, onEditStaff, onRoleAssign })
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, pages: 1 });
   const [deleteId, setDeleteId] = useState(null);
+  const [dynamicRoles, setDynamicRoles] = useState([]);
+
+  useEffect(() => {
+    roleAPI.getAll().then(roles => setDynamicRoles(roles)).catch(() => setDynamicRoles([]));
+  }, []);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -95,7 +99,7 @@ export default function StaffListPage({ onAddStaff, onEditStaff, onRoleAssign })
         </div>
         <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }} className="py-2.5 px-3 text-sm border border-[#E6DFD4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 bg-white">
           <option value="">All Roles</option>
-          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          {dynamicRoles.map(r => <option key={r._id} value={r.name}>{r.name}</option>)}
         </select>
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="py-2.5 px-3 text-sm border border-[#E6DFD4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 bg-white">
           <option value="">All Status</option>

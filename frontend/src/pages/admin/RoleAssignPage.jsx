@@ -1,21 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { staffAPI } from '../../api/staffService';
+import { roleAPI } from '../../api/roleService';
+import { ADMIN_MODULES } from '../../config/adminModules';
 
-const PERMISSION_MODULES = [
-  { key: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { key: 'staff_management', label: 'Staff Management', icon: '👥' },
-  { key: 'users', label: 'Users', icon: '👤' },
-  { key: 'products', label: 'Products', icon: '📦' },
-  { key: 'categories', label: 'Categories', icon: '🗂️' },
-  { key: 'brands', label: 'Brands', icon: '🏷️' },
-  { key: 'orders', label: 'Orders', icon: '🛒' },
-  { key: 'inventory', label: 'Inventory', icon: '🏭' },
-  { key: 'coupons', label: 'Coupons', icon: '🎟️' },
-  { key: 'reviews', label: 'Reviews', icon: '⭐' },
-  { key: 'customers', label: 'Customers', icon: '🤝' },
-  { key: 'reports', label: 'Reports', icon: '📈' },
-  { key: 'settings', label: 'Settings', icon: '⚙️' },
-];
+// Dynamically derived from the shared admin modules config.
+// Adding a new module to src/config/adminModules.js will automatically
+// add a new row here — no changes needed in this file.
+const PERMISSION_MODULES = ADMIN_MODULES;
 
 const ACTIONS = ['view', 'create', 'edit', 'delete'];
 
@@ -38,14 +29,73 @@ const permsToMap = (permissionsArr) => {
 const mapToPerms = (map) =>
   Object.entries(map).map(([module, actions]) => ({ module, ...actions }));
 
+const PermissionTable = ({ permissions, onToggle, onToggleRow, onToggleColumn, onSelectAll, onClearAll }) => (
+  <div className="overflow-x-auto">
+    <div className="flex justify-end gap-2 mb-3">
+      <button onClick={onSelectAll} className="px-3 py-1.5 text-xs font-semibold border border-[#E6DFD4] rounded-lg hover:bg-[#F8F4EC] text-gray-600 transition-colors">Select All</button>
+      <button onClick={onClearAll} className="px-3 py-1.5 text-xs font-semibold border border-[#E6DFD4] rounded-lg hover:bg-[#F8F4EC] text-gray-600 transition-colors">Clear All</button>
+    </div>
+    <table className="w-full text-sm border border-[#E6DFD4] rounded-xl overflow-hidden">
+      <thead className="bg-[#F8F4EC]">
+        <tr>
+          <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-gray-500 w-48">Module</th>
+          {ACTIONS.map(action => (
+            <th key={action} className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-gray-500">
+              <button onClick={() => onToggleColumn(action)} className="hover:text-[#8B5E3C] transition-colors capitalize">{action}</button>
+            </th>
+          ))}
+          <th className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-gray-500">All</th>
+        </tr>
+      </thead>
+      <tbody>
+        {PERMISSION_MODULES.map((mod, idx) => {
+          const perm = permissions[mod.key] || {};
+          const allOn = ACTIONS.every(a => perm[a]);
+          return (
+            <tr key={mod.key} className={`border-b border-[#F0EAE2] hover:bg-[#FDF9F5] transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]'}`}>
+              <td className="px-5 py-3.5 font-semibold text-gray-700">
+                <span className="mr-2">{mod.icon}</span>{mod.label}
+              </td>
+              {ACTIONS.map(action => (
+                <td key={action} className="px-5 py-3.5 text-center">
+                  <input
+                    type="checkbox"
+                    checked={!!perm[action]}
+                    onChange={() => onToggle(mod.key, action)}
+                    className="w-4 h-4 accent-[#8B5E3C] rounded cursor-pointer"
+                  />
+                </td>
+              ))}
+              <td className="px-5 py-3.5 text-center">
+                <input
+                  type="checkbox"
+                  checked={allOn}
+                  onChange={() => onToggleRow(mod.key)}
+                  className="w-4 h-4 accent-[#8B5E3C] rounded cursor-pointer"
+                />
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+);
+
 export default function RoleAssignPage({ onBack, targetStaff }) {
   const [staffList, setStaffList] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState(targetStaff || null);
-  const [permissions, setPermissions] = useState(initPerms());
-  const [loading, setLoading] = useState(false);
+  const [staffPerms, setStaffPerms] = useState(initPerms());
+  const [loadingPerms, setLoadingPerms] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Create Role state
   const [roleName, setRoleName] = useState('');
+  const [rolePerms, setRolePerms] = useState(initPerms());
+  const [creatingRole, setCreatingRole] = useState(false);
+  const [roleCreated, setRoleCreated] = useState('');
+  const [roleError, setRoleError] = useState('');
 
   const fetchStaffList = useCallback(async () => {
     try {
@@ -60,58 +110,88 @@ export default function RoleAssignPage({ onBack, targetStaff }) {
 
   useEffect(() => {
     if (selectedStaff) {
-      setLoading(true);
+      setLoadingPerms(true);
       staffAPI.getById(selectedStaff._id)
         .then(data => {
-          setPermissions(permsToMap(data.staff?.permissions || []));
+          setStaffPerms(permsToMap(data.staff?.permissions || []));
         })
         .catch(console.error)
-        .finally(() => setLoading(false));
+        .finally(() => setLoadingPerms(false));
     }
   }, [selectedStaff]);
 
-  const toggle = (moduleKey, action) => {
-    setPermissions(prev => ({
-      ...prev,
-      [moduleKey]: { ...prev[moduleKey], [action]: !prev[moduleKey][action] },
-    }));
-    setSaved(false);
+  // Role permission helpers
+  const toggleRolePerm = (moduleKey, action) => {
+    setRolePerms(prev => ({ ...prev, [moduleKey]: { ...prev[moduleKey], [action]: !prev[moduleKey][action] } }));
+  };
+  const toggleRoleRow = (moduleKey) => {
+    const allOn = ACTIONS.every(a => rolePerms[moduleKey][a]);
+    setRolePerms(prev => ({ ...prev, [moduleKey]: { view: !allOn, create: !allOn, edit: !allOn, delete: !allOn } }));
+  };
+  const toggleRoleColumn = (action) => {
+    const allOn = PERMISSION_MODULES.every(m => rolePerms[m.key][action]);
+    setRolePerms(prev => {
+      const next = { ...prev };
+      PERMISSION_MODULES.forEach(m => { next[m.key] = { ...next[m.key], [action]: !allOn }; });
+      return next;
+    });
+  };
+  const roleSelectAll = () => {
+    const map = {};
+    PERMISSION_MODULES.forEach(m => { map[m.key] = { view: true, create: true, edit: true, delete: true }; });
+    setRolePerms(map);
+  };
+  const roleClearAll = () => setRolePerms(initPerms());
+
+  const handleCreateRole = async () => {
+    if (!roleName.trim()) return;
+    setCreatingRole(true);
+    setRoleError('');
+    setRoleCreated('');
+    try {
+      await roleAPI.create({ name: roleName.trim(), permissions: mapToPerms(rolePerms) });
+      setRoleCreated(`Role "${roleName.trim()}" created successfully!`);
+      setRoleName('');
+      setRolePerms(initPerms());
+    } catch (err) {
+      setRoleError(err.message || 'Error creating role');
+    } finally {
+      setCreatingRole(false);
+    }
   };
 
-  const toggleRow = (moduleKey) => {
-    const current = permissions[moduleKey];
-    const allOn = ACTIONS.every(a => current[a]);
-    setPermissions(prev => ({
-      ...prev,
-      [moduleKey]: { view: !allOn, create: !allOn, edit: !allOn, delete: !allOn },
-    }));
+  // Staff permission helpers
+  const toggleStaffPerm = (moduleKey, action) => {
+    setStaffPerms(prev => ({ ...prev, [moduleKey]: { ...prev[moduleKey], [action]: !prev[moduleKey][action] } }));
     setSaved(false);
   };
-
-  const toggleColumn = (action) => {
-    const allOn = PERMISSION_MODULES.every(m => permissions[m.key][action]);
-    setPermissions(prev => {
+  const toggleStaffRow = (moduleKey) => {
+    const allOn = ACTIONS.every(a => staffPerms[moduleKey][a]);
+    setStaffPerms(prev => ({ ...prev, [moduleKey]: { view: !allOn, create: !allOn, edit: !allOn, delete: !allOn } }));
+    setSaved(false);
+  };
+  const toggleStaffColumn = (action) => {
+    const allOn = PERMISSION_MODULES.every(m => staffPerms[m.key][action]);
+    setStaffPerms(prev => {
       const next = { ...prev };
       PERMISSION_MODULES.forEach(m => { next[m.key] = { ...next[m.key], [action]: !allOn }; });
       return next;
     });
     setSaved(false);
   };
-
-  const selectAll = () => {
+  const staffSelectAll = () => {
     const map = {};
     PERMISSION_MODULES.forEach(m => { map[m.key] = { view: true, create: true, edit: true, delete: true }; });
-    setPermissions(map);
+    setStaffPerms(map);
     setSaved(false);
   };
-
-  const clearAll = () => { setPermissions(initPerms()); setSaved(false); };
+  const staffClearAll = () => { setStaffPerms(initPerms()); setSaved(false); };
 
   const handleSave = async () => {
     if (!selectedStaff) return;
     setSaving(true);
     try {
-      await staffAPI.updatePermissions(selectedStaff._id, mapToPerms(permissions));
+      await staffAPI.updatePermissions(selectedStaff._id, mapToPerms(staffPerms));
       setSaved(true);
     } catch (err) {
       alert(err.message);
@@ -126,39 +206,74 @@ export default function RoleAssignPage({ onBack, targetStaff }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-xs text-gray-400 mb-1">Dashboard &rsaquo; Staff Management &rsaquo; <span className="text-[#8B5E3C] font-semibold">Role Assign</span></p>
-          <h1 className="text-2xl font-bold text-gray-800">Role Assign & Permissions</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Role Assign &amp; Permissions</h1>
         </div>
         <button onClick={onBack} className="px-4 py-2 border border-[#E6DFD4] rounded-xl text-sm text-gray-600 hover:bg-gray-50">
           ← Back to List
         </button>
       </div>
 
-      {/* Create Role Card */}
-      <div className="bg-white rounded-2xl border border-[#E6DFD4] shadow-sm p-5 mb-5">
-        <h2 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
-          <span className="w-7 h-7 bg-[#F8F4EC] rounded-lg flex items-center justify-center text-[#8B5E3C] text-sm">+</span>
-          Create Role Template
+      {/* ── Create Role Card ── */}
+      <div className="bg-white rounded-2xl border border-[#E6DFD4] shadow-sm p-6 mb-6">
+        <h2 className="font-bold text-gray-800 text-base mb-5 flex items-center gap-2">
+          <span className="w-7 h-7 bg-[#F8F4EC] rounded-lg flex items-center justify-center text-[#8B5E3C] text-sm font-bold">+</span>
+          Create Role
         </h2>
-        <div className="flex gap-3">
+
+        {/* Role Name Field */}
+        <div className="mb-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role Name <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={roleName}
-            onChange={e => setRoleName(e.target.value)}
-            placeholder="Enter Role Name (e.g. Senior Manager)"
-            className="flex-1 px-4 py-2.5 text-sm border border-[#E6DFD4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30"
+            onChange={e => { setRoleName(e.target.value); setRoleCreated(''); setRoleError(''); }}
+            placeholder="Enter Role Name"
+            className="w-full md:w-96 px-4 py-2.5 text-sm border border-[#E6DFD4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 focus:border-[#8B5E3C]"
           />
+        </div>
+
+        {/* Permission Matrix for Create Role */}
+        <div className="mb-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Permission Matrix</h3>
+          <PermissionTable
+            permissions={rolePerms}
+            onToggle={toggleRolePerm}
+            onToggleRow={toggleRoleRow}
+            onToggleColumn={toggleRoleColumn}
+            onSelectAll={roleSelectAll}
+            onClearAll={roleClearAll}
+          />
+        </div>
+
+        {/* Feedback messages */}
+        {roleCreated && (
+          <p className="flex items-center gap-1.5 text-sm text-green-600 font-semibold mb-3">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            {roleCreated}
+          </p>
+        )}
+        {roleError && <p className="text-sm text-red-500 mb-3">{roleError}</p>}
+
+        {/* Create Button */}
+        <div className="flex justify-end">
           <button
-            onClick={() => { if (roleName.trim()) alert(`Role "${roleName.trim()}" template noted! Assign permissions below.`); }}
-            className="px-5 py-2.5 bg-[#8B5E3C] hover:bg-[#7a5234] text-white rounded-xl text-sm font-semibold transition-colors"
+            onClick={handleCreateRole}
+            disabled={creatingRole || !roleName.trim()}
+            className="flex items-center gap-2 bg-[#8B5E3C] hover:bg-[#7a5234] disabled:opacity-50 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors"
           >
-            Create Role
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            {creatingRole ? 'Creating...' : 'Create Role'}
           </button>
         </div>
       </div>
 
-      {/* Staff Selector */}
-      <div className="bg-white rounded-2xl border border-[#E6DFD4] shadow-sm p-5 mb-5">
-        <label className="block text-sm font-bold text-gray-700 mb-2">Select Staff Member to Assign Permissions</label>
+      {/* ── Assign Permissions to Staff ── */}
+      <div className="bg-white rounded-2xl border border-[#E6DFD4] shadow-sm p-6 mb-6">
+        <h2 className="font-bold text-gray-800 text-base mb-4 flex items-center gap-2">
+          <span className="w-7 h-7 bg-[#F8F4EC] rounded-lg flex items-center justify-center text-[#8B5E3C] text-sm">👥</span>
+          Assign Permissions to Staff
+        </h2>
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Select Staff Member</label>
         <select
           value={selectedStaff?._id || ''}
           onChange={e => {
@@ -173,12 +288,12 @@ export default function RoleAssignPage({ onBack, targetStaff }) {
         </select>
       </div>
 
-      {/* Permission Matrix */}
+      {/* Staff Permission Matrix */}
       {selectedStaff && (
         <div className="bg-white rounded-2xl border border-[#E6DFD4] shadow-sm overflow-hidden">
           {/* Toolbar */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0EAE2] bg-[#FAFAFA]">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-[#F0EAE2] bg-[#FAFAFA]">
+            <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-[#8B5E3C] text-white flex items-center justify-center font-bold text-sm">
                 {selectedStaff.fullName?.charAt(0).toUpperCase()}
               </div>
@@ -187,72 +302,32 @@ export default function RoleAssignPage({ onBack, targetStaff }) {
                 <p className="text-xs text-gray-500">{selectedStaff.role}</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button onClick={selectAll} className="px-3 py-1.5 text-xs font-semibold border border-[#E6DFD4] rounded-lg hover:bg-[#F8F4EC] text-gray-600 transition-colors">Select All</button>
-              <button onClick={clearAll} className="px-3 py-1.5 text-xs font-semibold border border-[#E6DFD4] rounded-lg hover:bg-[#F8F4EC] text-gray-600 transition-colors">Clear All</button>
-            </div>
+            <p className="text-sm font-semibold text-gray-700">Permission Matrix</p>
           </div>
 
-          {loading ? (
+          {loadingPerms ? (
             <div className="text-center py-12 text-gray-400">Loading permissions...</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[#F8F4EC]">
-                  <tr>
-                    <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-gray-500 w-48">Module</th>
-                    {ACTIONS.map(action => (
-                      <th key={action} className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-gray-500">
-                        <button onClick={() => toggleColumn(action)} className="hover:text-[#8B5E3C] transition-colors capitalize">{action}</button>
-                      </th>
-                    ))}
-                    <th className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-gray-500">All</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {PERMISSION_MODULES.map((mod, idx) => {
-                    const perm = permissions[mod.key] || {};
-                    const allOn = ACTIONS.every(a => perm[a]);
-                    return (
-                      <tr key={mod.key} className={`border-b border-[#F0EAE2] hover:bg-[#FDF9F5] transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]'}`}>
-                        <td className="px-5 py-3.5 font-semibold text-gray-700">
-                          <span className="mr-2">{mod.icon}</span>{mod.label}
-                        </td>
-                        {ACTIONS.map(action => (
-                          <td key={action} className="px-5 py-3.5 text-center">
-                            <input
-                              type="checkbox"
-                              checked={!!perm[action]}
-                              onChange={() => toggle(mod.key, action)}
-                              className="w-4 h-4 accent-[#8B5E3C] rounded cursor-pointer"
-                            />
-                          </td>
-                        ))}
-                        <td className="px-5 py-3.5 text-center">
-                          <input
-                            type="checkbox"
-                            checked={allOn}
-                            onChange={() => toggleRow(mod.key)}
-                            className="w-4 h-4 accent-[#8B5E3C] rounded cursor-pointer"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="p-6">
+              <PermissionTable
+                permissions={staffPerms}
+                onToggle={toggleStaffPerm}
+                onToggleRow={toggleStaffRow}
+                onToggleColumn={toggleStaffColumn}
+                onSelectAll={staffSelectAll}
+                onClearAll={staffClearAll}
+              />
             </div>
           )}
 
-          {/* Save */}
-          <div className="flex items-center justify-between px-5 py-4 border-t border-[#E6DFD4] bg-[#FAFAFA]">
-            {saved && (
+          {/* Save Footer */}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[#E6DFD4] bg-[#FAFAFA]">
+            {saved ? (
               <span className="flex items-center gap-1.5 text-sm text-green-600 font-semibold">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                 Permissions saved successfully!
               </span>
-            )}
-            {!saved && <span />}
+            ) : <span />}
             <div className="flex gap-3">
               <button onClick={onBack} className="px-5 py-2.5 border border-[#E6DFD4] rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
               <button

@@ -46,11 +46,12 @@ export default function Login({ onAuthSuccess, onNavigate }) {
           id: data._id,
           name: data.name,
           email: data.email,
-          role: data.role
+          role: data.role,
+          isStaff: data.isStaff
         };
         setTimeout(() => {
           onAuthSuccess(data);
-          onNavigate(data.role === 'admin' ? 'admin' : 'home', mappedUser);
+          onNavigate(data.role === 'admin' || data.isStaff ? 'admin' : 'home', mappedUser);
         }, 1500);
       } 
       

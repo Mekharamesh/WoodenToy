@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { staffAPI } from '../../api/staffService';
-
-const ROLES = ['Super Admin', 'Admin', 'Manager', 'Inventory Staff', 'Sales Staff', 'Customer Support'];
+import { roleAPI } from '../../api/roleService';
 
 const InputField = ({ label, error, required, children }) => (
   <div>
@@ -28,6 +27,11 @@ export default function AddStaffPage({ onBack, onSuccess, editingStaff }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [successStaff, setSuccessStaff] = useState(null);
+  const [dynamicRoles, setDynamicRoles] = useState([]);
+
+  useEffect(() => {
+    roleAPI.getAll().then(roles => setDynamicRoles(roles)).catch(() => setDynamicRoles([]));
+  }, []);
 
   useEffect(() => {
     if (editingStaff) {
@@ -183,7 +187,7 @@ export default function AddStaffPage({ onBack, onSuccess, editingStaff }) {
             <InputField label="Role Assignment" error={errors.role} required>
               <select value={form.role} onChange={handleChange('role')} className={inputClass(errors.role)}>
                 <option value="">Select Role...</option>
-                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                {dynamicRoles.map(r => <option key={r._id} value={r.name}>{r.name}</option>)}
               </select>
             </InputField>
             <InputField label="Status">

@@ -700,73 +700,54 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
         )}
 
         {/* --- TABS MOVED TO BOTTOM --- */}
-        <div className="mt-16 bg-white rounded-[2rem] p-8 md:p-12 shadow-sm border border-slate-200">
-          <div className="flex flex-wrap gap-3 justify-center border-b border-slate-100 pb-6">
-            {['Description', 'Why Play', 'How Play', 'Details', 'Return & Exchange'].map((tab) => {
-              const isActive = activeTab === tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-5 py-2 text-sm font-medium rounded-full border transition-colors ${
-                    isActive 
-                      ? 'bg-red-100 border-red-200 text-red-700' 
-                      : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'
-                  }`}
-                >
-                  {tab}
-                </button>
-              );
-            })}
-          </div>
+        {(() => {
+          const customFields = getCustomAdditionalInfo(product);
+          const displayFields = [...customFields];
+          if (product.materialType) {
+            displayFields.unshift({ key: 'Materials', value: product.materialType });
+          }
+          
+          const extraTabNames = displayFields.map(f => f.key);
+          const tabsArray = ['Description', ...extraTabNames];
+
+          return (
+            <div className="mt-16 bg-white rounded-[2rem] p-8 md:p-12 shadow-sm border border-slate-200">
+              <div className="flex flex-wrap gap-3 justify-center border-b border-slate-100 pb-6">
+                {tabsArray.map((tab) => {
+                  const isActive = activeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`px-5 py-2 text-sm font-medium rounded-full border transition-colors ${
+                        isActive 
+                          ? 'bg-red-100 border-red-200 text-red-700' 
+                          : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  );
+                })}
+              </div>
           
           <div className="py-8 text-sm md:text-base leading-relaxed text-slate-600 max-w-4xl mx-auto">
             {activeTab === 'Description' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                <div className="whitespace-pre-line">
-                  <h3 className="font-bold text-slate-900 mb-4 text-lg md:text-xl md:text-left">About {product.name}</h3>
-                  <p className="text-slate-600 leading-relaxed">{descriptionText}</p>
-                </div>
-                
-                {/* Display custom additional info fields as clickable buttons */}
-                {(() => {
-                  const customFields = getCustomAdditionalInfo(product);
-                  const displayFields = [...customFields];
-                  if (product.materialType) {
-                    displayFields.unshift({ key: 'Materials', value: product.materialType });
-                  }
-                  if (displayFields.length === 0) return null;
-                  
-                  return (
-                    <div className="space-y-3">
-                      <h4 className="font-bold text-slate-900 mb-4 text-lg md:text-xl md:text-left uppercase tracking-wider">Details</h4>
-                      {displayFields.map((field, idx) => (
-                        <div key={idx} className="space-y-2">
-                          <button
-                            onClick={() => setExpandedFields(prev => ({
-                              ...prev,
-                              [idx]: !prev[idx]
-                            }))}
-                            className="w-full flex items-center justify-between bg-gradient-to-r from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200 text-slate-900 font-semibold px-4 py-3 rounded-lg transition-all duration-200 border border-orange-200 hover:border-orange-300 shadow-sm hover:shadow-md text-left"
-                          >
-                            <span className="text-sm">{field.key}</span>
-                            <span className={`transform transition-transform duration-300 text-lg flex-shrink-0 ${expandedFields[idx] ? 'rotate-180' : ''}`}>
-                              ▼
-                            </span>
-                          </button>
-                          
-                          {expandedFields[idx] && (
-                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 animate-in fade-in slide-in-from-top-2">
-                              <p className="text-slate-600 leading-relaxed whitespace-pre-line text-sm">{field.value}</p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+              <div className="whitespace-pre-line">
+                <h3 className="font-bold text-slate-900 mb-4 text-lg md:text-xl md:text-left">About {product.name}</h3>
+                <p className="text-slate-600 leading-relaxed">{descriptionText}</p>
               </div>
             )}
+            
+            {/* Dynamic Custom Tabs Content */}
+            {displayFields.map((field) => (
+              activeTab === field.key && (
+                <div key={field.key} className="whitespace-pre-line">
+                  <h3 className="font-bold text-slate-900 mb-4 text-lg md:text-xl md:text-left">{field.key}</h3>
+                  <p className="text-slate-600 leading-relaxed">{field.value}</p>
+                </div>
+              )
+            ))}
             {activeTab === 'Why Play' && (
               <div className="whitespace-pre-line">
                 <h3 className="font-bold text-slate-900 mb-4 text-lg md:text-xl md:text-left">Why {product.name}?</h3>
@@ -804,6 +785,8 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
             )}
           </div>
         </div>
+        );
+        })()}
       </div>
 
       {/* SHARE MODAL */}

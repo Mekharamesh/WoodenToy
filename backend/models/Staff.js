@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const PERMISSION_MODULES = [
-  'dashboard', 'staff_management', 'users', 'products', 'categories',
+  'dashboard', 'staff_management', 'catalog', 'users', 'products', 'categories',
   'brands', 'orders', 'inventory', 'coupons', 'reviews', 'customers',
   'reports', 'settings'
 ];
@@ -22,7 +22,6 @@ const staffSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: {
     type: String,
-    enum: ['Super Admin', 'Admin', 'Manager', 'Inventory Staff', 'Sales Staff', 'Customer Support'],
     required: true,
   },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
@@ -31,11 +30,10 @@ const staffSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Hash password before saving
-staffSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+staffSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 staffSchema.methods.matchPassword = async function (enteredPassword) {
