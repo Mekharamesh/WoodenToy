@@ -798,15 +798,6 @@ export const ProductsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Section: Product Images */}
-                            <div className="space-y-4">
-                                <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Product Images</h3>
-                                <ImageUploader 
-                                    images={formData.images || []}
-                                    onChange={(newImages) => setFormData(prev => ({ ...prev, images: newImages }))}
-                                    maxImages={8}
-                                />
-                            </div>
 
                             {/* Section 2: Custom attributes */}
                             {mappedAttributes.length > 0 && (

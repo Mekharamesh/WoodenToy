@@ -51,8 +51,43 @@ const BLOG_POSTS = [
   }
 ];
 
+const HERO_SLIDES = [
+  {
+    image: '/rainbow_stacker.png',
+    sub: 'Sustainable & Timeless',
+    title: 'Play that grows\nwith them.',
+    desc: 'Our heirloom quality wooden toys are designed to spark curiosity, creativity, and conscious growth in every child.'
+  },
+  {
+    image: '/wooden_train_set.png',
+    sub: 'Crafted for Imagination',
+    title: 'Adventures on\nthe right track.',
+    desc: 'Encourage creative storytelling and motor skills with our beautifully crafted wooden train sets.'
+  },
+  {
+    image: '/geometry_sorter.png',
+    sub: 'Early Learning',
+    title: 'Discover shapes\nand colors.',
+    desc: 'Engaging educational toys that help develop cognitive skills and problem-solving early on.'
+  },
+  {
+    image: '/log_cabin_blocks.png',
+    sub: 'Classic Play',
+    title: 'Build memories\ntogether.',
+    desc: 'Open-ended building blocks that provide endless possibilities for creative construction and fun.'
+  }
+];
+
 export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist }) {
   const [products, setProducts] = useState([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     // Fetch products from the V2 backend (includes real uploaded images)
@@ -91,44 +126,55 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
   return (
     <div className="bg-brand-light font-sans text-brand-dark">
 
-      {/* ── HERO SECTION ── */}
-      <section className="relative w-full h-[85vh] min-h-[600px] flex items-center">
-        {/* Background image container */}
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="/rainbow_stacker.png" 
-            alt="Hero Wooden Blocks" 
-            className="w-full h-full object-cover object-center filter brightness-95"
-            onError={(e) => {
-              // fallback if image not found to a solid elegant color
-              e.target.style.display = 'none';
-              e.target.parentElement.classList.add('bg-brand-beige');
-            }}
-          />
-          {/* Subtle gradient overlay to ensure text readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/10 to-transparent"></div>
-        </div>
+      {/* ── HERO SECTION SLIDER ── */}
+      <section className="relative w-full h-[85vh] min-h-[600px] flex items-center overflow-hidden bg-brand-dark">
+        {HERO_SLIDES.map((slide, index) => (
+          <div 
+            key={index}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+          >
+            <img 
+              src={slide.image} 
+              alt={slide.title} 
+              className="w-full h-full object-cover object-center filter brightness-95"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.classList.add('bg-brand-beige');
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent"></div>
+          </div>
+        ))}
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="max-w-xl">
-            <p className="text-[10px] font-bold tracking-[0.2em] text-white/90 uppercase mb-4">
-              Sustainable &amp; Timeless
+            <p className="text-[10px] font-bold tracking-[0.2em] text-white/90 uppercase mb-4 transition-all duration-700 transform translate-y-0 opacity-100">
+              {HERO_SLIDES[currentSlide].sub}
             </p>
-            <h1 className="font-sans text-5xl md:text-6xl font-medium text-white leading-[1.1] tracking-tight mb-6">
-              Play that grows<br />with them.
+            <h1 className="font-sans text-5xl md:text-6xl font-medium text-white leading-[1.1] tracking-tight mb-6 whitespace-pre-line">
+              {HERO_SLIDES[currentSlide].title}
             </h1>
             <p className="text-white/90 text-sm md:text-base leading-relaxed mb-10 max-w-md font-light">
-              Our heirloom quality wooden toys are designed to spark curiosity, creativity, and conscious growth in every child.
+              {HERO_SLIDES[currentSlide].desc}
             </p>
             <div className="flex flex-wrap items-center gap-4">
-              <button className="bg-brand-dark text-white text-xs font-bold px-8 py-4 uppercase tracking-widest hover:bg-black transition-colors flex items-center gap-2">
-                Build Your Box <span className="text-[10px]">➔</span>
-              </button>
-              <button className="bg-white text-brand-dark border border-transparent text-xs font-bold px-8 py-4 uppercase tracking-widest hover:border-brand-dark transition-colors">
-                New Arrivals
+              <button onClick={() => onNavigate('all-products')} className="bg-brand-dark text-white text-xs font-bold px-8 py-4 uppercase tracking-widest hover:bg-black transition-colors flex items-center gap-2 border border-brand-dark hover:border-black">
+                Shop Collection <span className="text-[10px]">➔</span>
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Slide Indicators */}
+        <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center gap-3">
+          {HERO_SLIDES.map((_, index) => (
+            <button 
+              key={index}
+              onClick={() => setCurrentSlide(index)}
+              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${index === currentSlide ? 'bg-white scale-125' : 'bg-white/50 hover:bg-white/80'}`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
         </div>
       </section>
 
@@ -242,7 +288,7 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-sm text-brand-dark font-medium">{p.name}</h3>
-                    <p className="text-sm text-brand-medium mt-1">${p.price?.toFixed(2)}</p>
+                    <p className="text-sm text-brand-medium mt-1">₹{p.price?.toFixed(2)}</p>
                   </div>
                   <div className="flex items-center gap-1 bg-[#F9F9F9] px-1.5 py-0.5 rounded">
                     <svg className="w-2.5 h-2.5 text-[#D4C9B8]" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>

@@ -3,7 +3,36 @@ import React from 'react';
 export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuantity, onRemove }) {
   if (!isOpen) return null;
 
-  const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Helper function to get the effective price (variant price or product price)
+  const getEffectivePrice = (item) => {
+    if (item.selectedVariant && (item.selectedVariant.basePrice != null || item.selectedVariant.price != null)) {
+      return item.selectedVariant.basePrice ?? item.selectedVariant.price;
+    }
+    return item.price ?? 0;
+  };
+
+  // Helper function to get the effective images (variant images or product images)
+  const getEffectiveImages = (item) => {
+    if (item.selectedVariant?.images && Array.isArray(item.selectedVariant.images) && item.selectedVariant.images.length > 0) {
+      return item.selectedVariant.images;
+    }
+    if (Array.isArray(item.images) && item.images.length > 0) {
+      return item.images;
+    }
+    return [item.image];
+  };
+
+  // Helper function to get variant details text
+  const getVariantText = (item) => {
+    if (!item.selectedVariant?.options || !Array.isArray(item.selectedVariant.options)) {
+      return '';
+    }
+    return item.selectedVariant.options
+      .map(opt => `${opt.attribute?.name || opt.attributeName || 'Attr'}: ${opt.value}`)
+      .join(', ');
+  };
+
+  const total = cartItems.reduce((sum, item) => sum + getEffectivePrice(item) * item.quantity, 0);
 
   return (
     <>
@@ -17,11 +46,11 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
       <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl z-50 flex flex-col transform transition-transform duration-300">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-wood-medium/20">
-          <h2 className="font-serif text-2xl font-bold text-wood-dark">Your Cart</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-medium/20">
+          <h2 className="font-serif text-2xl font-bold text-brand-dark">Your Cart</h2>
           <button 
             onClick={onClose}
-            className="p-2 -mr-2 text-wood-dark/60 hover:text-wood-dark hover:bg-wood-light/40 rounded-full transition-colors"
+            className="p-2 -mr-2 text-brand-dark/60 hover:text-brand-dark hover:bg-brand-light/40 rounded-full transition-colors"
           >
             ✕
           </button>
@@ -30,66 +59,78 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
         {/* Cart Items */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {cartItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-wood-dark/50 space-y-3">
+            <div className="flex flex-col items-center justify-center h-full text-brand-dark/50 space-y-3">
               <span className="text-4xl">🛒</span>
               <p>Your cart is empty.</p>
             </div>
           ) : (
-            cartItems.map((item, index) => (
-              <div key={index} className="flex gap-4 p-3 bg-wood-cream/30 rounded-2xl border border-wood-medium/10">
-                <div className="w-20 h-20 bg-white rounded-xl overflow-hidden shrink-0 border border-wood-medium/10 flex items-center justify-center">
-                  <img 
-                    src={item.images?.[0] || item.image || '/wood-placeholder.png'} 
-                    alt={item.name} 
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.target.style.display='none'; }}
-                  />
-                </div>
-                <div className="flex-1 flex flex-col justify-between">
-                  <div>
-                    <h4 className="font-bold text-sm text-wood-dark line-clamp-2">{item.name}</h4>
-                    <div className="flex items-center gap-2 mt-2">
+            cartItems.map((item, index) => {
+              const effectivePrice = getEffectivePrice(item);
+              const effectiveImages = getEffectiveImages(item);
+              const variantText = getVariantText(item);
+              const firstImage = typeof effectiveImages[0] === 'string' 
+                ? effectiveImages[0] 
+                : effectiveImages[0]?.url || '/wood-placeholder.png';
+              
+              return (
+                <div key={index} className="flex gap-4 p-3 bg-brand-beige/30 rounded-2xl border border-brand-medium/10">
+                  <div className="w-20 h-20 bg-white rounded-xl overflow-hidden shrink-0 border border-brand-medium/10 flex items-center justify-center">
+                    <img 
+                      src={firstImage} 
+                      alt={item.name} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display='none'; }}
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm text-brand-dark line-clamp-2">{item.name}</h4>
+                      {variantText && (
+                        <p className="text-xs text-brand-dark/60 mt-1 line-clamp-1">{variantText}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2">
+                        <button 
+                          onClick={() => onUpdateQuantity(index, -1)}
+                          className="w-6 h-6 flex items-center justify-center bg-white border border-brand-medium/30 rounded text-brand-dark font-bold hover:bg-brand-light/50 transition-colors"
+                        >
+                          -
+                        </button>
+                        <span className="text-xs font-bold text-brand-dark w-4 text-center">{item.quantity}</span>
+                        <button 
+                          onClick={() => onUpdateQuantity(index, 1)}
+                          className="w-6 h-6 flex items-center justify-center bg-white border border-brand-medium/30 rounded text-brand-dark font-bold hover:bg-brand-light/50 transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="font-serif font-bold text-brand-dark">
+                        ₹{(effectivePrice * item.quantity).toFixed(2)}
+                      </span>
                       <button 
-                        onClick={() => onUpdateQuantity(index, -1)}
-                        className="w-6 h-6 flex items-center justify-center bg-white border border-wood-medium/30 rounded text-wood-dark font-bold hover:bg-wood-light/50 transition-colors"
+                        onClick={() => onRemove(index)}
+                        className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase tracking-wide"
                       >
-                        -
-                      </button>
-                      <span className="text-xs font-bold text-wood-dark w-4 text-center">{item.quantity}</span>
-                      <button 
-                        onClick={() => onUpdateQuantity(index, 1)}
-                        className="w-6 h-6 flex items-center justify-center bg-white border border-wood-medium/30 rounded text-wood-dark font-bold hover:bg-wood-light/50 transition-colors"
-                      >
-                        +
+                        Remove
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="font-serif font-bold text-wood-dark">
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </span>
-                    <button 
-                      onClick={() => onRemove(index)}
-                      className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase tracking-wide"
-                    >
-                      Remove
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Footer */}
-        <div className="border-t border-wood-medium/20 p-6 bg-wood-cream/10">
+        <div className="border-t border-brand-medium/20 p-6 bg-brand-beige/10">
           <div className="flex justify-between items-center mb-4">
-            <span className="text-sm font-bold text-wood-dark/70">Subtotal</span>
-            <span className="font-serif text-2xl font-bold text-wood-dark">${total.toFixed(2)}</span>
+            <span className="text-sm font-bold text-brand-dark/70">Subtotal</span>
+            <span className="font-serif text-2xl font-bold text-brand-dark">₹{total.toFixed(2)}</span>
           </div>
           <button 
             disabled={cartItems.length === 0}
-            className="w-full py-3.5 bg-wood-dark hover:bg-wood-medium text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+            className="w-full py-3.5 bg-brand-dark hover:bg-brand-medium text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           >
             Checkout Securely
           </button>

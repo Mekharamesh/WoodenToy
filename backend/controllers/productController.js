@@ -36,6 +36,9 @@ const createProduct = async (req, res) => {
         // Subcategory is now a string matching what the admin added in the Category.
         // No need to query the old SubCategory model.
 
+        const normalizedPrice = Number(price);
+        const normalizedCompareAtPrice = Number(compareAtPrice);
+
         // Create product
         const product = await Product.create({
             name,
@@ -44,8 +47,8 @@ const createProduct = async (req, res) => {
             category,
             subCategory: subCategory || undefined,
             sku,
-            price,
-            compareAtPrice,
+            price: Number.isFinite(normalizedPrice) ? normalizedPrice : 0,
+            compareAtPrice: Number.isFinite(normalizedCompareAtPrice) ? normalizedCompareAtPrice : 0,
             images: images || [],
             isActive: true,
             ageGroup,
@@ -204,8 +207,18 @@ const updateProduct = async (req, res) => {
         // Update basic fields
         if (name) product.name = name;
         if (description) product.description = description;
-        if (price !== undefined) product.price = price;
-        if (compareAtPrice !== undefined) product.compareAtPrice = compareAtPrice;
+        if (price !== undefined) {
+            const normalizedPrice = Number(price);
+            if (Number.isFinite(normalizedPrice)) {
+                product.price = normalizedPrice;
+            }
+        }
+        if (compareAtPrice !== undefined) {
+            const normalizedCompareAtPrice = Number(compareAtPrice);
+            if (Number.isFinite(normalizedCompareAtPrice)) {
+                product.compareAtPrice = normalizedCompareAtPrice;
+            }
+        }
         if (images) product.images = images;
         if (sku) product.sku = sku;
         if (isActive !== undefined) product.isActive = isActive;

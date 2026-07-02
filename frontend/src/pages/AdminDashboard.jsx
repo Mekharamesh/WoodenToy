@@ -4,6 +4,9 @@ import CategoriesPage from './admin/catalog/CategoriesPage';
 import SubCategoriesPage from './admin/catalog/SubCategoriesPage';
 import AttributesPage from './admin/catalog/AttributesPage';
 import ProductsPage from './admin/catalog/ProductsPage';
+import StaffListPage from './admin/StaffListPage';
+import AddStaffPage from './admin/AddStaffPage';
+import RoleAssignPage from './admin/RoleAssignPage';
 
 export default function AdminDashboard({ user, onNavigate }) {
   const [products, setProducts] = useState([]);
@@ -13,6 +16,13 @@ export default function AdminDashboard({ user, onNavigate }) {
   const [productSubTab, setProductSubTab] = useState('list'); // 'list' | 'add'
   const [categorySubTab, setCategorySubTab] = useState('list'); // 'list' | 'add' | 'edit'
   const [subCategorySubTab, setSubCategorySubTab] = useState('list'); // 'list' | 'add'
+
+  // Staff Management state
+  const [staffSubTab, setStaffSubTab] = useState('list'); // 'list' | 'add' | 'role-assign'
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [roleAssignStaff, setRoleAssignStaff] = useState(null);
+  const [staffMenuOpen, setStaffMenuOpen] = useState(false);
+  const [catalogMenuOpen, setCatalogMenuOpen] = useState(true);
 
   // Form Fields for Add/Edit Category
   const [editCategoryId, setEditCategoryId] = useState(null);
@@ -372,35 +382,108 @@ export default function AdminDashboard({ user, onNavigate }) {
             </button>
 
             <div className="pt-2">
-              <div className="px-4 py-2 text-[10px] font-bold text-brand-medium uppercase tracking-widest">Catalog Management</div>
-            </div>
+              <div className="pt-4 border-t border-[#E6DFD4]/50">
 
-            <div className="pt-4 border-t border-[#E6DFD4]/50">
-              <button 
-                onClick={() => setCurrentTab('v2-categories')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${currentTab === 'v2-categories' ? 'bg-amber-100 text-amber-950 font-extrabold shadow-xs' : 'text-gray-600 hover:bg-amber-50/50 hover:text-amber-900'}`}
+              {/* Staff Management */}
+              <button
+                onClick={() => setStaffMenuOpen(o => !o)}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
+                  currentTab === 'staff' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                }`}
               >
-                📦 Categories
+                <span className="flex items-center gap-2.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                  Staff Management
+                </span>
+                <svg className={`w-3.5 h-3.5 transition-transform ${staffMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
-              <button 
-                onClick={() => setCurrentTab('v2-subcategories')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${currentTab === 'v2-subcategories' ? 'bg-amber-100 text-amber-950 font-extrabold shadow-xs' : 'text-gray-600 hover:bg-amber-50/50 hover:text-amber-900'}`}
+              {staffMenuOpen && (
+                <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
+                  <button
+                    onClick={() => { setCurrentTab('staff'); setStaffSubTab('list'); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                      currentTab === 'staff' && staffSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                    Staff List
+                  </button>
+                  <button
+                    onClick={() => { setCurrentTab('staff'); setStaffSubTab('add'); setEditingStaff(null); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                      currentTab === 'staff' && staffSubTab === 'add' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                    Add Staff
+                  </button>
+                  <button
+                    onClick={() => { setCurrentTab('staff'); setStaffSubTab('role-assign'); setRoleAssignStaff(null); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                      currentTab === 'staff' && staffSubTab === 'role-assign' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                    Role Assign
+                  </button>
+                </div>
+              )}
+
+              {/* Catalog Dropdown */}
+              <button
+                onClick={() => setCatalogMenuOpen(o => !o)}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mt-1 mb-0.5 ${
+                  currentTab.startsWith('v2-') ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                }`}
               >
-                ├─ Sub Categories
+                <span className="flex items-center gap-2.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                  Catalog
+                </span>
+                <svg className={`w-3.5 h-3.5 transition-transform ${catalogMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
-              <button 
-                onClick={() => setCurrentTab('v2-attributes')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${currentTab === 'v2-attributes' ? 'bg-amber-100 text-amber-950 font-extrabold shadow-xs' : 'text-gray-600 hover:bg-amber-50/50 hover:text-amber-900'}`}
-              >
-                ├─ Attributes
-              </button>
-              <button 
-                onClick={() => setCurrentTab('v2-products')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors ${currentTab === 'v2-products' ? 'bg-amber-100 text-amber-950 font-extrabold shadow-xs' : 'text-gray-600 hover:bg-amber-50/50 hover:text-amber-900'}`}
-              >
-                └─ Products
-              </button>
-            </div>
+              {catalogMenuOpen && (
+                <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
+                  <button
+                    onClick={() => setCurrentTab('v2-categories')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                      currentTab === 'v2-categories' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                    Categories
+                  </button>
+                  <button
+                    onClick={() => setCurrentTab('v2-subcategories')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                      currentTab === 'v2-subcategories' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    Sub Categories
+                  </button>
+                  <button
+                    onClick={() => setCurrentTab('v2-attributes')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                      currentTab === 'v2-attributes' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                    Attributes
+                  </button>
+                  <button
+                    onClick={() => setCurrentTab('v2-products')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                      currentTab === 'v2-products' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    Products
+                  </button>
+                </div>
+              )}
+              </div>{/* close pt-4 */}
+            </div>{/* close pt-2 */}
           </nav>
         </div>
 
@@ -1419,6 +1502,28 @@ export default function AdminDashboard({ user, onNavigate }) {
           {currentTab === 'v2-subcategories' && <SubCategoriesPage />}
           {currentTab === 'v2-attributes' && <AttributesPage />}
           {currentTab === 'v2-products' && <ProductsPage />}
+
+          {/* ── STAFF MANAGEMENT ── */}
+          {currentTab === 'staff' && staffSubTab === 'list' && (
+            <StaffListPage
+              onAddStaff={() => { setEditingStaff(null); setStaffSubTab('add'); }}
+              onEditStaff={(member) => { setEditingStaff(member); setStaffSubTab('add'); }}
+              onRoleAssign={(member) => { setRoleAssignStaff(member); setStaffSubTab('role-assign'); }}
+            />
+          )}
+          {currentTab === 'staff' && staffSubTab === 'add' && (
+            <AddStaffPage
+              editingStaff={editingStaff}
+              onBack={() => setStaffSubTab('list')}
+              onSuccess={(staff) => { setRoleAssignStaff(staff); setStaffSubTab('role-assign'); }}
+            />
+          )}
+          {currentTab === 'staff' && staffSubTab === 'role-assign' && (
+            <RoleAssignPage
+              targetStaff={roleAssignStaff}
+              onBack={() => setStaffSubTab('list')}
+            />
+          )}
 
         </div>
       </main>

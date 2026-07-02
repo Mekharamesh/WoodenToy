@@ -264,7 +264,7 @@ const getProductById = async (req, res) => {
 
 const createProduct = async (req, res) => {
     try {
-        const product = await productService.createProduct(req.body, getAuditContext(req));
+        console.log('REQUEST BODY:', req.body); const product = await productService.createProduct(req.body, getAuditContext(req));
         res.status(201).json({ success: true, message: 'Product created successfully', product });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });

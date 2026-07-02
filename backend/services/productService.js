@@ -156,11 +156,22 @@ const getProducts = async (query = {}) => {
     for (const prod of products) {
         const variants = await ProductVariant.find({ product: prod._id });
         const images = await ProductImage.find({ product: prod._id }).sort({ displayOrder: 1 });
+        let effectivePrice = prod.price;
+        let effectiveImages = images.map(img => img.toObject());
+        if (variants.length > 0) {
+            const primary = variants.find(v => v.isPrimary) || variants[0];
+            effectivePrice = primary.basePrice || primary.price || prod.price;
+            if (effectiveImages.length === 0 && primary.images && primary.images.length > 0) {
+                effectiveImages = primary.images.map((url, idx) => ({ url, displayOrder: idx + 1 }));
+            }
+        }
+
         result.push({
             ...prod.toObject(),
+            price: effectivePrice,
             variantsCount: variants.length,
             totalStock: variants.reduce((sum, v) => sum + (v.inventory || 0), 0),
-            images: images.map(img => img.toObject()),
+            images: effectiveImages,
         });
     }
 
@@ -191,20 +202,41 @@ const getProductById = async (id) => {
     }
 
     const variants = await ProductVariant.find({ product: id });
-    const variantOptions = await ProductVariantOption.find({ variant: { $in: variants.map(v => v._id) } });
+    const variantOptions = await ProductVariantOption.find({ variant: { $in: variants.map(v => v._id) } }).populate('attribute', 'name slug');
     const images = await ProductImage.find({ product: id }).sort({ displayOrder: 1 });
     const attributeValues = await ProductAttributeValue.find({ product: id }).populate('attribute');
 
     const mappedVariants = variants.map(v => {
         const vObj = v.toObject();
-        vObj.options = variantOptions.filter(vo => vo.variant.toString() === v._id.toString()).map(vo => vo.toObject());
+        // Map variant options and explicitly extract attribute name
+        vObj.options = variantOptions
+            .filter(vo => vo.variant.toString() === v._id.toString())
+            .map(vo => {
+                const voObj = vo.toObject();
+                // Explicitly set attributeName for frontend compatibility
+                voObj.attributeName = typeof vo.attribute === 'object' && vo.attribute?.name 
+                    ? vo.attribute.name 
+                    : voObj.attribute?.name || voObj.attributeName;
+                return voObj;
+            });
         return vObj;
     });
 
+    let effectivePrice = product.price;
+    let effectiveImages = images.map(img => img.toObject());
+    if (variants.length > 0) {
+        const primary = variants.find(v => v.isPrimary) || variants[0];
+        effectivePrice = primary.basePrice || primary.price || product.price;
+        if (effectiveImages.length === 0 && primary.images && primary.images.length > 0) {
+            effectiveImages = primary.images.map((url, idx) => ({ url, displayOrder: idx + 1 }));
+        }
+    }
+
     return {
         ...product.toObject(),
+        price: effectivePrice,
         variants: mappedVariants,
-        images: images.map(img => img.toObject()),
+        images: effectiveImages,
         attributeValues: attributeValues.map(av => av.toObject()),
     };
 };
@@ -240,6 +272,9 @@ const createProduct = async (data, auditContext) => {
         attributeValues,
     });
 
+    const normalizedPrice = Number(price);
+    const normalizedCompareAtPrice = Number(compareAtPrice);
+
     // Create Base Product
     const product = await Product.create({
         name,
@@ -247,8 +282,8 @@ const createProduct = async (data, auditContext) => {
         slug: generatedSlug,
         category,
         subCategory,
-        price,
-        compareAtPrice,
+        price: Number.isFinite(normalizedPrice) ? normalizedPrice : 0,
+        compareAtPrice: Number.isFinite(normalizedCompareAtPrice) ? normalizedCompareAtPrice : 0,
         sku,
         barcode,
         shortDescription,
@@ -383,7 +418,14 @@ const updateProduct = async (id, data, auditContext) => {
 
     fields.forEach(field => {
         if (data[field] !== undefined) {
-            product[field] = data[field];
+            if (field === 'price' || field === 'compareAtPrice') {
+                const normalizedValue = Number(data[field]);
+                if (Number.isFinite(normalizedValue)) {
+                    product[field] = normalizedValue;
+                }
+            } else {
+                product[field] = data[field];
+            }
         }
     });
 

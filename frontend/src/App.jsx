@@ -30,13 +30,14 @@ export default function App() {
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
   const handleAddToCart = (product) => {
+    const addedQuantity = product.quantity || 1;
     const existingItemIndex = cartItems.findIndex(item => item._id === product._id || item.id === product.id);
     if (existingItemIndex >= 0) {
       const newCart = [...cartItems];
-      newCart[existingItemIndex].quantity += 1;
+      newCart[existingItemIndex].quantity += addedQuantity;
       setCartItems(newCart);
     } else {
-      setCartItems([...cartItems, { ...product, quantity: 1 }]);
+      setCartItems([...cartItems, { ...product, quantity: addedQuantity }]);
     }
     setIsCartOpen(true);
   };
@@ -129,7 +130,7 @@ export default function App() {
   }, [view, user]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-wood-cream/10">
+    <div className="flex flex-col min-h-screen bg-brand-beige/10">
       
       {/* Header component */}
       {view !== 'admin' && view !== 'login' && (
@@ -174,7 +175,7 @@ export default function App() {
           />
         )}
 
-        {view === 'product-detail' && selectedProduct && (
+        {view === 'product-detail' && (
           <ProductDetails
             product={selectedProduct}
             user={user}
@@ -194,35 +195,35 @@ export default function App() {
 
         {view === 'profile' && user && (
           <section className="py-20 max-w-xl mx-auto px-6">
-            <div className="bg-white border border-wood-medium/20 rounded-3xl p-8 shadow-2xl space-y-6 text-left relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-2.5 bg-wood-dark"></div>
+            <div className="bg-white border border-brand-medium/20 rounded-3xl p-8 shadow-2xl space-y-6 text-left relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-2.5 bg-brand-dark"></div>
               
-              <h2 className="font-serif text-3xl font-bold text-wood-dark">User Account</h2>
-              <div className="w-12 h-1 bg-wood-medium rounded-full"></div>
+              <h2 className="font-serif text-3xl font-bold text-brand-dark">User Account</h2>
+              <div className="w-12 h-1 bg-brand-medium rounded-full"></div>
               
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-wood-medium/20 border border-wood-medium text-wood-dark text-xl font-bold rounded-full flex items-center justify-center">
+                  <div className="w-16 h-16 bg-brand-medium/20 border border-brand-medium text-brand-dark text-xl font-bold rounded-full flex items-center justify-center">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-serif text-xl font-bold text-wood-dark">{user.name}</h3>
-                    <span className="inline-block px-2.5 py-0.5 text-xs font-bold bg-wood-green/35 text-wood-dark rounded-full capitalize">
+                    <h3 className="font-serif text-xl font-bold text-brand-dark">{user.name}</h3>
+                    <span className="inline-block px-2.5 py-0.5 text-xs font-bold bg-brand-green/35 text-brand-dark rounded-full capitalize">
                       {user.role} Account
                     </span>
                   </div>
                 </div>
 
-                <div className="border-t border-wood-medium/10 pt-4 space-y-2.5 text-sm text-wood-dark">
+                <div className="border-t border-brand-medium/10 pt-4 space-y-2.5 text-sm text-brand-dark">
                   <p><strong>Email Address:</strong> {user.email}</p>
                   <p><strong>Account ID:</strong> {user.id}</p>
                 </div>
 
                 {/* API Request Token Verification container */}
-                <div className="bg-wood-cream border border-wood-medium/20 rounded-2xl p-4 space-y-3">
+                <div className="bg-brand-beige border border-brand-medium/20 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase text-wood-medium tracking-wider">🔒 Protected Backend Profile</h4>
-                    <span className="text-[10px] bg-wood-dark text-wood-cream px-2 py-0.5 rounded font-mono">Bearer Token</span>
+                    <h4 className="text-xs font-bold uppercase text-brand-medium tracking-wider">🔒 Protected Backend Profile</h4>
+                    <span className="text-[10px] bg-brand-dark text-brand-beige px-2 py-0.5 rounded font-mono">Bearer Token</span>
                   </div>
 
                   {profileLoading && (
@@ -239,7 +240,7 @@ export default function App() {
                   {profileData && (
                     <div className="space-y-2">
                       <p className="text-xs text-green-700 font-bold">✔️ Access Authorized! Response:</p>
-                      <pre className="bg-white/70 border border-wood-medium/10 p-2.5 rounded text-[10px] font-mono overflow-x-auto text-wood-dark max-h-32">
+                      <pre className="bg-white/70 border border-brand-medium/10 p-2.5 rounded text-[10px] font-mono overflow-x-auto text-brand-dark max-h-32">
                         {JSON.stringify(profileData, null, 2)}
                       </pre>
                     </div>
@@ -250,7 +251,7 @@ export default function App() {
               <div className="flex space-x-3 pt-2">
                 <button
                   onClick={() => handleNavigate('home')}
-                  className="bg-wood-light hover:bg-wood-medium/20 text-wood-dark font-bold text-xs px-5 py-2.5 rounded-xl border border-wood-medium/20 cursor-pointer"
+                  className="bg-brand-light hover:bg-brand-medium/20 text-brand-dark font-bold text-xs px-5 py-2.5 rounded-xl border border-brand-medium/20 cursor-pointer"
                 >
                   Return Home
                 </button>
