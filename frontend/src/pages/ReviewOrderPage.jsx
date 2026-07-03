@@ -66,7 +66,12 @@ export default function ReviewOrderPage({ onNavigate }) {
                 <div className="flex-1 w-full flex flex-col justify-between h-full">
                   <div>
                     <h3 className="font-bold text-gray-800 text-lg leading-tight mb-2">{item.name}</h3>
-                    <p className="text-sm text-gray-500 font-medium">Weight: {item.weight}</p>
+                    {item.variantOptions && (
+                      <p className="text-xs text-gray-500 mb-1">{item.variantOptions}</p>
+                    )}
+                    {item.weight && !isNaN(Number(item.weight)) && Number(item.weight) > 0 && (
+                      <p className="text-sm text-gray-500 font-medium">Weight: {(Number(item.weight) * item.qty)} kg</p>
+                    )}
                     <p className="text-sm text-gray-500 font-medium">Quantity: {item.qty}</p>
                   </div>
                   <div className="mt-4 flex items-end justify-between border-t border-[#E6DFD4]/50 pt-4">
@@ -92,14 +97,7 @@ export default function ReviewOrderPage({ onNavigate }) {
                   <span>Subtotal ({cartItems.length} items)</span>
                   <span className="text-gray-900 font-bold">₹{subtotal.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-gray-600 font-medium">
-                  <span>Shipping charge</span>
-                  <span className="text-gray-500 font-normal italic text-xs">Calculated next step</span>
-                </div>
-                <div className="flex justify-between text-gray-600 font-medium">
-                  <span>Tax</span>
-                  <span className="text-green-600 font-bold font-mono">Included</span>
-                </div>
+
               </div>
 
               <div className="flex justify-between items-end mb-8">

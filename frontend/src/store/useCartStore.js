@@ -8,14 +8,29 @@ const useCartStore = create(
 
       // Add item to cart
       addToCart: (product, qty = 1) => {
+        const variantPrice = product.selectedVariant?.basePrice ?? product.selectedVariant?.price;
+        const finalPrice = variantPrice != null ? variantPrice : product.price;
+
+        let finalImage = product.images?.[0]?.url || product.image;
+        if (product.selectedVariant?.images?.length > 0) {
+          finalImage = product.selectedVariant.images[0]?.url || product.selectedVariant.images[0];
+        } else if (product.selectedVariant?.image) {
+          finalImage = product.selectedVariant.image;
+        }
+
+        const variantOptions = product.selectedVariant?.options
+          ?.map(opt => `${opt.attribute?.name || opt.attributeName || 'Option'}: ${opt.value}`)
+          ?.join(', ');
+
         const item = {
           product: product._id,
           name: product.name,
-          image: product.images?.[0]?.url || product.image,
-          price: product.price,
-          weight: product.weight || 'N/A', // If you have a weight field, else mock/default
+          image: finalImage,
+          price: finalPrice,
+          weight: product.selectedVariant?.weight || product.shippingWeight || product.weight || 0,
           qty,
           variant: product.selectedVariant?._id || product.selectedVariant?.id || null,
+          variantOptions: variantOptions || null,
         };
 
         set((state) => {
@@ -26,7 +41,9 @@ const useCartStore = create(
           if (existItem) {
             return {
               cartItems: state.cartItems.map((x) =>
-                x.product === existItem.product && x.variant === existItem.variant ? item : x
+                x.product === existItem.product && x.variant === existItem.variant 
+                  ? { ...item, qty: x.qty + qty } 
+                  : x
               ),
             };
           } else {

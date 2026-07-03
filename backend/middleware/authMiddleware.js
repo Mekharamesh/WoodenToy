@@ -57,7 +57,7 @@ const authorize = (...roles) => {
         }
 
         // Admin users always pass
-        if (roles.includes(req.user.role)) {
+        if (roles.includes(req.user.role?.toLowerCase())) {
             return next();
         }
 

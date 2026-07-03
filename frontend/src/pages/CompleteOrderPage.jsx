@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, MapPin, Trash2, CreditCard, Banknote, Loader2, CheckCi
 import toast from 'react-hot-toast';
 import { stateDistricts } from '../utils/indiaStates';
 import { feeAPI } from '../api/feeService';
+import { createCashfreeSession } from '../api/cashfreeService';
 
 export default function CompleteOrderPage({ onNavigate }) {
   const { cartItems, getSubtotal, clearCart } = useCartStore();
@@ -17,6 +18,7 @@ export default function CompleteOrderPage({ onNavigate }) {
   const [orderNotes, setOrderNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [fees, setFees] = useState([]);
+  const [cityError, setCityError] = useState('');
 
   const currentUser = authService.getCurrentUser();
 
@@ -26,6 +28,7 @@ export default function CompleteOrderPage({ onNavigate }) {
     address: '',
     city: '',
     state: '',
+    customState: '',
     pinCode: '',
     phone: '',
     landmark: ''
@@ -78,7 +81,9 @@ export default function CompleteOrderPage({ onNavigate }) {
   if (subtotal > 0 && fees.length > 0 && currentState) {
     const matchingFee = fees.find(fee => {
       const isWeightBase = fee.feeCategory?.name?.toLowerCase().includes('weight');
-      const isMatchingState = fee.applicationState === currentState || fee.applicationState === 'All';
+      const isMatchingState = Array.isArray(fee.applicationState) 
+        ? fee.applicationState.includes(currentState) || fee.applicationState.includes('All')
+        : fee.applicationState === currentState || fee.applicationState === 'All';
       const isMatchingPayment = fee.paymentMethod?.name?.toLowerCase() === paymentMethod.toLowerCase();
       return fee.active && isWeightBase && isMatchingState && isMatchingPayment;
     });
@@ -118,7 +123,9 @@ export default function CompleteOrderPage({ onNavigate }) {
     // Find non-weight based flat fee (like COD charge)
     const matchingFlatFee = fees.find(fee => {
       const isWeightBase = fee.feeCategory?.name?.toLowerCase().includes('weight');
-      const isMatchingState = fee.applicationState === currentState || fee.applicationState === 'All';
+      const isMatchingState = Array.isArray(fee.applicationState) 
+        ? fee.applicationState.includes(currentState) || fee.applicationState.includes('All')
+        : fee.applicationState === currentState || fee.applicationState === 'All';
       const isMatchingPayment = fee.paymentMethod?.name?.toLowerCase() === paymentMethod.toLowerCase();
       return fee.active && !isWeightBase && isMatchingState && isMatchingPayment;
     });
@@ -133,17 +140,60 @@ export default function CompleteOrderPage({ onNavigate }) {
     }
   }
 
-  const total = subtotal + shippingCharge + paymentMethodCharge;
+  const orderTotal = subtotal + shippingCharge;
+  const isCodAdvance = paymentMethod === 'COD' && paymentMethodCharge > 0;
+  const codAdvance = isCodAdvance ? paymentMethodCharge : 0;
+  const balanceAmount = isCodAdvance ? (orderTotal - codAdvance) : 0; // Deduct advance from order total
 
-
+  const total = isCodAdvance ? orderTotal : (subtotal + shippingCharge + paymentMethodCharge);
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    // Real-time TN district validation for Other State
+    if (name === 'city' && formData.state === 'Other State') {
+      const userCity = value.trim().toLowerCase().replace(/ district| dt| dist/g, '').trim();
+      const tnDistrictsLower = (stateDistricts['Tamil Nadu'] || []).map(d => d.toLowerCase());
+      const isTnDistrict = tnDistrictsLower.some(d => {
+        const cleanD = d.replace(/ \(.*\)/g, '').trim();
+        return cleanD === userCity || d === userCity || (userCity.length > 2 && userCity.includes(cleanD));
+      });
+      setCityError(isTnDistrict ? 'âš ï¸ This is a Tamil Nadu district. Please select Tamil Nadu as your state.' : '');
+    } else if (name === 'city') {
+      setCityError('');
+    }
+    if (name === 'state') {
+      setCityError('');
+      setFormData(prev => ({ ...prev, city: '', customCity: '', customState: '' }));
+    }
   };
 
   const handleSaveAddress = (e) => {
     e.preventDefault();
     const finalCity = (formData.state === 'Tamil Nadu' && formData.city === 'Other') ? formData.customCity : formData.city;
+    
+    let finalState = formData.state;
+    if (formData.state === 'Other State') {
+      if (!formData.customState || !formData.customState.trim()) {
+        return toast.error('Please enter your state');
+      }
+      finalState = formData.customState.trim();
+      
+      if (finalCity) {
+        const userCity = finalCity.trim().toLowerCase().replace(/ district| dt| dist/g, '').trim();
+        const tnDistrictsLower = (stateDistricts['Tamil Nadu'] || []).map(d => d.toLowerCase());
+        
+        const isTnDistrict = tnDistrictsLower.some(d => {
+          const cleanD = d.replace(/ \(.*\)/g, '').trim(); // Remove brackets like (Tuticorin)
+          return cleanD === userCity || d === userCity || userCity.includes(cleanD);
+        });
+
+        if (isTnDistrict) {
+          return toast.error('Please select Tamil Nadu as your state for Tamil Nadu districts.');
+        }
+      }
+    }
 
     if (!formData.fullName || !formData.address || !finalCity || !formData.state || !formData.pinCode || !formData.phone) {
       return toast.error('Please fill all required fields');
@@ -152,7 +202,7 @@ export default function CompleteOrderPage({ onNavigate }) {
       return toast.error('Please enter a valid phone number');
     }
 
-    const addressToSave = { ...formData, city: finalCity };
+    const addressToSave = { ...formData, city: finalCity, state: finalState };
     const updatedAddresses = [...savedAddresses, addressToSave];
     setSavedAddresses(updatedAddresses);
     localStorage.setItem('wooden_toys_addresses', JSON.stringify(updatedAddresses));
@@ -183,7 +233,7 @@ export default function CompleteOrderPage({ onNavigate }) {
       setLoading(true);
       const orderData = {
         orderItems: cartItems.map(item => ({
-          name: item.name,
+          name: item.variantOptions ? `${item.name} (${item.variantOptions})` : item.name,
           qty: item.qty,
           image: item.image,
           price: item.price,
@@ -195,12 +245,46 @@ export default function CompleteOrderPage({ onNavigate }) {
         itemsPrice: subtotal,
         taxPrice: 0,
         shippingPrice: shippingCharge,
-        totalPrice: total,
+        totalPrice: orderTotal,
+        codAdvance,
+        balanceAmount,
         orderNotes
       };
 
+      // Create the order in our backend first
       const order = await orderService.createOrder(orderData);
-      
+
+      if (paymentMethod === 'Cashfree' || isCodAdvance) {
+        // — Cashfree online payment flow —
+        const session = await createCashfreeSession(order._id);
+
+        // Load Cashfree JS SDK dynamically (sandbox)
+        if (!window.Cashfree) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+            document.head.appendChild(script);
+          });
+        }
+
+        // Store orderId so the callback page can verify
+        localStorage.setItem('cf_pending_order_id', order._id);
+        localStorage.setItem('cf_pending_cf_order_id', session.cfOrderId || `cf_${order._id}`);
+
+        // Launch Cashfree checkout (opens payment page)
+        const cashfree = window.Cashfree({ mode: 'sandbox' });
+        cashfree.checkout({
+          paymentSessionId: session.paymentSessionId,
+          redirectTarget: '_self', // Redirect in same tab
+        });
+
+        // clearCart will be called after payment verification on callback page
+        return;
+      }
+
+      // COD / other methods â€” order is complete immediately
       toast.success('Order placed successfully!');
       clearCart();
       onNavigate('order-success', order._id);
@@ -303,6 +387,17 @@ export default function CompleteOrderPage({ onNavigate }) {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">State *</label>
+                      <select name="state" value={formData.state} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 bg-white" required>
+                        <option value="">Select State</option>
+                        <option value="Tamil Nadu">Tamil Nadu</option>
+                        <option value="Other State">Other State</option>
+                      </select>
+                      {formData.state === 'Other State' && (
+                        <input type="text" name="customState" value={formData.customState || ''} onChange={handleInputChange} placeholder="Type your state" className="mt-3 w-full px-4 py-2.5 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30" required />
+                      )}
+                    </div>
+                    <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">City / District *</label>
                       {formData.state === 'Tamil Nadu' ? (
                         <>
@@ -318,16 +413,21 @@ export default function CompleteOrderPage({ onNavigate }) {
                           )}
                         </>
                       ) : (
-                        <input type="text" name="city" value={formData.city} onChange={handleInputChange} placeholder="Enter your district" className="w-full px-4 py-2.5 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30" required />
+                        <>
+                          <input
+                            type="text"
+                            name="city"
+                            value={formData.city}
+                            onChange={handleInputChange}
+                            placeholder="Enter your district"
+                            className={`w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 ${cityError ? 'border-red-400 focus:ring-red-300' : 'border-[#E6DFD4]'}`}
+                            required
+                          />
+                          {cityError && (
+                            <p className="mt-1.5 text-xs text-red-500 font-medium">{cityError}</p>
+                          )}
+                        </>
                       )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">State *</label>
-                      <select name="state" value={formData.state} onChange={handleInputChange} className="w-full px-4 py-2.5 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 bg-white" required>
-                        <option value="">Select State</option>
-                        <option value="Tamil Nadu">Tamil Nadu</option>
-                        <option value="Other State">Other State</option>
-                      </select>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -415,7 +515,12 @@ export default function CompleteOrderPage({ onNavigate }) {
                     </div>
                     <div className="flex-1">
                       <h4 className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</h4>
-                      <p className="text-xs text-gray-500">{item.weight}</p>
+                      {item.variantOptions && (
+                        <p className="text-xs text-gray-500 line-clamp-1">{item.variantOptions}</p>
+                      )}
+                      {item.weight && !isNaN(Number(item.weight)) && Number(item.weight) > 0 && (
+                        <p className="text-xs text-gray-500">{(Number(item.weight) * item.qty)} kg</p>
+                      )}
                     </div>
                     <div className="font-semibold text-gray-900 text-sm">
                       ₹{(item.price * item.qty).toLocaleString()}
@@ -433,18 +538,41 @@ export default function CompleteOrderPage({ onNavigate }) {
                   <span>Weight Charge ({totalWeight} kg)</span>
                   <span className="text-gray-900 font-medium">₹{shippingCharge.toLocaleString()}</span>
                 </div>
-                {paymentMethodCharge > 0 && (
-                  <div className="flex justify-between text-gray-600">
-                    <span>{paymentMethodFeeName}</span>
-                    <span className="text-gray-900 font-medium">₹{paymentMethodCharge.toLocaleString()}</span>
-                  </div>
-                )}
+                <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-[#E6DFD4]/50">
+                  <span>Order Total</span>
+                  <span>₹{orderTotal.toLocaleString()}</span>
+                </div>
               </div>
 
-              <div className="flex justify-between items-end mb-8">
-                <span className="text-lg font-bold text-gray-900">Total To Pay</span>
-                <span className="text-3xl font-black text-[#8B5E3C]">₹{total.toLocaleString()}</span>
-              </div>
+              {isCodAdvance ? (
+                <>
+                  <div className="flex justify-between text-[#8B5E3C] font-bold mb-2">
+                    <span>Advance to Pay Now ({paymentMethodFeeName})</span>
+                    <span>₹{codAdvance.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600 mb-6 font-medium">
+                    <span>Balance to Pay on Delivery</span>
+                    <span>₹{balanceAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-end mb-8">
+                    <span className="text-lg font-bold text-gray-900">Total To Pay Now</span>
+                    <span className="text-3xl font-black text-[#8B5E3C]">₹{codAdvance.toLocaleString()}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {paymentMethodCharge > 0 && (
+                    <div className="flex justify-between text-gray-600 text-sm mb-4">
+                      <span>{paymentMethodFeeName}</span>
+                      <span className="text-gray-900 font-medium">₹{paymentMethodCharge.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-end mb-8">
+                    <span className="text-lg font-bold text-gray-900">Total To Pay</span>
+                    <span className="text-3xl font-black text-[#8B5E3C]">₹{total.toLocaleString()}</span>
+                  </div>
+                </>
+              )}
 
               <button
                 onClick={handlePlaceOrder}
@@ -461,3 +589,5 @@ export default function CompleteOrderPage({ onNavigate }) {
     </div>
   );
 }
+
+

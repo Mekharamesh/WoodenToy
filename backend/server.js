@@ -11,6 +11,7 @@ const staffRoutes = require('./routes/staffRoutes');
 const roleRoutes = require('./routes/roleRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const feeRoutes = require('./routes/feeRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const seedAttributes = require('./seedAttributes');
 
 // Load env vars
@@ -42,6 +43,7 @@ app.use('/api/staff', staffRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/fees', feeRoutes);
+app.use('/api/payment', paymentRoutes);
 
 
 app.get('/', (req, res) => {

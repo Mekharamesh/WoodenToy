@@ -567,6 +567,14 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                         : '-'
                     }
                   </p>
+                  {(() => {
+                    const baseWeight = selectedVariant?.weight || product?.shippingWeight || product?.weight;
+                    if (baseWeight) {
+                      const totalWeight = Number(baseWeight) * quantity;
+                      return <p className="mt-1 text-sm text-slate-500 font-medium">Weight: {totalWeight} kg</p>;
+                    }
+                    return null;
+                  })()}
                 </div>
                 <button
                   type="button"

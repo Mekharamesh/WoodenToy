@@ -64,6 +64,14 @@ const orderSchema = new mongoose.Schema(
       required: true,
       default: 0.0,
     },
+    codAdvance: {
+      type: Number,
+      default: 0.0,
+    },
+    balanceAmount: {
+      type: Number,
+      default: 0.0,
+    },
     isPaid: {
       type: Boolean,
       required: true,

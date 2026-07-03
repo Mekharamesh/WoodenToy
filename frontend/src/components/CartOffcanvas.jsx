@@ -3,36 +3,7 @@ import React from 'react';
 export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuantity, onRemove, onCheckout }) {
   if (!isOpen) return null;
 
-  // Helper function to get the effective price (variant price or product price)
-  const getEffectivePrice = (item) => {
-    if (item.selectedVariant && (item.selectedVariant.basePrice != null || item.selectedVariant.price != null)) {
-      return item.selectedVariant.basePrice ?? item.selectedVariant.price;
-    }
-    return item.price ?? 0;
-  };
-
-  // Helper function to get the effective images (variant images or product images)
-  const getEffectiveImages = (item) => {
-    if (item.selectedVariant?.images && Array.isArray(item.selectedVariant.images) && item.selectedVariant.images.length > 0) {
-      return item.selectedVariant.images;
-    }
-    if (Array.isArray(item.images) && item.images.length > 0) {
-      return item.images;
-    }
-    return [item.image];
-  };
-
-  // Helper function to get variant details text
-  const getVariantText = (item) => {
-    if (!item.selectedVariant?.options || !Array.isArray(item.selectedVariant.options)) {
-      return '';
-    }
-    return item.selectedVariant.options
-      .map(opt => `${opt.attribute?.name || opt.attributeName || 'Attr'}: ${opt.value}`)
-      .join(', ');
-  };
-
-  const total = cartItems.reduce((sum, item) => sum + getEffectivePrice(item) * item.quantity, 0);
+  const total = cartItems.reduce((sum, item) => sum + (item.price ?? 0) * item.qty, 0);
 
   return (
     <>
@@ -65,12 +36,9 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
             </div>
           ) : (
             cartItems.map((item, index) => {
-              const effectivePrice = getEffectivePrice(item);
-              const effectiveImages = getEffectiveImages(item);
-              const variantText = getVariantText(item);
-              const firstImage = typeof effectiveImages[0] === 'string' 
-                ? effectiveImages[0] 
-                : effectiveImages[0]?.url || '/wood-placeholder.png';
+              const firstImage = typeof item.image === 'string' 
+                ? item.image 
+                : item.image?.url || '/wood-placeholder.png';
               
               return (
                 <div key={index} className="flex gap-4 p-3 bg-brand-beige/30 rounded-2xl border border-brand-medium/10">
@@ -85,8 +53,8 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
                       <h4 className="font-bold text-sm text-brand-dark line-clamp-2">{item.name}</h4>
-                      {variantText && (
-                        <p className="text-xs text-brand-dark/60 mt-1 line-clamp-1">{variantText}</p>
+                      {item.variantOptions && (
+                        <p className="text-xs text-brand-dark/60 mt-1 line-clamp-2">{item.variantOptions}</p>
                       )}
                       <div className="flex items-center gap-2 mt-2">
                         <button 
@@ -95,7 +63,7 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
                         >
                           -
                         </button>
-                        <span className="text-xs font-bold text-brand-dark w-4 text-center">{item.quantity}</span>
+                        <span className="text-xs font-bold text-brand-dark w-4 text-center">{item.qty}</span>
                         <button 
                           onClick={() => onUpdateQuantity(index, 1)}
                           className="w-6 h-6 flex items-center justify-center bg-white border border-brand-medium/30 rounded text-brand-dark font-bold hover:bg-brand-light/50 transition-colors"
@@ -106,7 +74,7 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
                     </div>
                     <div className="flex items-center justify-between mt-2">
                       <span className="font-serif font-bold text-brand-dark">
-                        ₹{(effectivePrice * item.quantity).toFixed(2)}
+                        ₹{((item.price ?? 0) * item.qty).toFixed(2)}
                       </span>
                       <button 
                         onClick={() => onRemove(index)}

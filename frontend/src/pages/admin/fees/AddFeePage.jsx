@@ -26,7 +26,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   const [feeCategory, setFeeCategory] = useState('');
   const [feeType, setFeeType] = useState('Fixed Amount');
   const [flatFeeValue, setFlatFeeValue] = useState('');
-  const [applicationState, setApplicationState] = useState('');
+  const [applicationState, setApplicationState] = useState([]);
   const [weightSlabs, setWeightSlabs] = useState([{ minWeight: '', maxWeight: '', feeValue: '' }]);
   const [active, setActive] = useState(true);
 
@@ -47,7 +47,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
       setFeeCategory(editingFee.feeCategory?._id || editingFee.feeCategory || '');
       setFeeType(editingFee.feeType || 'Fixed Amount');
       setFlatFeeValue(editingFee.flatFeeValue || '');
-      setApplicationState(editingFee.applicationState || '');
+      setApplicationState(Array.isArray(editingFee.applicationState) ? editingFee.applicationState : (editingFee.applicationState ? [editingFee.applicationState] : []));
       setWeightSlabs(editingFee.weightSlabs?.length > 0 ? editingFee.weightSlabs : [{ minWeight: '', maxWeight: '', feeValue: '' }]);
       setActive(editingFee.active !== false);
     }
@@ -60,8 +60,9 @@ export default function AddFeePage({ onNavigate, editingFee }) {
     setWeightSlabs(prev => {
       // If no slabs or just 1 empty slab, set default
       if (prev.length === 0 || (prev.length === 1 && prev[0].minWeight === '' && prev[0].maxWeight === '')) {
-         if (applicationState === 'Tamil Nadu') return [{ minWeight: 0, maxWeight: 1, feeValue: 50 }];
-         if (applicationState === 'Other State') return [{ minWeight: 0, maxWeight: 1, feeValue: 100 }];
+         let stateToCheck = Array.isArray(applicationState) ? applicationState[0] : applicationState;
+         if (stateToCheck === 'Tamil Nadu') return [{ minWeight: 0, maxWeight: 1, feeValue: 50 }];
+         if (stateToCheck === 'Other State') return [{ minWeight: 0, maxWeight: 1, feeValue: 100 }];
          return [{ minWeight: '', maxWeight: '', feeValue: '' }];
       }
 
@@ -71,8 +72,9 @@ export default function AddFeePage({ onNavigate, editingFee }) {
         if (isNaN(maxNum) || maxNum <= 0) return slab;
         
         let newFee = slab.feeValue;
-        if (applicationState === 'Tamil Nadu') newFee = Math.ceil(maxNum) * 50;
-        else if (applicationState === 'Other State') newFee = Math.ceil(maxNum) * 100;
+        let stateToCheck = Array.isArray(applicationState) ? applicationState[0] : applicationState;
+        if (stateToCheck === 'Tamil Nadu') newFee = Math.ceil(maxNum) * 50;
+        else if (stateToCheck === 'Other State') newFee = Math.ceil(maxNum) * 100;
         
         return { ...slab, feeValue: newFee };
       });
@@ -110,12 +112,12 @@ export default function AddFeePage({ onNavigate, editingFee }) {
     
     if (!feeCategory) newErrors.feeCategory = "Fee category is required";
     if (!feeType) newErrors.feeType = "Fee type is required";
-    if (!applicationState) newErrors.applicationState = "Application state is required";
+    if (!applicationState || applicationState.length === 0) newErrors.applicationState = "Application state is required";
 
     // Tamil Nadu special validation (example)
-    if (tnDistricts.includes(applicationState)) {
+    if (Array.isArray(applicationState) && applicationState.some(state => tnDistricts.includes(state))) {
        // Just as an example, enforcing strict format or extra check for TN
-       if (applicationState === "Chennai" && feeName.toLowerCase().includes("outstation")) {
+       if (applicationState.includes("Chennai") && feeName.toLowerCase().includes("outstation")) {
           newErrors.applicationState = "Outstation fees cannot apply to Chennai";
        }
     }
@@ -210,9 +212,10 @@ export default function AddFeePage({ onNavigate, editingFee }) {
     if (field === 'maxWeight') {
        const maxNum = parseFloat(value);
        if (!isNaN(maxNum) && maxNum > 0) {
-          if (applicationState === 'Tamil Nadu') {
+          let stateToCheck = Array.isArray(applicationState) ? applicationState[0] : applicationState;
+          if (stateToCheck === 'Tamil Nadu') {
              newSlabs[index].feeValue = Math.ceil(maxNum) * 50;
-          } else if (applicationState === 'Other State') {
+          } else if (stateToCheck === 'Other State') {
              newSlabs[index].feeValue = Math.ceil(maxNum) * 100;
           }
        }
@@ -282,16 +285,33 @@ export default function AddFeePage({ onNavigate, editingFee }) {
 
           <div>
             <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider mb-2">Application State <span className="text-red-500">*</span></label>
-            <select 
-              value={applicationState}
-              onChange={(e) => setApplicationState(e.target.value)}
-              className="w-full border border-[#E6DFD4] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand-medium"
-            >
-              <option value="">Select State</option>
-              <option value="Tamil Nadu">Tamil Nadu</option>
-              <option value="Other State">Other State</option>
-            </select>
-            {errors.applicationState && <p className="text-red-500 text-xs mt-1">{errors.applicationState}</p>}
+            <div className="flex items-center gap-6 mt-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={applicationState.includes('Tamil Nadu')}
+                  onChange={(e) => {
+                    if (e.target.checked) setApplicationState([...applicationState, 'Tamil Nadu']);
+                    else setApplicationState(applicationState.filter(s => s !== 'Tamil Nadu'));
+                  }}
+                  className="w-4 h-4 rounded border-[#E6DFD4] text-brand-dark focus:ring-brand-dark"
+                />
+                <span className="text-sm font-medium text-brand-dark">Tamil Nadu</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={applicationState.includes('Other State')}
+                  onChange={(e) => {
+                    if (e.target.checked) setApplicationState([...applicationState, 'Other State']);
+                    else setApplicationState(applicationState.filter(s => s !== 'Other State'));
+                  }}
+                  className="w-4 h-4 rounded border-[#E6DFD4] text-brand-dark focus:ring-brand-dark"
+                />
+                <span className="text-sm font-medium text-brand-dark">Other State</span>
+              </label>
+            </div>
+            {errors.applicationState && <p className="text-red-500 text-xs mt-2">{errors.applicationState}</p>}
           </div>
         </div>
 
@@ -316,15 +336,14 @@ export default function AddFeePage({ onNavigate, editingFee }) {
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider">Payment Method (Optional)</label>
-              <button onClick={() => setShowPmModal(true)} className="text-[10px] text-brand-dark font-bold uppercase hover:underline">+ Add Payment Method</button>
             </div>
             <select 
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full border border-[#E6DFD4] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand-medium"
             >
-              <option value="">Any Payment Method (All)</option>
-              {paymentMethods.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+              <option value="">Both (COD & CashFree)</option>
+              {paymentMethods.map(pm => <option key={pm._id} value={pm._id}>{pm.name}</option>)}
             </select>
             {errors.paymentMethod && <p className="text-red-500 text-xs mt-1">{errors.paymentMethod}</p>}
           </div>

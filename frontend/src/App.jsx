@@ -14,13 +14,21 @@ import CompleteOrderPage from './pages/CompleteOrderPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
 import useCartStore from './store/useCartStore';
+import { Toaster } from 'react-hot-toast';
+import CashfreeCallbackPage from './pages/CashfreeCallbackPage';
 
 export default function App() {
   const [view, setView] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    if (viewParam === 'cashfree-callback') {
+      return 'cashfree-callback';
+    }
+
     const savedView = localStorage.getItem('currentView') || 'home';
     const savedUser = authService.getCurrentUser();
     // If the saved view requires auth but there is no user, reset to home
-    const authRequiredViews = ['admin', 'profile', 'review-order', 'complete-order', 'order-success', 'order-history'];
+    const authRequiredViews = ['admin', 'profile', 'review-order', 'complete-order', 'order-success', 'order-history', 'cashfree-callback'];
     if (authRequiredViews.includes(savedView) && !savedUser) {
       localStorage.setItem('currentView', 'home');
       return 'home';
@@ -35,8 +43,8 @@ export default function App() {
   const [profileError, setProfileError] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // Cart state
-  const [cartItems, setCartItems] = useState([]);
+  // Cart state from store
+  const { cartItems, addToCart, updateQuantity, removeFromCart, clearCart } = useCartStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   // Wishlist state
@@ -45,39 +53,28 @@ export default function App() {
 
   const handleAddToCart = (product) => {
     const addedQuantity = product.quantity || 1;
-    const existingItemIndex = cartItems.findIndex(item => {
-      const isSameProduct = (item._id && product._id && item._id === product._id) || 
-                            (item.id && product.id && item.id === product.id);
-      if (!isSameProduct) return false;
-      const itemVariantId = item.selectedVariant?._id || item.selectedVariant?.id;
-      const productVariantId = product.selectedVariant?._id || product.selectedVariant?.id;
-      return itemVariantId === productVariantId;
-    });
-    if (existingItemIndex >= 0) {
-      const newCart = [...cartItems];
-      newCart[existingItemIndex].quantity += addedQuantity;
-      setCartItems(newCart);
-    } else {
-      setCartItems([...cartItems, { ...product, quantity: addedQuantity }]);
-    }
+    // Map to store format to ensure consistency if needed, but addToCart handles product mapping
+    addToCart(product, addedQuantity);
     setIsCartOpen(true);
   };
 
   const handleUpdateQuantity = (index, delta) => {
-    const newCart = [...cartItems];
-    const newQuantity = newCart[index].quantity + delta;
+    // CartOffcanvas uses array index, but useCartStore uses productId
+    const item = cartItems[index];
+    if (!item) return;
+    const newQuantity = item.qty + delta;
     if (newQuantity > 0) {
-      newCart[index].quantity = newQuantity;
-      setCartItems(newCart);
+      updateQuantity(item.product, newQuantity);
     } else {
-      handleRemoveFromCart(index);
+      removeFromCart(item.product);
     }
   };
 
   const handleRemoveFromCart = (index) => {
-    const newCart = [...cartItems];
-    newCart.splice(index, 1);
-    setCartItems(newCart);
+    const item = cartItems[index];
+    if (item) {
+      removeFromCart(item.product);
+    }
   };
 
   const handleAddToWishlist = (product) => {
@@ -107,37 +104,6 @@ export default function App() {
   };
 
   const handleCheckoutClick = () => {
-    const store = useCartStore.getState();
-    store.clearCart();
-    
-    cartItems.forEach(item => {
-      const effectivePrice = (item.selectedVariant && (item.selectedVariant.basePrice != null || item.selectedVariant.price != null))
-        ? (item.selectedVariant.basePrice ?? item.selectedVariant.price)
-        : (item.price ?? 0);
-        
-      const effectiveImages = (item.selectedVariant?.images?.length > 0)
-        ? item.selectedVariant.images
-        : (item.images?.length > 0 ? item.images : [item.image]);
-        
-      const firstImage = typeof effectiveImages[0] === 'string'
-        ? effectiveImages[0]
-        : effectiveImages[0]?.url || '/wood-placeholder.png';
-
-      const rawWeight = item.selectedVariant?.weight || item.shippingWeight || item.weight;
-      const effectiveWeight = rawWeight 
-        ? (String(rawWeight).toLowerCase().includes('g') || isNaN(rawWeight) ? String(rawWeight) : `${rawWeight} kg`) 
-        : 'Standard';
-
-      store.addToCart({
-         _id: item._id || item.id,
-         name: item.name,
-         image: firstImage,
-         price: effectivePrice,
-         weight: effectiveWeight,
-         selectedVariant: item.selectedVariant
-      }, item.quantity);
-    });
-    
     setIsCartOpen(false);
     handleNavigate('cart');
   };
@@ -165,13 +131,17 @@ export default function App() {
 
   const handleNavigate = (targetView, payload = null) => {
     const activeUser = (targetView === 'admin' && payload && payload.role) ? payload : user || authService.getCurrentUser();
-    if (targetView === 'admin' && (!activeUser || (activeUser.role !== 'admin' && !activeUser.isStaff))) {
+    if (targetView === 'admin' && (!activeUser || (activeUser.role?.toLowerCase() !== 'admin' && !activeUser.isStaff))) {
       alert("Unauthorized access");
       return;
     }
     setView(targetView);
     localStorage.setItem('currentView', targetView);
-    setSelectedProduct(targetView === 'product-detail' ? payload : null);
+    if (targetView === 'product-detail' || targetView === 'order-success' || targetView === 'cashfree-callback') {
+      setSelectedProduct(payload);
+    } else {
+      setSelectedProduct(null);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -197,6 +167,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-brand-beige/10">
+      <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
       
       {/* Header component */}
       {view !== 'admin' && view !== 'login' && (
@@ -204,7 +175,7 @@ export default function App() {
           user={user} 
           onLogout={handleLogout} 
           onNavigate={handleNavigate}
-          cartCount={cartItems.reduce((acc, item) => acc + item.quantity, 0)}
+          cartCount={cartItems.reduce((acc, item) => acc + item.qty, 0)}
           onOpenCart={() => setIsCartOpen(true)}
           wishlistCount={wishlistItems.length}
           onOpenWishlist={() => setIsWishlistOpen(true)}
@@ -256,9 +227,17 @@ export default function App() {
           <Login onAuthSuccess={handleAuthSuccess} onNavigate={handleNavigate} />
         )}
 
-        {view === 'admin' && (user?.role === 'admin' || user?.isStaff) && (
+        {view === 'admin' && (user?.role?.toLowerCase() === 'admin' || user?.isStaff) ? (
           <AdminDashboard user={user} onNavigate={handleNavigate} onLogout={handleLogout} />
-        )}
+        ) : view === 'admin' ? (
+          <div className="p-10 text-center">
+            <h1 className="text-2xl font-bold text-red-600">Access Blocked or Debugging Info</h1>
+            <pre className="text-left bg-gray-100 p-4 mt-4 inline-block text-sm">
+              {JSON.stringify({ user, role: user?.role, isStaff: user?.isStaff, rawRole: user?.role?.toLowerCase() }, null, 2)}
+            </pre>
+            <button onClick={() => { localStorage.clear(); window.location.href = '/?view=login'; }} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Reset & Login</button>
+          </div>
+        ) : null}
 
         {view === 'cart' && (
           <CartPage onNavigate={handleNavigate} />
@@ -274,6 +253,10 @@ export default function App() {
 
         {view === 'order-success' && user && (
           <OrderSuccessPage orderId={selectedProduct} onNavigate={handleNavigate} />
+        )}
+
+        {view === 'cashfree-callback' && user && (
+          <CashfreeCallbackPage onNavigate={handleNavigate} />
         )}
 
         {view === 'order-history' && user && (
@@ -309,7 +292,7 @@ export default function App() {
                 {/* API Request Token Verification container */}
                 <div className="bg-brand-beige border border-brand-medium/20 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase text-brand-medium tracking-wider">🔒 Protected Backend Profile</h4>
+                    <h4 className="text-xs font-bold uppercase text-brand-medium tracking-wider">ðŸ”’ Protected Backend Profile</h4>
                     <span className="text-[10px] bg-brand-dark text-brand-beige px-2 py-0.5 rounded font-mono">Bearer Token</span>
                   </div>
 
@@ -326,7 +309,7 @@ export default function App() {
 
                   {profileData && (
                     <div className="space-y-2">
-                      <p className="text-xs text-green-700 font-bold">✔️ Access Authorized! Response:</p>
+                      <p className="text-xs text-green-700 font-bold">âœ”ï¸ Access Authorized! Response:</p>
                       <pre className="bg-white/70 border border-brand-medium/10 p-2.5 rounded text-[10px] font-mono overflow-x-auto text-brand-dark max-h-32">
                         {JSON.stringify(profileData, null, 2)}
                       </pre>
@@ -364,3 +347,5 @@ export default function App() {
     </div>
   );
 }
+
+

@@ -34,14 +34,18 @@ export default function OrdersPage() {
     }
   };
 
-  const filteredOrders = orders.filter(order => 
-    order._id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (order.user?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.shippingAddress?.fullName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOrders = orders.filter(order => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchId = order._id?.toLowerCase().includes(searchLower);
+    const matchUser = (order.user?.name || '').toLowerCase().includes(searchLower);
+    const matchShipping = (order.shippingAddress?.fullName || '').toLowerCase().includes(searchLower);
+    
+    return matchId || matchUser || matchShipping;
+  });
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'Paid': return 'bg-green-100 text-green-700';
       case 'Pending': return 'bg-yellow-100 text-yellow-700';
       case 'Processing': return 'bg-blue-100 text-blue-700';
       case 'Shipped': return 'bg-purple-100 text-purple-700';
@@ -145,3 +149,4 @@ export default function OrdersPage() {
     </div>
   );
 }
+

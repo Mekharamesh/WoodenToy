@@ -13,6 +13,8 @@ const addOrderItems = async (req, res) => {
       taxPrice,
       shippingPrice,
       totalPrice,
+      codAdvance,
+      balanceAmount,
       orderNotes
     } = req.body;
 
@@ -28,20 +30,10 @@ const addOrderItems = async (req, res) => {
         taxPrice,
         shippingPrice,
         totalPrice,
+        codAdvance,
+        balanceAmount,
         orderNotes
       });
-
-      // Mock Cashfree payment success if Cashfree is selected
-      if (paymentMethod === 'Cashfree') {
-        order.isPaid = true;
-        order.paidAt = Date.now();
-        order.paymentResult = {
-          id: 'CF' + Date.now(),
-          status: 'success',
-          update_time: new Date().toISOString(),
-          email_address: req.user.email
-        };
-      }
 
       const createdOrder = await order.save();
       res.status(201).json(createdOrder);
@@ -59,8 +51,14 @@ const getOrderById = async (req, res) => {
     const order = await Order.findById(req.params.id).populate('user', 'name email');
 
     if (order) {
-      // Check if order belongs to user or user is admin
-      if (order.user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'manager') {
+      // Check if order belongs to user or user is admin/staff
+      const userRole = req.user.role?.toLowerCase();
+      if (
+        order.user._id.toString() !== req.user._id.toString() &&
+        userRole !== 'admin' &&
+        userRole !== 'manager' &&
+        !req.user.isStaff
+      ) {
          return res.status(403).json({ message: 'Not authorized to view this order' });
       }
       res.json(order);
@@ -88,6 +86,7 @@ const updateOrderToPaid = async (req, res) => {
         update_time: req.body.update_time,
         email_address: req.body.email_address,
       };
+      order.status = 'Processing';
 
       const updatedOrder = await order.save();
       res.json(updatedOrder);
@@ -159,3 +158,5 @@ module.exports = {
   getMyOrders,
   getOrders,
 };
+
+

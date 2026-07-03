@@ -23,8 +23,11 @@ export default function OrderHistoryPage({ onNavigate }) {
     }
   };
 
+  const getDisplayStatus = (order) => (order.isPaid ? 'Paid' : order.status);
+
   const getStatusColor = (status) => {
     switch (status) {
+      case 'Paid': return 'bg-green-100 text-green-700 border-green-200';
       case 'Pending': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
       case 'Processing': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'Shipped': return 'bg-purple-100 text-purple-700 border-purple-200';
@@ -136,3 +139,4 @@ export default function OrderHistoryPage({ onNavigate }) {
     </div>
   );
 }
+

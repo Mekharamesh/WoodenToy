@@ -144,7 +144,7 @@ export default function FeeListPage({ onNavigate, onEditFee }) {
                     <td className="py-4 px-4">{fee.feeCategory?.name}</td>
                     <td className="py-4 px-4">{fee.feeType}</td>
                     <td className="py-4 px-4">{fee.paymentMethod?.name}</td>
-                    <td className="py-4 px-4">{fee.applicationState}</td>
+                    <td className="py-4 px-4">{Array.isArray(fee.applicationState) ? fee.applicationState.join(', ') : fee.applicationState}</td>
                     <td className="py-4 px-4">
                       {fee.weightSlabs && fee.weightSlabs.length > 0 ? (
                         fee.weightSlabs.map((slab, i) => (

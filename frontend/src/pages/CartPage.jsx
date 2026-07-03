@@ -69,7 +69,12 @@ export default function CartPage({ onNavigate }) {
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-800 text-lg line-clamp-2 leading-snug mb-1">{item.name}</h3>
-                    <p className="text-sm text-gray-500 font-medium">Weight: {item.weight}</p>
+                    {item.variantOptions && (
+                      <p className="text-xs text-gray-500 mb-1">{item.variantOptions}</p>
+                    )}
+                    {item.weight && !isNaN(Number(item.weight)) && Number(item.weight) > 0 && (
+                      <p className="text-sm text-gray-500 font-medium">Weight: {(Number(item.weight) * item.qty)} kg</p>
+                    )}
                     {/* Mobile price */}
                     <div className="md:hidden mt-2 font-bold text-[#8B5E3C]">₹{(item.price * item.qty).toLocaleString()}</div>
                   </div>

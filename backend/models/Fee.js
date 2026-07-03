@@ -28,8 +28,14 @@ const feeSchema = new mongoose.Schema(
       required: false,
     },
     applicationState: {
-      type: String,
+      type: [String],
       required: true,
+      validate: {
+        validator: function(v) {
+          return v && v.length > 0;
+        },
+        message: 'At least one application state must be selected'
+      }
     },
     weightSlabs: [
       {

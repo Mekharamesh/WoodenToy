@@ -12,12 +12,23 @@ const getAuthHeaders = () => {
   };
 };
 
+import { authService } from './authService';
+
 export const orderService = {
   createOrder: async (orderData) => {
     try {
       const response = await axios.post(API_URL, orderData, getAuthHeaders());
       return response.data;
     } catch (error) {
+      if (error.response?.status === 401) {
+        const refreshed = await authService.refreshSession();
+        if (refreshed) {
+          const retryResponse = await axios.post(API_URL, orderData, getAuthHeaders());
+          return retryResponse.data;
+        } else {
+          authService.logout();
+        }
+      }
       throw new Error(error.response?.data?.message || 'Failed to create order');
     }
   },

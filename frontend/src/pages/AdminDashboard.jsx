@@ -37,7 +37,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [userPermissions, setUserPermissions] = useState(null); // null = not loaded yet
 
   // Admin users see everything; staff see only their permitted modules
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
   const canView = (moduleKey) => {
     if (isAdmin) return true;
     if (!userPermissions) return false;
@@ -141,6 +141,18 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
         .catch(() => setUserPermissions([]));
     }
   }, [user?.id, isAdmin]);
+
+  // Auto-route to the first permitted module if dashboard access is denied
+  useEffect(() => {
+    if (isAdmin || userPermissions !== null) {
+      if (currentTab === 'dashboard' && !canAccessDashboard) {
+        if (canView('catalog')) setCurrentTab('v2-categories');
+        else if (canView('orders')) setCurrentTab('orders');
+        else if (canView('fees')) setCurrentTab('fees');
+        else if (canView('staff_management')) setCurrentTab('staff');
+      }
+    }
+  }, [isAdmin, userPermissions, currentTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update selected subcategory option when main category changes
   useEffect(() => {

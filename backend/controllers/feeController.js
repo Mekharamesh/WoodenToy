@@ -41,16 +41,20 @@ exports.createFee = async (req, res) => {
       feeName,
       feeCategory,
       feeType,
+      flatFeeValue,
       applicationState,
       weightSlabs,
       active
     } = req.body;
+    
+    console.log("CREATE FEE BODY:", req.body);
 
     const newFee = new Fee({
       paymentMethod,
       feeName,
       feeCategory,
       feeType,
+      flatFeeValue,
       applicationState,
       weightSlabs,
       active
