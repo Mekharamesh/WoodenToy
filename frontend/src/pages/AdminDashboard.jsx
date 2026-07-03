@@ -7,7 +7,10 @@ import ProductsPage from './admin/catalog/ProductsPage';
 import StaffListPage from './admin/StaffListPage';
 import AddStaffPage from './admin/AddStaffPage';
 import RoleAssignPage from './admin/RoleAssignPage';
+import OrdersPage from './admin/OrdersPage';
 import { staffAPI } from '../api/staffService';
+import FeeListPage from './admin/fees/FeeListPage';
+import AddFeePage from './admin/fees/AddFeePage';
 
 export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [products, setProducts] = useState([]);
@@ -25,6 +28,11 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [staffMenuOpen, setStaffMenuOpen] = useState(false);
   const [catalogMenuOpen, setCatalogMenuOpen] = useState(true);
 
+  // Fee Management state
+  const [feeSubTab, setFeeSubTab] = useState('list'); // 'list' | 'add'
+  const [editingFee, setEditingFee] = useState(null);
+  const [feeMenuOpen, setFeeMenuOpen] = useState(false);
+
   // Dynamic permissions for sidebar
   const [userPermissions, setUserPermissions] = useState(null); // null = not loaded yet
 
@@ -36,6 +44,17 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
     const perm = userPermissions.find(p => p.module === moduleKey);
     return !!perm?.view;
   };
+
+  const hasPermission = (moduleKey, action) => {
+    if (isAdmin) return true;
+    if (!userPermissions) return false;
+    const perm = userPermissions.find(p => p.module === moduleKey);
+    return !!perm?.[action];
+  };
+
+  const canAccessCatalog = canView('catalog');
+  const canAccessDashboard = canView('dashboard');
+  const canAccessStaff = canView('staff_management');
 
   // Form Fields for Add/Edit Category
   const [editCategoryId, setEditCategoryId] = useState(null);
@@ -395,6 +414,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
 
           {/* Nav Links */}
           <nav className="px-4 space-y-1 mt-4">
+            {canAccessDashboard && (
             <button 
               onClick={() => setCurrentTab('dashboard')}
               className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-colors ${currentTab === 'dashboard' ? 'bg-[#E6DFD4] text-brand-dark' : 'text-brand-medium hover:bg-brand-light hover:text-brand-dark'}`}
@@ -402,55 +422,64 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
               Dashboard
             </button>
+            )}
 
             <div className="pt-2">
               <div className="pt-4 border-t border-[#E6DFD4]/50">
 
-            {/* Staff Management - only shown if user has staff_management view permission */}
+              {/* Staff Management - only shown if user has staff_management view permission */}
               {canView('staff_management') && (
-              <button
-                onClick={() => setStaffMenuOpen(o => !o)}
-                className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
-                  currentTab === 'staff' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                  Staff Management
-                </span>
-                <svg className={`w-3.5 h-3.5 transition-transform ${staffMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              )}
-              {staffMenuOpen && (
-                <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
+                <>
                   <button
-                    onClick={() => { setCurrentTab('staff'); setStaffSubTab('list'); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
-                      currentTab === 'staff' && staffSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                    onClick={() => setStaffMenuOpen(o => !o)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
+                      currentTab === 'staff' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
                     }`}
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-                    Staff List
+                    <span className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                      Staff Management
+                    </span>
+                    <svg className={`w-3.5 h-3.5 transition-transform ${staffMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </button>
-                  <button
-                    onClick={() => { setCurrentTab('staff'); setStaffSubTab('add'); setEditingStaff(null); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
-                      currentTab === 'staff' && staffSubTab === 'add' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
-                    }`}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                    Add Staff
-                  </button>
-                  <button
-                    onClick={() => { setCurrentTab('staff'); setStaffSubTab('role-assign'); setRoleAssignStaff(null); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
-                      currentTab === 'staff' && staffSubTab === 'role-assign' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
-                    }`}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                    Role Assign
-                  </button>
-                </div>
+                  {staffMenuOpen && (
+                    <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
+                      <button
+                        onClick={() => { setCurrentTab('staff'); setStaffSubTab('list'); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                          currentTab === 'staff' && staffSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                        Staff List
+                      </button>
+                      
+                      {hasPermission('staff_management', 'create') && (
+                        <button
+                          onClick={() => { setCurrentTab('staff'); setStaffSubTab('add'); setEditingStaff(null); }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                            currentTab === 'staff' && staffSubTab === 'add' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                          Add Staff
+                        </button>
+                      )}
+                      
+                      {hasPermission('staff_management', 'edit') && (
+                        <button
+                          onClick={() => { setCurrentTab('staff'); setStaffSubTab('role-assign'); setRoleAssignStaff(null); }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                            currentTab === 'staff' && staffSubTab === 'role-assign' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                          Role Assign
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Catalog Dropdown - only shown if user has catalog view permission */}
@@ -470,7 +499,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               )}
               {catalogMenuOpen && (
                 <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
-                  {canView('categories') && (
+                  {canAccessCatalog && (
                   <button
                     onClick={() => setCurrentTab('v2-categories')}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
@@ -481,7 +510,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                     Categories
                   </button>
                   )}
-                  {canView('categories') && (
+                  {canAccessCatalog && (
                   <button
                     onClick={() => setCurrentTab('v2-subcategories')}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
@@ -492,7 +521,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                     Sub Categories
                   </button>
                   )}
-                  {canView('categories') && (
+                  {canAccessCatalog && (
                   <button
                     onClick={() => setCurrentTab('v2-attributes')}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
@@ -503,7 +532,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                     Attributes
                   </button>
                   )}
-                  {canView('products') && (
+                  {canAccessCatalog && (
                   <button
                     onClick={() => setCurrentTab('v2-products')}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
@@ -517,6 +546,64 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                 </div>
               )}
               </div>{/* close pt-4 */}
+
+              {/* Orders Management */}
+              {(isAdmin || canView('orders')) && (
+                <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
+                  <button
+                    onClick={() => setCurrentTab('orders')}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
+                      currentTab === 'orders' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                      Orders
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* Fee Management */}
+              {(isAdmin || canView('fees')) && (
+                <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
+                  <button
+                    onClick={() => setFeeMenuOpen(o => !o)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
+                      currentTab === 'fees' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Fee Management
+                    </span>
+                    <svg className={`w-3.5 h-3.5 transition-transform ${feeMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {feeMenuOpen && (
+                    <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
+                      <button
+                        onClick={() => { setCurrentTab('fees'); setFeeSubTab('list'); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                          currentTab === 'fees' && feeSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                        Fee List
+                      </button>
+                      <button
+                        onClick={() => { setCurrentTab('fees'); setFeeSubTab('add'); setEditingFee(null); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                          currentTab === 'fees' && feeSubTab === 'add' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                        Add New Fee
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>{/* close pt-2 */}
           </nav>
         </div>
@@ -564,7 +651,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
         <div className="max-w-6xl mx-auto">
           
           {/* TAB 1: DASHBOARD OVERVIEW */}
-          {currentTab === 'dashboard' && (
+          {canAccessDashboard && currentTab === 'dashboard' && (
             <>
               {/* Header Row */}
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
@@ -1537,30 +1624,52 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
             </div>
           )}
 
-          {currentTab === 'v2-categories' && <CategoriesPage />}
-          {currentTab === 'v2-subcategories' && <SubCategoriesPage />}
-          {currentTab === 'v2-attributes' && <AttributesPage />}
-          {currentTab === 'v2-products' && <ProductsPage />}
+          {canAccessCatalog && currentTab === 'v2-categories' && <CategoriesPage />}
+          {canAccessCatalog && currentTab === 'v2-subcategories' && <SubCategoriesPage />}
+          {canAccessCatalog && currentTab === 'v2-attributes' && <AttributesPage />}
+          {canAccessCatalog && currentTab === 'v2-products' && <ProductsPage />}
 
           {/* ── STAFF MANAGEMENT ── */}
-          {currentTab === 'staff' && staffSubTab === 'list' && (
+          {canAccessStaff && currentTab === 'staff' && staffSubTab === 'list' && (
             <StaffListPage
+              canCreate={hasPermission('staff_management', 'create')}
+              canEdit={hasPermission('staff_management', 'edit')}
+              canDelete={hasPermission('staff_management', 'delete')}
               onAddStaff={() => { setEditingStaff(null); setStaffSubTab('add'); }}
               onEditStaff={(member) => { setEditingStaff(member); setStaffSubTab('add'); }}
               onRoleAssign={(member) => { setRoleAssignStaff(member); setStaffSubTab('role-assign'); }}
             />
           )}
-          {currentTab === 'staff' && staffSubTab === 'add' && (
+          {canAccessStaff && currentTab === 'staff' && staffSubTab === 'add' && (
             <AddStaffPage
               editingStaff={editingStaff}
               onBack={() => setStaffSubTab('list')}
               onSuccess={(staff) => { setRoleAssignStaff(staff); setStaffSubTab('role-assign'); }}
             />
           )}
-          {currentTab === 'staff' && staffSubTab === 'role-assign' && (
+          {canAccessStaff && currentTab === 'staff' && staffSubTab === 'role-assign' && (
             <RoleAssignPage
               targetStaff={roleAssignStaff}
               onBack={() => setStaffSubTab('list')}
+            />
+          )}
+
+          {/* ── ORDERS MANAGEMENT ── */}
+          {(isAdmin || canView('orders')) && currentTab === 'orders' && (
+            <OrdersPage />
+          )}
+
+          {/* ── FEE MANAGEMENT ── */}
+          {(isAdmin || canView('fees')) && currentTab === 'fees' && feeSubTab === 'list' && (
+            <FeeListPage 
+              onNavigate={(tab) => setFeeSubTab(tab)} 
+              onEditFee={(fee) => { setEditingFee(fee); setFeeSubTab('add'); }} 
+            />
+          )}
+          {(isAdmin || canView('fees')) && currentTab === 'fees' && feeSubTab === 'add' && (
+            <AddFeePage 
+              onNavigate={(tab) => setFeeSubTab(tab)} 
+              editingFee={editingFee} 
             />
           )}
 

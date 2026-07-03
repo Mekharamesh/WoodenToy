@@ -106,9 +106,38 @@ const seedAttributes = async () => {
 
     console.log('🌱 Seeding default wooden toy attributes...');
 
+    const Category = require('./models/Category');
+    const SubCategory = require('./models/SubCategory');
+    
+    let defaultCategory = await Category.findOne({ slug: 'global' });
+    if (!defaultCategory) {
+      defaultCategory = await Category.create({
+        name: 'Global',
+        slug: 'global',
+        description: 'Global Category for default attributes',
+        isActive: true,
+      });
+    }
+
+    let defaultSubCategory = await SubCategory.findOne({ slug: 'global' });
+    if (!defaultSubCategory) {
+      defaultSubCategory = await SubCategory.create({
+        name: 'Global',
+        slug: 'global',
+        category: defaultCategory._id,
+        description: 'Global SubCategory for default attributes',
+        isActive: true,
+      });
+    }
+
     for (const attrDef of DEFAULT_ATTRIBUTES) {
       const { values, ...attrData } = attrDef;
-      const attribute = await Attribute.create({ ...attrData, isActive: true });
+      const attribute = await Attribute.create({ 
+        ...attrData, 
+        isActive: true,
+        category: defaultCategory._id,
+        subCategory: defaultSubCategory._id
+      });
 
       for (let i = 0; i < values.length; i++) {
         await AttributeValue.create({

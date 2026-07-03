@@ -11,7 +11,7 @@ const Badge = ({ status }) => (
   </span>
 );
 
-export default function StaffListPage({ onAddStaff, onEditStaff, onRoleAssign }) {
+export default function StaffListPage({ onAddStaff, onEditStaff, onRoleAssign, canCreate = true, canEdit = true, canDelete = true }) {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -76,6 +76,7 @@ export default function StaffListPage({ onAddStaff, onEditStaff, onRoleAssign })
           <p className="text-xs text-gray-400 mb-1">Dashboard &rsaquo; Staff Management &rsaquo; <span className="text-[#8B5E3C] font-semibold">Staff List</span></p>
           <h1 className="text-2xl font-bold text-gray-800">Staff List</h1>
         </div>
+        {canCreate && (
         <button
           onClick={onAddStaff}
           className="flex items-center gap-2 bg-[#8B5E3C] hover:bg-[#7a5234] text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-colors"
@@ -83,6 +84,7 @@ export default function StaffListPage({ onAddStaff, onEditStaff, onRoleAssign })
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           Add Staff
         </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -157,22 +159,32 @@ export default function StaffListPage({ onAddStaff, onEditStaff, onRoleAssign })
                       <span className="bg-[#F8F4EC] text-[#8B5E3C] text-xs font-semibold px-2.5 py-1 rounded-lg border border-[#E6DFD4]">{member.role}</span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <button onClick={() => handleToggleStatus(member)} title="Toggle status">
+                      {canEdit ? (
+                        <button onClick={() => handleToggleStatus(member)} title="Toggle status">
+                          <Badge status={member.status} />
+                        </button>
+                      ) : (
                         <Badge status={member.status} />
-                      </button>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap">{new Date(member.createdAt).toLocaleDateString('en-IN')}</td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1">
+                        {canEdit && (
                         <button onClick={() => onEditStaff(member)} className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors" title="Edit">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
+                        )}
+                        {canEdit && (
                         <button onClick={() => onRoleAssign(member)} className="p-1.5 rounded-lg text-[#8B5E3C] hover:bg-[#F8F4EC] transition-colors" title="Edit Permissions">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                         </button>
+                        )}
+                        {canDelete && (
                         <button onClick={() => setDeleteId(member._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors" title="Delete">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

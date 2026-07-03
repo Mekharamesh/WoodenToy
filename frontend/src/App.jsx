@@ -8,13 +8,19 @@ import AdminDashboard from './pages/AdminDashboard';
 import { authService } from './api/authService';
 import CartOffcanvas from './components/CartOffcanvas';
 import WishlistOffcanvas from './components/WishlistOffcanvas';
+import CartPage from './pages/CartPage';
+import ReviewOrderPage from './pages/ReviewOrderPage';
+import CompleteOrderPage from './pages/CompleteOrderPage';
+import OrderSuccessPage from './pages/OrderSuccessPage';
+import OrderHistoryPage from './pages/OrderHistoryPage';
+import useCartStore from './store/useCartStore';
 
 export default function App() {
   const [view, setView] = useState(() => {
     const savedView = localStorage.getItem('currentView') || 'home';
     const savedUser = authService.getCurrentUser();
     // If the saved view requires auth but there is no user, reset to home
-    const authRequiredViews = ['admin', 'profile'];
+    const authRequiredViews = ['admin', 'profile', 'review-order', 'complete-order', 'order-success', 'order-history'];
     if (authRequiredViews.includes(savedView) && !savedUser) {
       localStorage.setItem('currentView', 'home');
       return 'home';
@@ -39,7 +45,14 @@ export default function App() {
 
   const handleAddToCart = (product) => {
     const addedQuantity = product.quantity || 1;
-    const existingItemIndex = cartItems.findIndex(item => item._id === product._id || item.id === product.id);
+    const existingItemIndex = cartItems.findIndex(item => {
+      const isSameProduct = (item._id && product._id && item._id === product._id) || 
+                            (item.id && product.id && item.id === product.id);
+      if (!isSameProduct) return false;
+      const itemVariantId = item.selectedVariant?._id || item.selectedVariant?.id;
+      const productVariantId = product.selectedVariant?._id || product.selectedVariant?.id;
+      return itemVariantId === productVariantId;
+    });
     if (existingItemIndex >= 0) {
       const newCart = [...cartItems];
       newCart[existingItemIndex].quantity += addedQuantity;
@@ -68,7 +81,14 @@ export default function App() {
   };
 
   const handleAddToWishlist = (product) => {
-    const exists = wishlistItems.some(item => item._id === product._id || item.id === product.id);
+    const exists = wishlistItems.some(item => {
+      const isSameProduct = (item._id && product._id && item._id === product._id) || 
+                            (item.id && product.id && item.id === product.id);
+      if (!isSameProduct) return false;
+      const itemVariantId = item.selectedVariant?._id || item.selectedVariant?.id;
+      const productVariantId = product.selectedVariant?._id || product.selectedVariant?.id;
+      return itemVariantId === productVariantId;
+    });
     if (!exists) {
       setWishlistItems([...wishlistItems, product]);
     }
@@ -84,6 +104,42 @@ export default function App() {
   const handleMoveToCart = (item, index) => {
     handleAddToCart(item);
     handleRemoveFromWishlist(index);
+  };
+
+  const handleCheckoutClick = () => {
+    const store = useCartStore.getState();
+    store.clearCart();
+    
+    cartItems.forEach(item => {
+      const effectivePrice = (item.selectedVariant && (item.selectedVariant.basePrice != null || item.selectedVariant.price != null))
+        ? (item.selectedVariant.basePrice ?? item.selectedVariant.price)
+        : (item.price ?? 0);
+        
+      const effectiveImages = (item.selectedVariant?.images?.length > 0)
+        ? item.selectedVariant.images
+        : (item.images?.length > 0 ? item.images : [item.image]);
+        
+      const firstImage = typeof effectiveImages[0] === 'string'
+        ? effectiveImages[0]
+        : effectiveImages[0]?.url || '/wood-placeholder.png';
+
+      const rawWeight = item.selectedVariant?.weight || item.shippingWeight || item.weight;
+      const effectiveWeight = rawWeight 
+        ? (String(rawWeight).toLowerCase().includes('g') || isNaN(rawWeight) ? String(rawWeight) : `${rawWeight} kg`) 
+        : 'Standard';
+
+      store.addToCart({
+         _id: item._id || item.id,
+         name: item.name,
+         image: firstImage,
+         price: effectivePrice,
+         weight: effectiveWeight,
+         selectedVariant: item.selectedVariant
+      }, item.quantity);
+    });
+    
+    setIsCartOpen(false);
+    handleNavigate('cart');
   };
 
   // Removed redundant load session on mount since it's now initialized in useState
@@ -162,6 +218,7 @@ export default function App() {
         cartItems={cartItems}
         onUpdateQuantity={handleUpdateQuantity}
         onRemove={handleRemoveFromCart}
+        onCheckout={handleCheckoutClick}
       />
 
       {/* Wishlist Offcanvas */}
@@ -201,6 +258,26 @@ export default function App() {
 
         {view === 'admin' && (user?.role === 'admin' || user?.isStaff) && (
           <AdminDashboard user={user} onNavigate={handleNavigate} onLogout={handleLogout} />
+        )}
+
+        {view === 'cart' && (
+          <CartPage onNavigate={handleNavigate} />
+        )}
+
+        {view === 'review-order' && user && (
+          <ReviewOrderPage onNavigate={handleNavigate} />
+        )}
+
+        {view === 'complete-order' && user && (
+          <CompleteOrderPage onNavigate={handleNavigate} />
+        )}
+
+        {view === 'order-success' && user && (
+          <OrderSuccessPage orderId={selectedProduct} onNavigate={handleNavigate} />
+        )}
+
+        {view === 'order-history' && user && (
+          <OrderHistoryPage onNavigate={handleNavigate} />
         )}
 
         {view === 'profile' && user && (

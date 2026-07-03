@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuantity, onRemove }) {
+export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuantity, onRemove, onCheckout }) {
   if (!isOpen) return null;
 
   // Helper function to get the effective price (variant price or product price)
@@ -130,6 +130,7 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
           </div>
           <button 
             disabled={cartItems.length === 0}
+            onClick={onCheckout}
             className="w-full py-3.5 bg-brand-dark hover:bg-brand-medium text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           >
             Checkout Securely

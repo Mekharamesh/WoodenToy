@@ -1,5 +1,38 @@
 const Staff = require('../models/Staff');
+const Role = require('../models/Role');
 const { PERMISSION_MODULES } = require('../models/Staff');
+
+const buildEmptyPermissions = () =>
+  PERMISSION_MODULES.map((module) => ({
+    module,
+    view: false,
+    create: false,
+    edit: false,
+    delete: false,
+  }));
+
+const normalizePermissions = (permissions = []) => {
+  const merged = new Map(buildEmptyPermissions().map((permission) => [permission.module, permission]));
+
+  (permissions || []).forEach((permission) => {
+    if (!permission?.module || !merged.has(permission.module)) return;
+
+    merged.set(permission.module, {
+      module: permission.module,
+      view: !!permission.view,
+      create: !!permission.create,
+      edit: !!permission.edit,
+      delete: !!permission.delete,
+    });
+  });
+
+  return Array.from(merged.values());
+};
+
+const getPermissionsForRole = async (roleName) => {
+  const role = await Role.findOne({ name: roleName }).lean();
+  return normalizePermissions(role?.permissions);
+};
 
 // ─── GET ALL STAFF ────────────────────────────────────────────────────────────
 const getAllStaff = async (req, res) => {
@@ -55,8 +88,7 @@ const createStaff = async (req, res) => {
     const existing = await Staff.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(400).json({ success: false, message: 'A staff member with this email already exists.' });
 
-    // Default permissions: view only for all modules
-    const defaultPermissions = PERMISSION_MODULES.map(mod => ({ module: mod, view: false, create: false, edit: false, delete: false }));
+    const defaultPermissions = await getPermissionsForRole(role);
 
     const staff = await Staff.create({
       fullName,
@@ -87,7 +119,10 @@ const updateStaff = async (req, res) => {
     if (fullName) staff.fullName = fullName;
     if (email) staff.email = email;
     if (mobile !== undefined) staff.mobile = mobile;
-    if (role) staff.role = role;
+    if (role && role !== staff.role) {
+      staff.role = role;
+      staff.permissions = await getPermissionsForRole(role);
+    }
     if (status) staff.status = status;
     if (password) {
       if (password.length < 8) return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
@@ -121,7 +156,7 @@ const updatePermissions = async (req, res) => {
     const staff = await Staff.findById(req.params.id);
     if (!staff) return res.status(404).json({ success: false, message: 'Staff not found' });
 
-    staff.permissions = permissions;
+    staff.permissions = normalizePermissions(permissions);
     await staff.save();
     const result = staff.toObject();
     delete result.password;
