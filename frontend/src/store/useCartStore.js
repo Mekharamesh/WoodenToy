@@ -27,7 +27,7 @@ const useCartStore = create(
           name: product.name,
           image: finalImage,
           price: finalPrice,
-          weight: product.selectedVariant?.weight || product.shippingWeight || product.weight || 0,
+          weight: product.selectedVariant?.weight || product.shippingWeight || product.weight || product.additionalInfo?.find(info => info.key?.toLowerCase() === 'weight')?.value || '',
           qty,
           variant: product.selectedVariant?._id || product.selectedVariant?.id || null,
           variantOptions: variantOptions || null,

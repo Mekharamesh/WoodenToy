@@ -75,6 +75,10 @@ const orderSchema = new mongoose.Schema(
       required: true,
       default: 0.0,
     },
+    fees: [{
+      name: { type: String, required: true },
+      amount: { type: Number, required: true }
+    }],
     codAdvance: {
       type: Number,
       default: 0.0,
@@ -98,6 +102,12 @@ const orderSchema = new mongoose.Schema(
     },
     deliveredAt: {
       type: Date,
+    },
+    trackingId: {
+      type: String,
+    },
+    trackingUrl: {
+      type: String,
     },
     status: {
       type: String,

@@ -6,8 +6,8 @@ export const ORDER_STATUS_OPTIONS = [
   'Placed',
   'Processing',
   'Shipping',
-  'Delivered',
   'Out for delivery',
+  'Delivered',
   'Cancelled',
 ];
 
@@ -87,6 +87,13 @@ export const orderService = {
     return withAuthRetry(
       (config) => axios.put(`${API_URL}/${id}/status`, statusData, config),
       'Failed to update order status'
+    );
+  },
+
+  updateOrderDetails: async (id, detailsData) => {
+    return withAuthRetry(
+      (config) => axios.put(`${API_URL}/${id}/details`, detailsData, config),
+      'Failed to update order details'
     );
   },
 };

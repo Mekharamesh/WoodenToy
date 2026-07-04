@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { feeAPI } from '../../../api/feeService';
+import { X, ChevronDown } from 'lucide-react';
 
 const tnDistricts = [
   "Chennai", "Coimbatore", "Cuddalore", "Dharmapuri", "Dindigul", "Erode", "Kanchipuram", "Kanyakumari", 
@@ -38,6 +39,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   const [newCatName, setNewCatName] = useState('');
   const [showPmModal, setShowPmModal] = useState(false);
   const [newPmName, setNewPmName] = useState('');
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
 
   useEffect(() => {
     loadDropdownData();
@@ -136,11 +138,11 @@ export default function AddFeePage({ onNavigate, editingFee }) {
         const max = Number(slab.maxWeight);
         const val = Number(slab.feeValue);
         
-        if (slab.minWeight === '' || isNaN(min)) slabErr.minWeight = "Numeric min weight required";
-        if (slab.maxWeight === '' || isNaN(max)) slabErr.maxWeight = "Numeric max weight required";
-        if (slab.feeValue === '' || isNaN(val)) slabErr.feeValue = "Numeric fee required";
+        if (slab.minWeight === '' || slab.minWeight === null || slab.minWeight === undefined || isNaN(min)) slabErr.minWeight = "Numeric min weight required";
+        if (slab.maxWeight === '' || slab.maxWeight === null || slab.maxWeight === undefined || isNaN(max)) slabErr.maxWeight = "Numeric max weight required";
+        if (slab.feeValue === '' || slab.feeValue === null || slab.feeValue === undefined || isNaN(val)) slabErr.feeValue = "Numeric fee required";
         
-        if (min >= max && slab.maxWeight !== '') {
+        if (min >= max && slab.maxWeight !== '' && slab.maxWeight !== null && slab.maxWeight !== undefined) {
           slabErr.maxWeight = "Max weight must be > Min weight";
         }
 
@@ -159,12 +161,15 @@ export default function AddFeePage({ onNavigate, editingFee }) {
         }
       });
 
-      if (slabErrors.length > 0) {
+      if (slabErrors.filter(err => err && Object.keys(err).length > 0).length > 0) {
         newErrors.weightSlabs = slabErrors;
       }
     }
 
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      alert("Please fix the validation errors: " + Object.keys(newErrors).join(", "));
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -172,7 +177,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
     if (!validateForm()) return;
 
     const payload = {
-      ...(paymentMethod ? { paymentMethod } : {}),
+      paymentMethod: paymentMethod || null,
       feeName,
       feeCategory,
       feeType,
@@ -234,6 +239,20 @@ export default function AddFeePage({ onNavigate, editingFee }) {
       setNewCatName('');
     } catch (error) {
       alert('Failed to add category. It may already exist.');
+    }
+  };
+
+  const handleDeleteCategory = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this category?')) return;
+    try {
+      await feeAPI.deleteFeeCategory(id);
+      setCategories(categories.filter(c => c._id !== id));
+      if (feeCategory === id) {
+        setFeeCategory('');
+      }
+    } catch (error) {
+      alert(`Failed to delete category: ${error.message || 'It may be in use.'}`);
     }
   };
 
@@ -317,19 +336,52 @@ export default function AddFeePage({ onNavigate, editingFee }) {
 
         {/* Row 2: Category & Payment Method */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
+          <div className="relative">
             <div className="flex justify-between items-center mb-2">
               <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider">Fee Category <span className="text-red-500">*</span></label>
               <button onClick={() => setShowCatModal(true)} className="text-[10px] text-brand-dark font-bold uppercase hover:underline">+ Add Category</button>
             </div>
-            <select 
-              value={feeCategory}
-              onChange={(e) => setFeeCategory(e.target.value)}
-              className="w-full border border-[#E6DFD4] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand-medium"
+            
+            <div 
+              className="w-full border border-[#E6DFD4] rounded-xl px-4 py-3 text-sm bg-white cursor-pointer flex justify-between items-center"
+              onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
             >
-              <option value="">Select Category</option>
-              {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-            </select>
+              <span className={feeCategory ? 'text-gray-900' : 'text-gray-500'}>
+                {feeCategory ? categories.find(c => c._id === feeCategory)?.name || 'Select Category' : 'Select Category'}
+              </span>
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </div>
+
+            {isCatDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setIsCatDropdownOpen(false)} />
+                <div className="absolute z-20 w-full mt-1 bg-white border border-[#E6DFD4] rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                  <div 
+                    className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm text-gray-500 border-b border-gray-100"
+                    onClick={() => { setFeeCategory(''); setIsCatDropdownOpen(false); }}
+                  >
+                    Select Category
+                  </div>
+                  {categories.map(c => (
+                    <div 
+                      key={c._id}
+                      className="px-4 py-2 hover:bg-brand-light/20 cursor-pointer text-sm text-gray-900 flex justify-between items-center group"
+                      onClick={() => { setFeeCategory(c._id); setIsCatDropdownOpen(false); }}
+                    >
+                      <span>{c.name}</span>
+                      <button 
+                        onClick={(e) => handleDeleteCategory(e, c._id)}
+                        className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                        title="Delete category"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
             {errors.feeCategory && <p className="text-red-500 text-xs mt-1">{errors.feeCategory}</p>}
           </div>
 
@@ -390,29 +442,31 @@ export default function AddFeePage({ onNavigate, editingFee }) {
 
               <div className="space-y-4">
                 {weightSlabs.map((slab, index) => (
-                  <div key={index} className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-brand-light/30 p-4 rounded-xl border border-[#E6DFD4]">
-                    <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Min Weight (kg)</label>
-                      <input type="number" value={slab.minWeight} onChange={e => handleSlabChange(index, 'minWeight', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="0" />
-                      {errors.weightSlabs?.[index]?.minWeight && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].minWeight}</p>}
+                  <div key={index} className="flex flex-col bg-brand-light/30 p-4 rounded-xl border border-[#E6DFD4]">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full">
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Min Weight (kg)</label>
+                        <input type="number" value={slab.minWeight} onChange={e => handleSlabChange(index, 'minWeight', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="0" />
+                        {errors.weightSlabs?.[index]?.minWeight && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].minWeight}</p>}
+                      </div>
+                      <span className="hidden sm:block text-gray-400 font-bold px-2 pt-4">-</span>
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Weight (kg)</label>
+                        <input type="number" value={slab.maxWeight} onChange={e => handleSlabChange(index, 'maxWeight', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="5" />
+                        {errors.weightSlabs?.[index]?.maxWeight && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].maxWeight}</p>}
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Fee {feeType === 'Fixed Amount' ? '(₹)' : '(%)'}</label>
+                        <input type="number" value={slab.feeValue} onChange={e => handleSlabChange(index, 'feeValue', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="20" />
+                        {errors.weightSlabs?.[index]?.feeValue && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].feeValue}</p>}
+                      </div>
+                      {weightSlabs.length > 1 && (
+                        <button onClick={() => handleRemoveSlab(index)} className="mt-5 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                      )}
                     </div>
-                    <span className="hidden sm:block text-gray-400 font-bold px-2 pt-4">-</span>
-                    <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Weight (kg)</label>
-                      <input type="number" value={slab.maxWeight} onChange={e => handleSlabChange(index, 'maxWeight', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="5" />
-                      {errors.weightSlabs?.[index]?.maxWeight && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].maxWeight}</p>}
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Fee {feeType === 'Fixed Amount' ? '(₹)' : '(%)'}</label>
-                      <input type="number" value={slab.feeValue} onChange={e => handleSlabChange(index, 'feeValue', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="20" />
-                      {errors.weightSlabs?.[index]?.feeValue && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].feeValue}</p>}
-                    </div>
-                    {weightSlabs.length > 1 && (
-                      <button onClick={() => handleRemoveSlab(index)} className="mt-5 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                      </button>
-                    )}
-                    {errors.weightSlabs?.[index]?.overlap && <p className="text-red-500 text-[10px] w-full mt-1 sm:hidden">{errors.weightSlabs[index].overlap}</p>}
+                    {errors.weightSlabs?.[index]?.overlap && <p className="text-red-500 text-xs w-full mt-3 font-semibold">{errors.weightSlabs[index].overlap}</p>}
                   </div>
                 ))}
               </div>

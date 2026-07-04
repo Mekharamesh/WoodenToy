@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import useCartStore from '../store/useCartStore';
 import { orderService } from '../api/orderService';
 import { authService } from '../api/authService';
-import { ArrowLeft, Plus, MapPin, Trash2, CreditCard, Banknote, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Plus, MapPin, Trash2, Edit2, CreditCard, Banknote, Loader2, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { stateDistricts } from '../utils/indiaStates';
 import { feeAPI } from '../api/feeService';
@@ -13,6 +13,7 @@ export default function CompleteOrderPage({ onNavigate }) {
 
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
+  const [editingAddressIndex, setEditingAddressIndex] = useState(null);
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [orderNotes, setOrderNotes] = useState('');
@@ -74,18 +75,41 @@ export default function CompleteOrderPage({ onNavigate }) {
     ? savedAddresses[selectedAddressIndex]?.state 
     : formData.state;
 
+  // Normalize state for fee matching: anything that isn't 'Tamil Nadu' maps to 'Other State'
+  const feeState = currentState === 'Tamil Nadu' ? 'Tamil Nadu' : (currentState ? 'Other State' : '');
+
+  // Helper: does a fee apply to the current state?
+  const isStateMatch = (fee) => {
+    const states = Array.isArray(fee.applicationState) ? fee.applicationState : [fee.applicationState];
+    return states.includes(feeState) || states.includes('Tamil Nadu') && currentState === 'Tamil Nadu' || states.includes('All');
+  };
+
+  // Helper: does a fee apply to the current payment method?
+  const isPaymentMatch = (fee) => {
+    if (!fee.paymentMethod) return true;
+    const feePmName = (fee.paymentMethod?.name || '').toLowerCase().trim();
+    // 'both' or 'Both' applies to all payment methods
+    if (feePmName === 'both') return true;
+    // COD check
+    if (paymentMethod === 'COD') {
+      return feePmName === 'cod' || feePmName === 'cash on delivery';
+    }
+    // CashFree / online payment check
+    if (paymentMethod === 'CashFree') {
+      return feePmName === 'cashfree' || feePmName === 'cashfree gateway' || feePmName === 'online payment';
+    }
+    return false;
+  };
+
   // Calculate dynamic shipping charge
   let shippingCharge = 0; // Default to 0, strictly use configured fees
-  let paymentMethodCharge = 0;
-  let paymentMethodFeeName = '';
-  if (subtotal > 0 && fees.length > 0 && currentState) {
+  let codAdvance = 0;
+  let extraChargeSum = 0;
+  let extraFeesList = [];
+  if (subtotal > 0 && fees.length > 0 && feeState) {
     const matchingFee = fees.find(fee => {
       const isWeightBase = fee.feeCategory?.name?.toLowerCase().includes('weight');
-      const isMatchingState = Array.isArray(fee.applicationState) 
-        ? fee.applicationState.includes(currentState) || fee.applicationState.includes('All')
-        : fee.applicationState === currentState || fee.applicationState === 'All';
-      const isMatchingPayment = fee.paymentMethod?.name?.toLowerCase() === paymentMethod.toLowerCase();
-      return fee.active && isWeightBase && isMatchingState && isMatchingPayment;
+      return fee.active && isWeightBase && isStateMatch(fee) && isPaymentMatch(fee);
     });
 
     if (matchingFee && matchingFee.weightSlabs && matchingFee.weightSlabs.length > 0) {
@@ -120,32 +144,40 @@ export default function CompleteOrderPage({ onNavigate }) {
       }
     }
 
-    // Find non-weight based flat fee (like COD charge)
-    const matchingFlatFee = fees.find(fee => {
+    // Find all matching non-weight based flat fees
+    const matchingFlatFees = fees.filter(fee => {
       const isWeightBase = fee.feeCategory?.name?.toLowerCase().includes('weight');
-      const isMatchingState = Array.isArray(fee.applicationState) 
-        ? fee.applicationState.includes(currentState) || fee.applicationState.includes('All')
-        : fee.applicationState === currentState || fee.applicationState === 'All';
-      const isMatchingPayment = fee.paymentMethod?.name?.toLowerCase() === paymentMethod.toLowerCase();
-      return fee.active && !isWeightBase && isMatchingState && isMatchingPayment;
+      return fee.active && !isWeightBase && isStateMatch(fee) && isPaymentMatch(fee);
     });
 
-    if (matchingFlatFee && matchingFlatFee.flatFeeValue !== undefined) {
-      paymentMethodFeeName = matchingFlatFee.feeName || 'Payment Fee';
-      if (matchingFlatFee.feeType === 'Percentage') {
-        paymentMethodCharge = Math.round(subtotal * (matchingFlatFee.flatFeeValue / 100));
+    matchingFlatFees.forEach(fee => {
+      let charge = 0;
+      if (fee.feeType === 'Percentage') {
+        charge = Math.round(subtotal * (fee.flatFeeValue / 100));
       } else {
-        paymentMethodCharge = matchingFlatFee.flatFeeValue;
+        charge = fee.flatFeeValue || 0;
       }
-    }
+
+      if (charge > 0) {
+        const feeName = (fee.feeName || '').toLowerCase();
+        const catName = (fee.feeCategory?.name || '').toLowerCase();
+        const isAdvance = feeName.includes('advance') || catName.includes('advance');
+
+        if (isAdvance && paymentMethod === 'COD') {
+          codAdvance += charge;
+        } else {
+          extraFeesList.push({ name: fee.feeName || 'Fee', amount: charge });
+          extraChargeSum += charge;
+        }
+      }
+    });
   }
 
-  const orderTotal = subtotal + shippingCharge;
-  const isCodAdvance = paymentMethod === 'COD' && paymentMethodCharge > 0;
-  const codAdvance = isCodAdvance ? paymentMethodCharge : 0;
+  const orderTotal = subtotal + shippingCharge + extraChargeSum;
+  const isCodAdvance = paymentMethod === 'COD' && codAdvance > 0;
   const balanceAmount = isCodAdvance ? (orderTotal - codAdvance) : 0; // Deduct advance from order total
 
-  const total = isCodAdvance ? orderTotal : (subtotal + shippingCharge + paymentMethodCharge);
+  const total = orderTotal;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -203,12 +235,51 @@ export default function CompleteOrderPage({ onNavigate }) {
     }
 
     const addressToSave = { ...formData, city: finalCity, state: finalState };
-    const updatedAddresses = [...savedAddresses, addressToSave];
+    let updatedAddresses;
+    if (editingAddressIndex !== null) {
+      updatedAddresses = [...savedAddresses];
+      updatedAddresses[editingAddressIndex] = addressToSave;
+    } else {
+      updatedAddresses = [...savedAddresses, addressToSave];
+    }
+    
     setSavedAddresses(updatedAddresses);
     localStorage.setItem('wooden_toys_addresses', JSON.stringify(updatedAddresses));
-    setSelectedAddressIndex(updatedAddresses.length - 1);
+    setSelectedAddressIndex(editingAddressIndex !== null ? editingAddressIndex : updatedAddresses.length - 1);
     setIsAddingAddress(false);
-    toast.success('Address saved!');
+    setEditingAddressIndex(null);
+    toast.success(editingAddressIndex !== null ? 'Address updated!' : 'Address saved!');
+  };
+
+  const handleEditAddress = (index) => {
+    const addr = savedAddresses[index];
+    setFormData({
+      fullName: addr.fullName || '',
+      address: addr.address || '',
+      city: addr.city || '',
+      state: addr.state || '',
+      customState: addr.customState || '',
+      pinCode: addr.pinCode || '',
+      phone: addr.phone || '',
+      landmark: addr.landmark || ''
+    });
+    setEditingAddressIndex(index);
+    setIsAddingAddress(true);
+  };
+
+  const handleAddNewAddress = () => {
+    setFormData({
+      fullName: currentUser?.name || '',
+      address: '',
+      city: '',
+      state: '',
+      customState: '',
+      pinCode: '',
+      phone: '',
+      landmark: ''
+    });
+    setEditingAddressIndex(null);
+    setIsAddingAddress(true);
   };
 
   const handleDeleteAddress = (index) => {
@@ -231,6 +302,15 @@ export default function CompleteOrderPage({ onNavigate }) {
 
     try {
       setLoading(true);
+      const appliedFees = [];
+      if (shippingCharge > 0) {
+        appliedFees.push({ name: 'Weight Charge', amount: shippingCharge });
+      }
+      extraFeesList.forEach(f => appliedFees.push(f));
+      if (isCodAdvance) {
+        appliedFees.push({ name: 'Advance to Pay Now', amount: codAdvance });
+      }
+
       const orderData = {
         orderItems: cartItems.map(item => ({
           name: item.variantOptions ? `${item.name} (${item.variantOptions})` : item.name,
@@ -245,10 +325,11 @@ export default function CompleteOrderPage({ onNavigate }) {
         itemsPrice: subtotal,
         taxPrice: 0,
         shippingPrice: shippingCharge,
-        totalPrice: orderTotal,
+        totalPrice: total,
         codAdvance,
         balanceAmount,
-        orderNotes
+        orderNotes,
+        fees: appliedFees
       };
 
       // Create the order in our backend first
@@ -354,16 +435,25 @@ export default function CompleteOrderPage({ onNavigate }) {
                         <p className="text-sm text-gray-600">{addr.city}, {addr.state} - {addr.pinCode}</p>
                         {addr.landmark && <p className="text-xs text-gray-500 mt-1">Landmark: {addr.landmark}</p>}
                       </div>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDeleteAddress(idx); }}
-                        className="absolute bottom-4 right-4 text-gray-400 hover:text-red-500 transition-colors"
-                        title="Delete Address"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="absolute bottom-4 right-4 flex gap-3">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleEditAddress(idx); }}
+                          className="text-gray-400 hover:text-blue-500 transition-colors"
+                          title="Edit Address"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDeleteAddress(idx); }}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          title="Delete Address"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
-                  <button onClick={() => setIsAddingAddress(true)} className="flex items-center justify-center gap-2 w-full py-3 border-2 border-dashed border-[#E6DFD4] rounded-2xl text-[#8B5E3C] font-semibold hover:border-[#8B5E3C] hover:bg-[#F8F4EC]/30 transition-all">
+                  <button onClick={handleAddNewAddress} className="flex items-center justify-center gap-2 w-full py-3 border-2 border-dashed border-[#E6DFD4] rounded-2xl text-[#8B5E3C] font-semibold hover:border-[#8B5E3C] hover:bg-[#F8F4EC]/30 transition-all">
                     <Plus className="w-5 h-5" /> Add New Address
                   </button>
                 </div>
@@ -442,9 +532,13 @@ export default function CompleteOrderPage({ onNavigate }) {
                   </div>
                   <div className="pt-2 flex gap-3">
                     {savedAddresses.length > 0 && (
-                      <button type="button" onClick={() => setIsAddingAddress(false)} className="px-6 py-2.5 rounded-xl font-semibold border border-[#E6DFD4] text-gray-600 hover:bg-gray-50">Cancel</button>
+                      <button type="button" onClick={() => { setIsAddingAddress(false); setEditingAddressIndex(null); }} className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                      Cancel
+                    </button>
                     )}
-                    <button type="submit" className="px-6 py-2.5 rounded-xl font-bold bg-[#8B5E3C] text-white hover:bg-[#7a5234] flex-1">Save & Use This Address</button>
+                    <button type="submit" className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#8B5E3C] font-semibold text-white hover:bg-[#7A5234] transition-colors">
+                      {editingAddressIndex !== null ? 'Update Address' : 'Save Address'}
+                    </button>
                   </div>
                 </form>
               )}
@@ -538,16 +632,22 @@ export default function CompleteOrderPage({ onNavigate }) {
                   <span>Weight Charge ({totalWeight} kg)</span>
                   <span className="text-gray-900 font-medium">₹{shippingCharge.toLocaleString()}</span>
                 </div>
+                {extraFeesList.map((fee, idx) => (
+                  <div key={idx} className="flex justify-between text-gray-600">
+                    <span>{fee.name}</span>
+                    <span className="text-gray-900 font-medium">₹{fee.amount.toLocaleString()}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-[#E6DFD4]/50">
                   <span>Order Total</span>
-                  <span>₹{orderTotal.toLocaleString()}</span>
+                  <span>₹{total.toLocaleString()}</span>
                 </div>
               </div>
 
               {isCodAdvance ? (
                 <>
                   <div className="flex justify-between text-[#8B5E3C] font-bold mb-2">
-                    <span>Advance to Pay Now ({paymentMethodFeeName})</span>
+                    <span>Advance to Pay Now</span>
                     <span>₹{codAdvance.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-gray-600 mb-6 font-medium">
@@ -561,12 +661,7 @@ export default function CompleteOrderPage({ onNavigate }) {
                 </>
               ) : (
                 <>
-                  {paymentMethodCharge > 0 && (
-                    <div className="flex justify-between text-gray-600 text-sm mb-4">
-                      <span>{paymentMethodFeeName}</span>
-                      <span className="text-gray-900 font-medium">₹{paymentMethodCharge.toLocaleString()}</span>
-                    </div>
-                  )}
+
                   <div className="flex justify-between items-end mb-8">
                     <span className="text-lg font-bold text-gray-900">Total To Pay</span>
                     <span className="text-3xl font-black text-[#8B5E3C]">₹{total.toLocaleString()}</span>

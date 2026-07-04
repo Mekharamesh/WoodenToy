@@ -123,6 +123,7 @@ export default function OrderHistoryPage({ onNavigate }) {
                         <div>
                           <h4 className="font-bold text-gray-800 line-clamp-2">{item.name}</h4>
                           <p className="text-sm text-gray-500 mt-1">Qty: <span className="font-semibold text-gray-700">{item.qty}</span></p>
+                          {(item.weight && item.weight !== '0' && item.weight !== 0) ? <p className="text-sm text-gray-500 mt-0.5">Weight: <span className="font-semibold text-gray-700">{item.weight}</span></p> : null}
                         </div>
                         <div className="font-bold text-gray-900 mt-auto sm:mt-0">
                           ₹{item.price.toLocaleString()}

@@ -124,6 +124,28 @@ const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    const STATUS_WEIGHTS = {
+      'Pending': 0,
+      'Placed': 1,
+      'Processing': 2,
+      'Shipping': 3,
+      'Shipped': 4,
+      'Out for delivery': 5,
+      'Delivered': 6,
+      'Cancelled': 99
+    };
+
+    const currentWeight = STATUS_WEIGHTS[order.status] || 0;
+    const newWeight = STATUS_WEIGHTS[status] || 0;
+
+    if (status === 'Cancelled' && order.status === 'Delivered') {
+      return res.status(400).json({ message: 'Cannot cancel a delivered order' });
+    }
+
+    if (status !== 'Cancelled' && newWeight < currentWeight) {
+      return res.status(400).json({ message: 'Cannot move order status backwards' });
+    }
+
     order.status = status;
 
     if (status === 'Delivered') {
@@ -201,6 +223,70 @@ const getOrders = async (req, res) => {
   }
 };
 
+// @desc    Update order details
+// @route   PUT /api/orders/:id/details
+// @access  Private/Admin
+const updateOrderDetails = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const { shippingAddress, status, isPaid, paymentMethod, trackingId, trackingUrl } = req.body;
+
+    if (shippingAddress) {
+      order.shippingAddress = shippingAddress;
+    }
+    
+    if (trackingId !== undefined) {
+      order.trackingId = trackingId;
+    }
+    if (trackingUrl !== undefined) {
+      order.trackingUrl = trackingUrl;
+    }
+
+    if (status && status !== order.status) {
+      const STATUS_WEIGHTS = {
+        'Pending': 0, 'Placed': 1, 'Processing': 2, 'Shipping': 3,
+        'Shipped': 4, 'Out for delivery': 5, 'Delivered': 6, 'Cancelled': 99
+      };
+      
+      const currentWeight = STATUS_WEIGHTS[order.status] || 0;
+      const newWeight = STATUS_WEIGHTS[status] || 0;
+      
+      if (status !== 'Cancelled' && newWeight < currentWeight) {
+        return res.status(400).json({ message: 'Cannot move order status backwards' });
+      }
+      if (order.status === 'Delivered' && status === 'Cancelled') {
+        return res.status(400).json({ message: 'Cannot cancel a delivered order' });
+      }
+      
+      order.status = status;
+      if (status === 'Delivered' && !order.isDelivered) {
+        order.isDelivered = true;
+        order.deliveredAt = Date.now();
+      }
+    }
+    
+    if (isPaid !== undefined) {
+      order.isPaid = isPaid;
+      if (isPaid && !order.paidAt) {
+        order.paidAt = Date.now();
+      }
+    }
+
+    if (paymentMethod) {
+      order.paymentMethod = paymentMethod;
+    }
+
+    const updatedOrder = await order.save();
+    res.json(updatedOrder);
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server Error' });
+  }
+};
+
 module.exports = {
   addOrderItems,
   getOrderById,
@@ -209,6 +295,7 @@ module.exports = {
   updateOrderToDelivered,
   getMyOrders,
   getOrders,
+  updateOrderDetails,
 };
 
 

@@ -8,6 +8,7 @@ const {
   updateOrderToDelivered,
   getMyOrders,
   getOrders,
+  updateOrderDetails,
 } = require('../controllers/orderController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -18,6 +19,8 @@ router.route('/')
 router.route('/myorders').get(protect, getMyOrders);
 
 router.route('/:id').get(protect, getOrderById);
+
+router.route('/:id/details').put(protect, authorize('admin', 'manager', 'staff'), updateOrderDetails);
 
 router.route('/:id/pay').put(protect, updateOrderToPaid);
 

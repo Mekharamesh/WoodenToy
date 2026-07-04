@@ -117,11 +117,22 @@ exports.createFeeCategory = async (req, res) => {
       return res.status(400).json({ message: 'Fee category already exists' });
     }
 
-    const newCategory = new FeeCategory({ name, isActive });
-    const saved = await newCategory.save();
-    res.status(201).json(saved);
+    const newCat = await FeeCategory.create({ name, isActive: isActive !== false });
+    res.status(201).json(newCat);
   } catch (error) {
     res.status(500).json({ message: 'Server error creating fee category', error: error.message });
+  }
+};
+
+exports.deleteFeeCategory = async (req, res) => {
+  try {
+    const deletedCat = await FeeCategory.findByIdAndDelete(req.params.id);
+    if (!deletedCat) return res.status(404).json({ message: 'Category not found' });
+    // Also consider removing this category from fees or preventing deletion if fees exist
+    // For simplicity, we just delete it here.
+    res.status(200).json({ message: 'Category deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error deleting fee category', error: error.message });
   }
 };
 

@@ -25,5 +25,15 @@ export const ADMIN_MODULES = [
     label: 'Catalog',
     icon: '🗂️',
   },
+  {
+    key: 'orders',
+    label: 'Orders Management',
+    icon: '📦',
+  },
+  {
+    key: 'fees',
+    label: 'Fee Management',
+    icon: '💰',
+  },
 ];
 

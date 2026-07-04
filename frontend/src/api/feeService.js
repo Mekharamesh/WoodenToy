@@ -54,6 +54,7 @@ export const feeAPI = {
     // Categories
     getFeeCategories: () => request(`${FEES_URL}/categories`),
     createFeeCategory: (data) => request(`${FEES_URL}/categories`, { method: 'POST', body: JSON.stringify(data) }),
+    deleteFeeCategory: (id) => request(`${FEES_URL}/categories/${id}`, { method: 'DELETE' }),
 
     // Payment Methods
     getPaymentMethods: () => request(`${FEES_URL}/payment-methods`),

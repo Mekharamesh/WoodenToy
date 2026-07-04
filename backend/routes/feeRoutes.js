@@ -10,6 +10,9 @@ router.route('/categories')
   .get(feeController.getFeeCategories)
   .post(feeController.createFeeCategory);
 
+router.route('/categories/:id')
+  .delete(feeController.deleteFeeCategory);
+
 // Payment Methods
 router.route('/payment-methods')
   .get(feeController.getPaymentMethods)
