@@ -10,6 +10,38 @@ const generateRefreshToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' }); // 7 days
 };
 
+const serializeUser = (user) => ({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    phone: user.phone || '',
+    dateOfBirth: user.dateOfBirth || null,
+    gender: user.gender || '',
+    profileImage: user.profileImage || '',
+    addresses: user.addresses || [],
+    preferences: user.preferences || { preferredAgeGroup: 'All Ages', emailNotifications: true },
+    loyalty: user.loyalty || { points: 0, tier: 'Premium Member' },
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+});
+
+const normalizeAddresses = (addresses = []) => {
+    if (!Array.isArray(addresses)) return [];
+
+    return addresses.map((address, index) => ({
+        label: address.label || 'Home',
+        fullName: address.fullName || '',
+        phone: address.phone || '',
+        address: address.address || '',
+        city: address.city || '',
+        state: address.state || '',
+        pinCode: address.pinCode || '',
+        landmark: address.landmark || '',
+        isDefault: Boolean(address.isDefault || index === 0),
+    }));
+};
+
 // @desc    Register a new user
 // @route   POST /api/auth/register
 // @access  Public
@@ -149,4 +181,64 @@ const forgotPassword = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, refreshToken, forgotPassword };
+// @desc    Get logged-in customer profile
+// @route   GET /api/auth/profile
+// @access  Private
+const getProfile = async (req, res) => {
+    try {
+        res.json({
+            message: 'Profile data accessible by any logged-in user',
+            user: serializeUser(req.user),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || 'Failed to fetch profile' });
+    }
+};
+
+// @desc    Update logged-in customer profile
+// @route   PUT /api/auth/profile
+// @access  Private
+const updateProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const {
+            name,
+            phone,
+            dateOfBirth,
+            gender,
+            profileImage,
+            addresses,
+            preferences,
+        } = req.body || {};
+
+        if (name !== undefined) user.name = String(name).trim();
+        if (phone !== undefined) user.phone = String(phone).trim();
+        if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : undefined;
+        if (gender !== undefined) user.gender = gender || '';
+        if (profileImage !== undefined) user.profileImage = String(profileImage).trim();
+        if (addresses !== undefined) user.addresses = normalizeAddresses(addresses);
+        if (preferences !== undefined) {
+            user.preferences = {
+                preferredAgeGroup: preferences.preferredAgeGroup || user.preferences?.preferredAgeGroup || 'All Ages',
+                emailNotifications: preferences.emailNotifications !== undefined
+                    ? Boolean(preferences.emailNotifications)
+                    : user.preferences?.emailNotifications !== false,
+            };
+        }
+
+        const updatedUser = await user.save();
+
+        res.json({
+            message: 'Profile updated successfully',
+            user: serializeUser(updatedUser),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || 'Failed to update profile' });
+    }
+};
+
+module.exports = { registerUser, loginUser, refreshToken, forgotPassword, getProfile, updateProfile };

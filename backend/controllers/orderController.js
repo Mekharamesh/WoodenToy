@@ -1,4 +1,6 @@
 const Order = require('../models/Order');
+const Fee = require('../models/Fee');
+const { calculateOrderFees } = require('../utils/feeCalculator');
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -11,28 +13,49 @@ const addOrderItems = async (req, res) => {
       paymentMethod,
       itemsPrice,
       taxPrice,
-      shippingPrice,
-      totalPrice,
-      codAdvance,
-      balanceAmount,
-      orderNotes
+      orderNotes,
+      fees
     } = req.body;
 
     if (orderItems && orderItems.length === 0) {
       return res.status(400).json({ message: 'No order items' });
     } else {
+      const configuredFees = await Fee.find({ active: true })
+        .populate('feeCategory', 'name')
+        .populate('paymentMethod', 'name')
+        .lean();
+
+      const subtotal = Number(itemsPrice) || orderItems.reduce((sum, item) => (
+        sum + ((Number(item.price) || 0) * (Number(item.qty) || 0))
+      ), 0);
+
+      const feeSummary = calculateOrderFees({
+        fees: configuredFees,
+        subtotal,
+        items: orderItems,
+        state: shippingAddress?.state,
+        paymentMethod,
+      });
+
+      const extraChargeSum = feeSummary.extraFeesList.reduce((sum, fee) => sum + fee.amount, 0);
+      const calculatedTotalPrice = subtotal + feeSummary.shippingCharge + extraChargeSum;
+      const calculatedBalanceAmount = paymentMethod === 'COD' && feeSummary.codAdvance > 0
+        ? calculatedTotalPrice - feeSummary.codAdvance
+        : 0;
+
       const order = new Order({
         orderItems,
         user: req.user._id,
         shippingAddress,
         paymentMethod,
-        itemsPrice,
+        itemsPrice: subtotal,
         taxPrice,
-        shippingPrice,
-        totalPrice,
-        codAdvance,
-        balanceAmount,
-        orderNotes
+        shippingPrice: feeSummary.shippingCharge,
+        totalPrice: calculatedTotalPrice,
+        codAdvance: feeSummary.codAdvance,
+        balanceAmount: calculatedBalanceAmount,
+        orderNotes,
+        fees: feeSummary.appliedFees.length > 0 ? feeSummary.appliedFees : (Array.isArray(fees) ? fees : [])
       });
 
       const createdOrder = await order.save();

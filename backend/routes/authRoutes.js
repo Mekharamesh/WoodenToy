@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, refreshToken, forgotPassword } = require('../controllers/authController');
+const { registerUser, loginUser, refreshToken, forgotPassword, getProfile, updateProfile } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 router.post('/register', registerUser);
@@ -8,10 +8,7 @@ router.post('/login', loginUser);
 router.post('/refresh', refreshToken);
 router.post('/forgotpassword', forgotPassword);
 
-// Example of a protected route requiring authentication
-router.get('/profile', protect, (req, res) => {
-    res.json({ message: 'Profile data accessible by any logged-in user', user: req.user });
-});
+router.route('/profile').get(protect, getProfile).put(protect, updateProfile);
 
 // Example of an admin-only route
 router.get('/admin', protect, authorize('admin'), (req, res) => {

@@ -3,18 +3,29 @@ import { feeAPI } from '../../../api/feeService';
 import { X, ChevronDown } from 'lucide-react';
 
 const tnDistricts = [
-  "Chennai", "Coimbatore", "Cuddalore", "Dharmapuri", "Dindigul", "Erode", "Kanchipuram", "Kanyakumari", 
-  "Karur", "Krishnagiri", "Madurai", "Nagapattinam", "Namakkal", "Nilgiris", "Perambalur", "Pudukkottai", 
-  "Ramanathapuram", "Salem", "Sivaganga", "Thanjavur", "Theni", "Thoothukudi (Tuticorin)", "Tiruchirappalli", 
+  "Chennai", "Coimbatore", "Cuddalore", "Dharmapuri", "Dindigul", "Erode", "Kanchipuram", "Kanyakumari",
+  "Karur", "Krishnagiri", "Madurai", "Nagapattinam", "Namakkal", "Nilgiris", "Perambalur", "Pudukkottai",
+  "Ramanathapuram", "Salem", "Sivaganga", "Thanjavur", "Theni", "Thoothukudi (Tuticorin)", "Tiruchirappalli",
   "Tirunelveli", "Tiruppur", "Tiruvallur", "Tiruvannamalai", "Tiruvarur", "Vellore", "Viluppuram", "Virudhunagar"
 ];
 
 const allStates = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", 
-  "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", 
-  "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", 
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
+  "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+  "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
   "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
 ];
+
+const normalizeCategoryName = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const isWeightCategory = (category) => normalizeCategoryName(category?.name).includes('weight');
+const normalizeSlab = (slab, index) => ({
+  ...slab,
+  minWeight: slab.minWeight ?? '',
+  maxWeight: slab.maxWeight ?? '',
+  charge: slab.charge ?? slab.feeValue ?? '',
+  status: slab.status !== false,
+  displayOrder: slab.displayOrder ?? index,
+});
 
 export default function AddFeePage({ onNavigate, editingFee }) {
   const [categories, setCategories] = useState([]);
@@ -28,7 +39,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   const [feeType, setFeeType] = useState('Fixed Amount');
   const [flatFeeValue, setFlatFeeValue] = useState('');
   const [applicationState, setApplicationState] = useState([]);
-  const [weightSlabs, setWeightSlabs] = useState([{ minWeight: '', maxWeight: '', feeValue: '' }]);
+  const [weightSlabs, setWeightSlabs] = useState([{ minWeight: '', maxWeight: '', charge: '', status: true }]);
   const [active, setActive] = useState(true);
 
   // Error States
@@ -50,38 +61,10 @@ export default function AddFeePage({ onNavigate, editingFee }) {
       setFeeType(editingFee.feeType || 'Fixed Amount');
       setFlatFeeValue(editingFee.flatFeeValue || '');
       setApplicationState(Array.isArray(editingFee.applicationState) ? editingFee.applicationState : (editingFee.applicationState ? [editingFee.applicationState] : []));
-      setWeightSlabs(editingFee.weightSlabs?.length > 0 ? editingFee.weightSlabs : [{ minWeight: '', maxWeight: '', feeValue: '' }]);
+      setWeightSlabs(editingFee.weightSlabs?.length > 0 ? editingFee.weightSlabs.map(normalizeSlab) : [{ minWeight: '', maxWeight: '', charge: '', status: true }]);
       setActive(editingFee.active !== false);
     }
   }, [editingFee]);
-
-  // Set default dynamic slabs or recalculate existing slabs based on application state
-  useEffect(() => {
-    if (editingFee) return; // Do not override if editing an existing fee
-
-    setWeightSlabs(prev => {
-      // If no slabs or just 1 empty slab, set default
-      if (prev.length === 0 || (prev.length === 1 && prev[0].minWeight === '' && prev[0].maxWeight === '')) {
-         let stateToCheck = Array.isArray(applicationState) ? applicationState[0] : applicationState;
-         if (stateToCheck === 'Tamil Nadu') return [{ minWeight: 0, maxWeight: 1, feeValue: 50 }];
-         if (stateToCheck === 'Other State') return [{ minWeight: 0, maxWeight: 1, feeValue: 100 }];
-         return [{ minWeight: '', maxWeight: '', feeValue: '' }];
-      }
-
-      // Otherwise, recalculate existing slabs
-      return prev.map(slab => {
-        const maxNum = parseFloat(slab.maxWeight);
-        if (isNaN(maxNum) || maxNum <= 0) return slab;
-        
-        let newFee = slab.feeValue;
-        let stateToCheck = Array.isArray(applicationState) ? applicationState[0] : applicationState;
-        if (stateToCheck === 'Tamil Nadu') newFee = Math.ceil(maxNum) * 50;
-        else if (stateToCheck === 'Other State') newFee = Math.ceil(maxNum) * 100;
-        
-        return { ...slab, feeValue: newFee };
-      });
-    });
-  }, [applicationState, editingFee]);
 
   const loadDropdownData = async () => {
     try {
@@ -99,7 +82,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   };
 
   const selectedCategoryObj = categories.find(c => c._id === feeCategory);
-  const isWeightBased = selectedCategoryObj?.name?.toLowerCase().includes('weight base');
+  const isWeightBased = isWeightCategory(selectedCategoryObj);
 
   const validateForm = () => {
     const newErrors = {};
@@ -111,17 +94,17 @@ export default function AddFeePage({ onNavigate, editingFee }) {
     } else if (!/^[a-zA-Z0-9\s]+$/.test(feeName)) {
       newErrors.feeName = "Only letters, numbers, and spaces allowed";
     }
-    
+
     if (!feeCategory) newErrors.feeCategory = "Fee category is required";
     if (!feeType) newErrors.feeType = "Fee type is required";
     if (!applicationState || applicationState.length === 0) newErrors.applicationState = "Application state is required";
 
     // Tamil Nadu special validation (example)
     if (Array.isArray(applicationState) && applicationState.some(state => tnDistricts.includes(state))) {
-       // Just as an example, enforcing strict format or extra check for TN
-       if (applicationState.includes("Chennai") && feeName.toLowerCase().includes("outstation")) {
-          newErrors.applicationState = "Outstation fees cannot apply to Chennai";
-       }
+      // Just as an example, enforcing strict format or extra check for TN
+      if (applicationState.includes("Chennai") && feeName.toLowerCase().includes("outstation")) {
+        newErrors.applicationState = "Outstation fees cannot apply to Chennai";
+      }
     }
 
     if (!isWeightBased) {
@@ -136,12 +119,12 @@ export default function AddFeePage({ onNavigate, editingFee }) {
         const slabErr = {};
         const min = Number(slab.minWeight);
         const max = Number(slab.maxWeight);
-        const val = Number(slab.feeValue);
-        
+        const val = Number(slab.charge ?? slab.feeValue);
+
         if (slab.minWeight === '' || slab.minWeight === null || slab.minWeight === undefined || isNaN(min)) slabErr.minWeight = "Numeric min weight required";
         if (slab.maxWeight === '' || slab.maxWeight === null || slab.maxWeight === undefined || isNaN(max)) slabErr.maxWeight = "Numeric max weight required";
-        if (slab.feeValue === '' || slab.feeValue === null || slab.feeValue === undefined || isNaN(val)) slabErr.feeValue = "Numeric fee required";
-        
+        if ((slab.charge ?? slab.feeValue) === '' || (slab.charge ?? slab.feeValue) === null || (slab.charge ?? slab.feeValue) === undefined || isNaN(val)) slabErr.charge = "Numeric charge required";
+
         if (min >= max && slab.maxWeight !== '' && slab.maxWeight !== null && slab.maxWeight !== undefined) {
           slabErr.maxWeight = "Max weight must be > Min weight";
         }
@@ -150,9 +133,9 @@ export default function AddFeePage({ onNavigate, editingFee }) {
         for (let i = 0; i < index; i++) {
           const pMin = Number(weightSlabs[i].minWeight);
           const pMax = Number(weightSlabs[i].maxWeight);
-          if (min < pMax && max > pMin) {
-             slabErr.overlap = "Weight range overlaps with another slab";
-             break;
+          if (min <= pMax && max >= pMin) {
+            slabErr.overlap = "Weight range overlaps with another slab";
+            break;
           }
         }
 
@@ -183,7 +166,14 @@ export default function AddFeePage({ onNavigate, editingFee }) {
       feeType,
       applicationState,
       flatFeeValue: isWeightBased ? undefined : Number(flatFeeValue),
-      weightSlabs: isWeightBased ? weightSlabs : [],
+      weightSlabs: isWeightBased ? weightSlabs.map((slab, index) => ({
+        minWeight: Number(slab.minWeight),
+        maxWeight: Number(slab.maxWeight),
+        charge: Number(slab.charge ?? slab.feeValue),
+        feeValue: Number(slab.charge ?? slab.feeValue),
+        status: slab.status !== false,
+        displayOrder: index,
+      })) : [],
       active
     };
 
@@ -202,7 +192,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   };
 
   const handleAddSlab = () => {
-    setWeightSlabs([...weightSlabs, { minWeight: '', maxWeight: '', feeValue: '' }]);
+    setWeightSlabs([...weightSlabs, { minWeight: '', maxWeight: '', charge: '', status: true }]);
   };
 
   const handleRemoveSlab = (index) => {
@@ -212,20 +202,14 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   const handleSlabChange = (index, field, value) => {
     const newSlabs = [...weightSlabs];
     newSlabs[index][field] = value;
-    
-    // Dynamic Fee Value calculation
-    if (field === 'maxWeight') {
-       const maxNum = parseFloat(value);
-       if (!isNaN(maxNum) && maxNum > 0) {
-          let stateToCheck = Array.isArray(applicationState) ? applicationState[0] : applicationState;
-          if (stateToCheck === 'Tamil Nadu') {
-             newSlabs[index].feeValue = Math.ceil(maxNum) * 50;
-          } else if (stateToCheck === 'Other State') {
-             newSlabs[index].feeValue = Math.ceil(maxNum) * 100;
-          }
-       }
-    }
+    setWeightSlabs(newSlabs);
+  };
 
+  const handleMoveSlab = (index, direction) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= weightSlabs.length) return;
+    const newSlabs = [...weightSlabs];
+    [newSlabs[index], newSlabs[targetIndex]] = [newSlabs[targetIndex], newSlabs[index]];
     setWeightSlabs(newSlabs);
   };
 
@@ -278,7 +262,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
           <h2 className="text-2xl font-bold text-brand-dark font-serif">{editingFee ? 'Edit Fee' : 'Add New Fee'}</h2>
           <p className="text-sm text-brand-medium">Configure fee parameters and rules</p>
         </div>
-        <button 
+        <button
           onClick={() => onNavigate('list')}
           className="bg-white border border-[#E6DFD4] text-brand-dark hover:bg-gray-50 text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl transition-colors shadow-sm"
         >
@@ -287,13 +271,13 @@ export default function AddFeePage({ onNavigate, editingFee }) {
       </div>
 
       <div className="bg-white border border-[#E6DFD4] rounded-2xl shadow-sm p-6 space-y-6">
-        
+
         {/* Row 1: Fee Name & State */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider mb-2">Fee Name <span className="text-red-500">*</span></label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={feeName}
               onChange={(e) => setFeeName(e.target.value)}
               placeholder="e.g. Delivery Fee"
@@ -306,8 +290,8 @@ export default function AddFeePage({ onNavigate, editingFee }) {
             <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider mb-2">Application State <span className="text-red-500">*</span></label>
             <div className="flex items-center gap-6 mt-3">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={applicationState.includes('Tamil Nadu')}
                   onChange={(e) => {
                     if (e.target.checked) setApplicationState([...applicationState, 'Tamil Nadu']);
@@ -318,8 +302,8 @@ export default function AddFeePage({ onNavigate, editingFee }) {
                 <span className="text-sm font-medium text-brand-dark">Tamil Nadu</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={applicationState.includes('Other State')}
                   onChange={(e) => {
                     if (e.target.checked) setApplicationState([...applicationState, 'Other State']);
@@ -341,8 +325,8 @@ export default function AddFeePage({ onNavigate, editingFee }) {
               <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider">Fee Category <span className="text-red-500">*</span></label>
               <button onClick={() => setShowCatModal(true)} className="text-[10px] text-brand-dark font-bold uppercase hover:underline">+ Add Category</button>
             </div>
-            
-            <div 
+
+            <div
               className="w-full border border-[#E6DFD4] rounded-xl px-4 py-3 text-sm bg-white cursor-pointer flex justify-between items-center"
               onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
             >
@@ -356,20 +340,20 @@ export default function AddFeePage({ onNavigate, editingFee }) {
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setIsCatDropdownOpen(false)} />
                 <div className="absolute z-20 w-full mt-1 bg-white border border-[#E6DFD4] rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                  <div 
+                  <div
                     className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm text-gray-500 border-b border-gray-100"
                     onClick={() => { setFeeCategory(''); setIsCatDropdownOpen(false); }}
                   >
                     Select Category
                   </div>
                   {categories.map(c => (
-                    <div 
+                    <div
                       key={c._id}
                       className="px-4 py-2 hover:bg-brand-light/20 cursor-pointer text-sm text-gray-900 flex justify-between items-center group"
                       onClick={() => { setFeeCategory(c._id); setIsCatDropdownOpen(false); }}
                     >
                       <span>{c.name}</span>
-                      <button 
+                      <button
                         onClick={(e) => handleDeleteCategory(e, c._id)}
                         className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
                         title="Delete category"
@@ -389,7 +373,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
             <div className="flex justify-between items-center mb-2">
               <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider">Payment Method (Optional)</label>
             </div>
-            <select 
+            <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full border border-[#E6DFD4] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand-medium"
@@ -405,7 +389,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider mb-2">Fee Type <span className="text-red-500">*</span></label>
-            <select 
+            <select
               value={feeType}
               onChange={(e) => setFeeType(e.target.value)}
               className="w-full border border-[#E6DFD4] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand-medium"
@@ -418,8 +402,8 @@ export default function AddFeePage({ onNavigate, editingFee }) {
 
           <div className="flex items-center pt-8">
             <label className="flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={active}
                 onChange={(e) => setActive(e.target.checked)}
                 className="w-5 h-5 rounded border-gray-300 text-brand-dark focus:ring-brand-dark"
@@ -437,7 +421,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
             <div>
               <div className="flex justify-between items-center mb-4">
                 <label className="block text-sm font-bold text-brand-dark uppercase tracking-wider">Weight-Based Fee Configuration</label>
-                <button onClick={handleAddSlab} className="text-xs text-brand-dark font-bold uppercase border border-brand-dark px-3 py-1.5 rounded-lg hover:bg-gray-50">+ Add Slab</button>
+                <button type="button" onClick={handleAddSlab} className="text-xs text-brand-dark font-bold uppercase border border-brand-dark px-3 py-1.5 rounded-lg hover:bg-gray-50">+ Add Slab</button>
               </div>
 
               <div className="space-y-4">
@@ -446,22 +430,32 @@ export default function AddFeePage({ onNavigate, editingFee }) {
                     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full">
                       <div className="flex-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Min Weight (kg)</label>
-                        <input type="number" value={slab.minWeight} onChange={e => handleSlabChange(index, 'minWeight', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="0" />
+                        <input type="number" step="0.0001" min="0" value={slab.minWeight} onChange={e => handleSlabChange(index, 'minWeight', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="0.0001" />
                         {errors.weightSlabs?.[index]?.minWeight && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].minWeight}</p>}
                       </div>
                       <span className="hidden sm:block text-gray-400 font-bold px-2 pt-4">-</span>
                       <div className="flex-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Max Weight (kg)</label>
-                        <input type="number" value={slab.maxWeight} onChange={e => handleSlabChange(index, 'maxWeight', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="5" />
+                        <input type="number" step="0.0001" min="0" value={slab.maxWeight} onChange={e => handleSlabChange(index, 'maxWeight', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="1.0000" />
                         {errors.weightSlabs?.[index]?.maxWeight && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].maxWeight}</p>}
                       </div>
                       <div className="flex-1">
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Fee {feeType === 'Fixed Amount' ? '(₹)' : '(%)'}</label>
-                        <input type="number" value={slab.feeValue} onChange={e => handleSlabChange(index, 'feeValue', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="20" />
-                        {errors.weightSlabs?.[index]?.feeValue && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].feeValue}</p>}
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Charge {feeType === 'Fixed Amount' ? '(₹)' : '(%)'}</label>
+                        <input type="number" step="0.01" min="0" value={slab.charge ?? slab.feeValue ?? ''} onChange={e => handleSlabChange(index, 'charge', e.target.value)} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" placeholder="200" />
+                        {errors.weightSlabs?.[index]?.charge && <p className="text-red-500 text-[10px] mt-1">{errors.weightSlabs[index].charge}</p>}
+                      </div>
+                      <div className="flex flex-col gap-2 pt-5">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                          <input type="checkbox" checked={slab.status !== false} onChange={e => handleSlabChange(index, 'status', e.target.checked)} />
+                          Active
+                        </label>
+                        <div className="flex gap-1">
+                          <button type="button" onClick={() => handleMoveSlab(index, -1)} disabled={index === 0} className="px-2 py-1 border border-[#E6DFD4] rounded text-xs disabled:opacity-40">Up</button>
+                          <button type="button" onClick={() => handleMoveSlab(index, 1)} disabled={index === weightSlabs.length - 1} className="px-2 py-1 border border-[#E6DFD4] rounded text-xs disabled:opacity-40">Down</button>
+                        </div>
                       </div>
                       {weightSlabs.length > 1 && (
-                        <button onClick={() => handleRemoveSlab(index)} className="mt-5 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                        <button type="button" onClick={() => handleRemoveSlab(index)} className="mt-5 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                       )}
@@ -479,8 +473,8 @@ export default function AddFeePage({ onNavigate, editingFee }) {
             <hr className="border-[#E6DFD4]" />
             <div>
               <label className="block text-xs font-bold text-brand-dark uppercase tracking-wider mb-2">Fee Value ({feeType === 'Fixed Amount' ? '₹' : '%'}) <span className="text-red-500">*</span></label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={flatFeeValue}
                 onChange={(e) => setFlatFeeValue(e.target.value)}
                 placeholder="e.g. 50"

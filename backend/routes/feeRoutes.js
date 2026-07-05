@@ -23,6 +23,16 @@ router.route('/')
   .get(feeController.getFees)
   .post(feeController.createFee);
 
+router.route('/:feeId/weight-slabs')
+  .post(feeController.createWeightSlab);
+
+router.route('/:feeId/weight-slabs/reorder')
+  .put(feeController.reorderWeightSlabs);
+
+router.route('/:feeId/weight-slabs/:slabId')
+  .put(feeController.updateWeightSlab)
+  .delete(feeController.deleteWeightSlab);
+
 router.route('/:id')
   .get(feeController.getFeeById)
   .put(feeController.updateFee)

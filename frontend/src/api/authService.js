@@ -132,6 +132,43 @@ export const authService = {
     }
   },
 
+  // Update current user profile (protected)
+  updateProfile: async (profileData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(profileData),
+      });
+
+      const data = await response.json();
+      if (response.status === 401) {
+        const refreshed = await authService.refreshSession();
+        if (refreshed) {
+          return authService.updateProfile(profileData);
+        }
+        authService.logout();
+        throw new Error('Session expired, please log in again.');
+      }
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+
+      if (data.user) {
+        authService.updateStoredUser(data.user);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Update Profile API Error:', error);
+      throw error;
+    }
+  },
+
   // Refresh access token using refresh token
   refreshSession: async () => {
     const refreshToken = localStorage.getItem('refreshToken');
@@ -163,6 +200,20 @@ export const authService = {
     localStorage.setItem('token', token);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));
+  },
+
+  updateStoredUser: (updates) => {
+    const currentUser = authService.getCurrentUser() || {};
+    const nextUser = {
+      ...currentUser,
+      id: updates._id || updates.id || currentUser.id,
+      name: updates.name ?? currentUser.name,
+      email: updates.email ?? currentUser.email,
+      role: updates.role ?? currentUser.role,
+      isStaff: updates.isStaff ?? currentUser.isStaff,
+    };
+    localStorage.setItem('user', JSON.stringify(nextUser));
+    return nextUser;
   },
 
   // Clear user session from localStorage

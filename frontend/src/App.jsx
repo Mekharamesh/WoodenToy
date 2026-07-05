@@ -16,6 +16,7 @@ import OrderHistoryPage from './pages/OrderHistoryPage';
 import useCartStore from './store/useCartStore';
 import { Toaster } from 'react-hot-toast';
 import CashfreeCallbackPage from './pages/CashfreeCallbackPage';
+import CustomerProfilePage from './pages/CustomerProfilePage';
 
 export default function App() {
   const [view, setView] = useState(() => {
@@ -44,12 +45,13 @@ export default function App() {
   const [profileLoading, setProfileLoading] = useState(false);
 
   // Cart state from store
-  const { cartItems, addToCart, updateQuantity, removeFromCart, clearCart } = useCartStore();
+  const { cartItems, addToCart, updateQuantity, removeFromCart, hydrateCartFromBackend } = useCartStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Wishlist state
+  // Wishlist and Saved state
   const [wishlistItems, setWishlistItems] = useState([]);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+  const [savedItems, setSavedItems] = useState([]);
 
   const handleAddToCart = (product) => {
     const addedQuantity = product.quantity || 1;
@@ -64,16 +66,16 @@ export default function App() {
     if (!item) return;
     const newQuantity = item.qty + delta;
     if (newQuantity > 0) {
-      updateQuantity(item.product, newQuantity);
+      updateQuantity(item.product, newQuantity, item.variant);
     } else {
-      removeFromCart(item.product);
+      removeFromCart(item.product, item.variant);
     }
   };
 
   const handleRemoveFromCart = (index) => {
     const item = cartItems[index];
     if (item) {
-      removeFromCart(item.product);
+      removeFromCart(item.product, item.variant);
     }
   };
 
@@ -164,6 +166,27 @@ export default function App() {
         });
     }
   }, [view, user]);
+
+  useEffect(() => {
+    if (user) {
+      hydrateCartFromBackend();
+    }
+  }, [user, hydrateCartFromBackend]);
+
+  const handleProfileUpdated = (updatedUser) => {
+    setUser((current) => ({
+      ...current,
+      id: updatedUser._id || updatedUser.id || current?.id,
+      name: updatedUser.name || current?.name,
+      email: updatedUser.email || current?.email,
+      role: updatedUser.role || current?.role,
+      isStaff: updatedUser.isStaff ?? current?.isStaff,
+    }));
+    setProfileData((current) => ({
+      ...(current || {}),
+      user: updatedUser,
+    }));
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-brand-beige/10">
@@ -264,77 +287,19 @@ export default function App() {
         )}
 
         {view === 'profile' && user && (
-          <section className="py-20 max-w-xl mx-auto px-6">
-            <div className="bg-white border border-brand-medium/20 rounded-3xl p-8 shadow-2xl space-y-6 text-left relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-2.5 bg-brand-dark"></div>
-              
-              <h2 className="font-serif text-3xl font-bold text-brand-dark">User Account</h2>
-              <div className="w-12 h-1 bg-brand-medium rounded-full"></div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-brand-medium/20 border border-brand-medium text-brand-dark text-xl font-bold rounded-full flex items-center justify-center">
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="font-serif text-xl font-bold text-brand-dark">{user.name}</h3>
-                    <span className="inline-block px-2.5 py-0.5 text-xs font-bold bg-brand-green/35 text-brand-dark rounded-full capitalize">
-                      {user.role} Account
-                    </span>
-                  </div>
-                </div>
-
-                <div className="border-t border-brand-medium/10 pt-4 space-y-2.5 text-sm text-brand-dark">
-                  <p><strong>Email Address:</strong> {user.email}</p>
-                  <p><strong>Account ID:</strong> {user.id}</p>
-                </div>
-
-                {/* API Request Token Verification container */}
-                <div className="bg-brand-beige border border-brand-medium/20 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase text-brand-medium tracking-wider">ðŸ”’ Protected Backend Profile</h4>
-                    <span className="text-[10px] bg-brand-dark text-brand-beige px-2 py-0.5 rounded font-mono">Bearer Token</span>
-                  </div>
-
-                  {profileLoading && (
-                    <p className="text-xs text-gray-500 italic">Querying `/api/auth/profile` with JWT auth headers...</p>
-                  )}
-
-                  {profileError && (
-                    <div className="bg-red-50 border border-red-100 text-red-700 text-xs p-3 rounded-lg text-left">
-                      <p className="font-bold">Authorization Failure</p>
-                      <p>{profileError}</p>
-                    </div>
-                  )}
-
-                  {profileData && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-green-700 font-bold">âœ”ï¸ Access Authorized! Response:</p>
-                      <pre className="bg-white/70 border border-brand-medium/10 p-2.5 rounded text-[10px] font-mono overflow-x-auto text-brand-dark max-h-32">
-                        {JSON.stringify(profileData, null, 2)}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex space-x-3 pt-2">
-                <button
-                  onClick={() => handleNavigate('home')}
-                  className="bg-brand-light hover:bg-brand-medium/20 text-brand-dark font-bold text-xs px-5 py-2.5 rounded-xl border border-brand-medium/20 cursor-pointer"
-                >
-                  Return Home
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer"
-                >
-                  Sign Out
-                </button>
-              </div>
-
-            </div>
-          </section>
+          <CustomerProfilePage
+            user={user}
+            profileData={profileData}
+            profileLoading={profileLoading}
+            profileError={profileError}
+            onNavigate={handleNavigate}
+            onLogout={handleLogout}
+            onProfileUpdated={handleProfileUpdated}
+            wishlistItems={wishlistItems}
+            onRemoveFromWishlist={handleRemoveFromWishlist}
+            onMoveToCart={handleMoveToCart}
+            savedItems={savedItems}
+          />
         )}
 
       </main>
@@ -347,5 +312,3 @@ export default function App() {
     </div>
   );
 }
-
-

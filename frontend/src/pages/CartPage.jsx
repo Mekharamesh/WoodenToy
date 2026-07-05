@@ -5,9 +5,9 @@ import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag } from 'lucide-react';
 export default function CartPage({ onNavigate }) {
   const { cartItems, removeFromCart, updateQuantity, getSubtotal } = useCartStore();
 
-  const handleQtyChange = (productId, newQty) => {
+  const handleQtyChange = (productId, newQty, variant = null) => {
     if (newQty >= 1 && newQty <= 10) {
-      updateQuantity(productId, newQty);
+      updateQuantity(productId, newQty, variant);
     }
   };
 
@@ -56,7 +56,7 @@ export default function CartPage({ onNavigate }) {
           {/* Cart Items */}
           <div className="divide-y divide-[#E6DFD4]">
             {cartItems.map((item) => (
-              <div key={item.product} className="p-6 flex flex-col md:grid md:grid-cols-12 gap-6 items-center">
+              <div key={`${item.product}-${item.variant || 'default'}`} className="p-6 flex flex-col md:grid md:grid-cols-12 gap-6 items-center">
                 
                 {/* Product Info */}
                 <div className="col-span-6 flex items-center gap-4 w-full">
@@ -84,7 +84,7 @@ export default function CartPage({ onNavigate }) {
                 <div className="col-span-3 flex justify-center w-full md:w-auto mt-4 md:mt-0">
                   <div className="flex items-center bg-[#F8F4EC] rounded-xl p-1 border border-[#E6DFD4]/50">
                     <button
-                      onClick={() => handleQtyChange(item.product, item.qty - 1)}
+                      onClick={() => handleQtyChange(item.product, item.qty - 1, item.variant)}
                       className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-gray-600 hover:text-[#8B5E3C] shadow-sm disabled:opacity-50 transition-colors"
                       disabled={item.qty <= 1}
                     >
@@ -92,7 +92,7 @@ export default function CartPage({ onNavigate }) {
                     </button>
                     <span className="w-10 text-center font-bold text-gray-800">{item.qty}</span>
                     <button
-                      onClick={() => handleQtyChange(item.product, item.qty + 1)}
+                      onClick={() => handleQtyChange(item.product, item.qty + 1, item.variant)}
                       className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-gray-600 hover:text-[#8B5E3C] shadow-sm disabled:opacity-50 transition-colors"
                       disabled={item.qty >= 10}
                     >
@@ -109,7 +109,7 @@ export default function CartPage({ onNavigate }) {
                 {/* Remove */}
                 <div className="col-span-1 text-right flex justify-end w-full md:w-auto absolute md:relative top-6 md:top-auto right-6 md:right-auto">
                   <button
-                    onClick={() => removeFromCart(item.product)}
+                    onClick={() => removeFromCart(item.product, item.variant)}
                     className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                     title="Remove item"
                   >

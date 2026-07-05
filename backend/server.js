@@ -10,6 +10,7 @@ const catalogV2Routes = require('./routes/catalogV2Routes');
 const staffRoutes = require('./routes/staffRoutes');
 const roleRoutes = require('./routes/roleRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const cartRoutes = require('./routes/cartRoutes');
 const feeRoutes = require('./routes/feeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const seedAttributes = require('./seedAttributes');
@@ -44,6 +45,7 @@ app.use('/api/v2/catalog', catalogV2Routes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/cart', cartRoutes);
 app.use('/api/fees', feeRoutes);
 app.use('/api/payment', paymentRoutes);
 

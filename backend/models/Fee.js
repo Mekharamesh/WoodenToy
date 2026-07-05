@@ -49,7 +49,19 @@ const feeSchema = new mongoose.Schema(
         },
         feeValue: {
           type: Number,
-          required: true,
+          required: false,
+        },
+        charge: {
+          type: Number,
+          required: false,
+        },
+        status: {
+          type: Boolean,
+          default: true,
+        },
+        displayOrder: {
+          type: Number,
+          default: 0,
         },
       },
     ],
@@ -62,5 +74,22 @@ const feeSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+feeSchema.pre('validate', function syncWeightSlabCharge(next) {
+  if (Array.isArray(this.weightSlabs)) {
+    this.weightSlabs.forEach((slab, index) => {
+      if (slab.charge === undefined || slab.charge === null) {
+        slab.charge = slab.feeValue;
+      }
+      if (slab.feeValue === undefined || slab.feeValue === null) {
+        slab.feeValue = slab.charge;
+      }
+      if (slab.displayOrder === undefined || slab.displayOrder === null) {
+        slab.displayOrder = index;
+      }
+    });
+  }
+  next();
+});
 
 module.exports = mongoose.model('Fee', feeSchema);

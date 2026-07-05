@@ -3,6 +3,12 @@ import { Layers, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from './CommonComponents';
 import ImageUploader from './ImageUploader';
 
+const formatWeightInput = (value) => {
+    if (value === '' || value === null || value === undefined) return '';
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric.toFixed(4) : value;
+};
+
 export const VariantManagement = ({
     variants = [],
     onChange,
@@ -85,7 +91,7 @@ export const VariantManagement = ({
                 discountPrice: 0,
                 costPrice: baseCostPrice || 0,
                 inventory: 0,
-                weight: baseWeight || 0,
+                weight: formatWeightInput(baseWeight || 0),
                 length: 0,
                 width: 0,
                 height: 0,
@@ -259,7 +265,7 @@ export const VariantManagement = ({
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Discount Price</span><input type="number" value={variant.discountPrice || ''} onChange={e => handleFieldChange(idx, 'discountPrice', e.target.value)} className="p-2 border rounded text-sm"/></div>
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Cost Price</span><input type="number" value={variant.costPrice || ''} onChange={e => handleFieldChange(idx, 'costPrice', e.target.value)} className="p-2 border rounded text-sm"/></div>
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Barcode</span><input type="text" value={variant.barcode || ''} onChange={e => handleFieldChange(idx, 'barcode', e.target.value)} className="p-2 border rounded text-sm"/></div>
-                                                                <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Weight (kg)</span><input type="number" value={variant.weight || ''} onChange={e => handleFieldChange(idx, 'weight', e.target.value)} className="p-2 border rounded text-sm"/></div>
+                                                                <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Weight (kg)</span><input type="number" step="0.0001" min="0" value={variant.weight || ''} onChange={e => handleFieldChange(idx, 'weight', e.target.value)} onBlur={e => handleFieldChange(idx, 'weight', formatWeightInput(e.target.value))} className="p-2 border rounded text-sm"/></div>
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Length (cm)</span><input type="number" value={variant.length || ''} onChange={e => handleFieldChange(idx, 'length', e.target.value)} className="p-2 border rounded text-sm"/></div>
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Width (cm)</span><input type="number" value={variant.width || ''} onChange={e => handleFieldChange(idx, 'width', e.target.value)} className="p-2 border rounded text-sm"/></div>
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Height (cm)</span><input type="number" value={variant.height || ''} onChange={e => handleFieldChange(idx, 'height', e.target.value)} className="p-2 border rounded text-sm"/></div>
@@ -338,7 +344,7 @@ export const VariantManagement = ({
                                         </div>
                                         <div className="flex flex-col gap-1">
                                             <label className="text-xs text-gray-500">Weight (kg)</label>
-                                            <input type="number" value={variant.weight || ''} onChange={e => handleFieldChange(idx, 'weight', e.target.value)} className="p-2 border rounded text-sm focus:ring-1 focus:ring-amber-500 focus:outline-none"/>
+                                            <input type="number" step="0.0001" min="0" value={variant.weight || ''} onChange={e => handleFieldChange(idx, 'weight', e.target.value)} onBlur={e => handleFieldChange(idx, 'weight', formatWeightInput(e.target.value))} className="p-2 border rounded text-sm focus:ring-1 focus:ring-amber-500 focus:outline-none"/>
                                         </div>
                                     </div>
                                 </div>

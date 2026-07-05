@@ -1,10 +1,50 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { cartService } from '../api/cartService';
+
+const itemMatches = (item, productId, variant = undefined) => (
+  item.product === productId && (variant === undefined || String(item.variant || '') === String(variant || ''))
+);
+
+const syncCart = async (items) => {
+  if (!localStorage.getItem('token')) return;
+  try {
+    await cartService.replaceCart(items);
+  } catch (error) {
+    console.error('Cart sync failed:', error);
+  }
+};
 
 const useCartStore = create(
   persist(
     (set, get) => ({
       cartItems: [],
+      isCartHydrated: false,
+
+      hydrateCartFromBackend: async () => {
+        if (!localStorage.getItem('token')) {
+          set({ isCartHydrated: true });
+          return;
+        }
+
+        try {
+          const backendCart = await cartService.getCart();
+          const backendItems = backendCart.items || [];
+          const localItems = get().cartItems || [];
+
+          if (backendItems.length > 0) {
+            set({ cartItems: backendItems, isCartHydrated: true });
+          } else {
+            set({ isCartHydrated: true });
+            if (localItems.length > 0) {
+              await syncCart(localItems);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load backend cart:', error);
+          set({ isCartHydrated: true });
+        }
+      },
 
       // Add item to cart
       addToCart: (product, qty = 1) => {
@@ -39,40 +79,54 @@ const useCartStore = create(
           );
 
           if (existItem) {
+            const cartItems = state.cartItems.map((x) =>
+              x.product === existItem.product && x.variant === existItem.variant 
+                ? { ...item, qty: x.qty + qty } 
+                : x
+            );
+            syncCart(cartItems);
             return {
-              cartItems: state.cartItems.map((x) =>
-                x.product === existItem.product && x.variant === existItem.variant 
-                  ? { ...item, qty: x.qty + qty } 
-                  : x
-              ),
+              cartItems,
             };
           } else {
+            const cartItems = [...state.cartItems, item];
+            syncCart(cartItems);
             return {
-              cartItems: [...state.cartItems, item],
+              cartItems,
             };
           }
         });
       },
 
       // Remove item from cart
-      removeFromCart: (productId) => {
-        set((state) => ({
-          cartItems: state.cartItems.filter((x) => x.product !== productId),
-        }));
+      removeFromCart: (productId, variant = undefined) => {
+        set((state) => {
+          const cartItems = state.cartItems.filter((x) => !itemMatches(x, productId, variant));
+          syncCart(cartItems);
+          return { cartItems };
+        });
       },
 
       // Update quantity of specific item
-      updateQuantity: (productId, qty) => {
-        set((state) => ({
-          cartItems: state.cartItems.map((x) =>
-            x.product === productId ? { ...x, qty: Number(qty) } : x
-          ),
-        }));
+      updateQuantity: (productId, qty, variant = undefined) => {
+        set((state) => {
+          const cartItems = state.cartItems.map((x) =>
+            itemMatches(x, productId, variant) ? { ...x, qty: Number(qty) } : x
+          );
+          syncCart(cartItems);
+          return { cartItems };
+        });
       },
 
       // Clear all items
       clearCart: () => {
         set({ cartItems: [] });
+        syncCart([]);
+      },
+
+      setCartItems: (items = []) => {
+        set({ cartItems: items });
+        syncCart(items);
       },
 
       // Calculations

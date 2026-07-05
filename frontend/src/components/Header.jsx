@@ -1,7 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ChevronDown, Heart, Search, ShoppingCart, User } from 'lucide-react';
 import { catalogService } from '../api/catalogService';
 
-export default function Header({ user, onLogout, onNavigate, cartCount, onOpenCart, wishlistCount, onOpenWishlist }) {
+export default function Header({
+  user,
+  onLogout,
+  onNavigate,
+  cartCount,
+  onOpenCart,
+  wishlistCount,
+  onOpenWishlist,
+}) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [categories, setCategories] = useState([]);
   const [activeMenu, setActiveMenu] = useState(null);
@@ -10,149 +19,55 @@ export default function Header({ user, onLogout, onNavigate, cartCount, onOpenCa
     const fetchCategories = async () => {
       try {
         const cats = await catalogService.getCategories();
-        setCategories(cats.filter(c => c.isActive && !c.isDeleted));
+        setCategories(cats.filter((category) => category.isActive && !category.isDeleted));
       } catch (err) {
-        console.error("Failed to load categories for navbar", err);
+        console.error('Failed to load categories for navbar', err);
       }
     };
+
     fetchCategories();
   }, []);
 
-  const mainCategories = categories.filter(c => !c.parentCategory);
-  
-  const getSubCategories = (parentId) => {
-    return categories.filter(c => 
-      c.parentCategory === parentId || 
-      (c.parentCategory && c.parentCategory._id === parentId)
+  const mainCategories = categories.filter((category) => !category.parentCategory);
+
+  const getSubCategories = (parentId) =>
+    categories.filter(
+      (category) =>
+        category.parentCategory === parentId ||
+        (category.parentCategory && category.parentCategory._id === parentId),
     );
-  };
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm font-sans">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* ── Top Row: Search | Logo | Icons ── */}
-        <div className="flex items-center justify-between h-20 border-b border-gray-50">
-          
-          {/* Left: Search */}
-          <div className="flex items-center flex-1">
-            <button className="text-gray-500 hover:text-brand-dark transition-colors p-2 cursor-pointer">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-            </button>
-          </div>
+    <header className="sticky top-0 z-50 border-b border-[#E9DED3] bg-white/95 shadow-[0_6px_28px_rgba(62,39,35,0.06)] backdrop-blur font-sans">
+      <div className="mx-auto flex min-h-[88px] max-w-[1500px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
+        <button
+          type="button"
+          onClick={() => onNavigate('home')}
+          className="shrink-0 font-serif text-3xl font-bold tracking-tight text-[#5A2F1F] sm:text-4xl"
+        >
+          WoodenToys
+        </button>
 
-          {/* Center: Logo / Website Name */}
-          <button
-            onClick={() => onNavigate('home')}
-            className="flex-shrink-0 font-serif text-3xl font-bold tracking-tight text-brand-dark cursor-pointer text-center"
-          >
-            WoodenToys
-          </button>
-
-          {/* Right: Auth, Wishlist, Cart */}
-          <div className="flex items-center justify-end space-x-6 flex-1">
-            
-            {/* Auth / Profile */}
-            <div className="relative">
-              <button
-                onClick={() => user ? setDropdownOpen(!dropdownOpen) : onNavigate('login')}
-                className="text-gray-500 hover:text-brand-dark transition-colors p-2 cursor-pointer"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-              </button>
-
-              {/* Profile Dropdown */}
-              {dropdownOpen && user && (
-                <div className="absolute right-0 mt-3 w-48 bg-white shadow-lg border border-gray-100 py-1 z-50">
-                  <div className="px-4 py-2 border-b border-gray-50">
-                    <p className="text-xs font-bold text-brand-dark">{user.name}</p>
-                    <p className="text-[10px] text-brand-medium truncate">{user.email}</p>
-                  </div>
-                  {user.role === 'admin' && (
-                    <button 
-                      onClick={() => { onNavigate('admin'); setDropdownOpen(false); }}
-                      className="w-full text-left px-4 py-2 text-xs text-brand-dark hover:bg-gray-50 transition-colors"
-                    >
-                      Admin Dashboard
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { onNavigate('profile'); setDropdownOpen(false); }}
-                    className="w-full text-left px-4 py-2 text-xs text-brand-dark hover:bg-gray-50 transition-colors"
-                  >
-                    My Profile
-                  </button>
-                  <button
-                    onClick={() => { onLogout(); setDropdownOpen(false); }}
-                    className="w-full text-left px-4 py-2 text-xs text-red-500 hover:bg-gray-50 transition-colors"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Wishlist */}
-            <button 
-              onClick={onOpenWishlist}
-              className="relative text-gray-500 hover:text-brand-dark transition-colors p-2 cursor-pointer flex items-center"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              {wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 text-[9px] font-bold bg-brand-dark text-white rounded-full flex items-center justify-center">
-                  {wishlistCount}
-                </span>
-              )}
-            </button>
-
-            {/* Cart */}
-            <button 
-              onClick={onOpenCart}
-              className="relative text-gray-500 hover:text-brand-dark transition-colors p-2 cursor-pointer flex items-center"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
-              </svg>
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 text-[9px] font-bold bg-brand-dark text-white rounded-full flex items-center justify-center">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-
-          </div>
-        </div>
-
-        {/* ── Bottom Row: Navigation Links ── */}
-        <nav className="hidden md:flex items-center justify-center space-x-10 h-14 relative">
-          
-          <button onClick={() => onNavigate('home')} className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors">
+        <nav className="hidden flex-1 items-center justify-center gap-6 xl:flex">
+          <button type="button" onClick={() => onNavigate('home')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
             Home
           </button>
-          
-          <button className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors">
+          <button type="button" className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
             All Products
           </button>
-          
-          <div 
-            className="relative h-full flex items-center"
+
+          <div
+            className="relative flex min-h-[88px] items-center"
             onMouseEnter={() => setActiveMenu('byAge')}
             onMouseLeave={() => setActiveMenu(null)}
           >
-            <button className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors flex items-center gap-1 cursor-default">
-              By Age
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7" /></svg>
+            <button type="button" className="flex items-center gap-1 text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+              By Age <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
             </button>
             {activeMenu === 'byAge' && (
-              <div className="absolute top-full left-0 w-48 bg-white shadow-xl border border-gray-100 py-2 z-50">
-                {['0-6 Months', '6-12 Months', '1-2 Years', '2-3 Years', '3+ Years'].map(age => (
-                  <button key={age} className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-brand-dark transition-colors">
+              <div className="absolute left-0 top-full w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl">
+                {['0-6 Months', '6-12 Months', '1-2 Years', '2-3 Years', '3+ Years'].map((age) => (
+                  <button key={age} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                     {age}
                   </button>
                 ))}
@@ -160,35 +75,31 @@ export default function Header({ user, onLogout, onNavigate, cartCount, onOpenCa
             )}
           </div>
 
-          <div 
-            className="relative h-full flex items-center"
+          <div
+            className="relative flex min-h-[88px] items-center"
             onMouseEnter={() => setActiveMenu('byCategory')}
             onMouseLeave={() => setActiveMenu(null)}
           >
-            <button className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors flex items-center gap-1 cursor-default">
-              By Category
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7" /></svg>
+            <button type="button" className="flex items-center gap-1 text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+              By Category <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
             </button>
             {activeMenu === 'byCategory' && (
-              <div className="absolute top-full left-0 w-64 bg-white shadow-xl border border-gray-100 py-2 z-50">
+              <div className="absolute left-0 top-full w-64 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl">
                 {mainCategories.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-gray-400">Loading categories...</div>
+                  <div className="px-4 py-3 text-sm text-[#8B827C]">Loading categories...</div>
                 ) : (
-                  mainCategories.map(mainCat => {
+                  mainCategories.map((mainCat) => {
                     const subs = getSubCategories(mainCat._id);
                     return (
                       <div key={mainCat._id} className="group relative">
-                        <button className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-brand-dark transition-colors">
+                        <button type="button" className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                           {mainCat.name}
-                          {subs.length > 0 && (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7" /></svg>
-                          )}
+                          {subs.length > 0 && <ChevronDown className="-rotate-90 h-4 w-4" strokeWidth={1.8} />}
                         </button>
-                        {/* Nested Dropdown for Subcategories */}
                         {subs.length > 0 && (
-                          <div className="absolute top-0 left-full ml-0 w-48 bg-white shadow-xl border border-gray-100 py-2 hidden group-hover:block z-50">
-                            {subs.map(subCat => (
-                              <button key={subCat._id} className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-brand-dark transition-colors">
+                          <div className="absolute left-full top-0 hidden w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl group-hover:block">
+                            {subs.map((subCat) => (
+                              <button key={subCat._id} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                                 {subCat.name}
                               </button>
                             ))}
@@ -202,47 +113,98 @@ export default function Header({ user, onLogout, onNavigate, cartCount, onOpenCa
             )}
           </div>
 
-          <div 
-            className="relative h-full flex items-center"
-            onMouseEnter={() => setActiveMenu('buyInBulk')}
-            onMouseLeave={() => setActiveMenu(null)}
-          >
-            <button className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors flex items-center gap-1 cursor-default">
-              Buy In Bulk
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7" /></svg>
+          <button type="button" className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+            Gift Kit & Card
+          </button>
+          <button type="button" className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+            Loyalty Rewards
+          </button>
+        </nav>
+
+        <div className="flex shrink-0 items-center gap-5">
+          <label className="hidden w-[220px] items-center gap-2 rounded-[10px] border border-[#E6D9CE] bg-[#FAF4EF] px-3 py-2 text-[#8B5E3C] shadow-inner focus-within:bg-white focus-within:ring-1 focus-within:ring-[#9A6031] lg:flex">
+            <Search className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+            <input
+              type="search"
+              placeholder="Search toys..."
+              className="w-full bg-transparent text-sm text-[#2E2E2E] outline-none placeholder:text-[#7C7370]"
+            />
+          </label>
+
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => (user ? setDropdownOpen((open) => !open) : onNavigate('login'))}
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-[#EFE6DD] bg-white text-[#A7632E] shadow-sm transition hover:border-[#D9B382] hover:bg-[#FAF4EF]"
+              aria-label="Account"
+            >
+              <User className="h-6 w-6" strokeWidth={1.8} />
             </button>
-            {activeMenu === 'buyInBulk' && (
-              <div className="absolute top-full left-0 w-48 bg-white shadow-xl border border-gray-100 py-2 z-50">
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-brand-dark transition-colors">Wholesale Inquiry</button>
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-brand-dark transition-colors">Corporate Gifting</button>
+
+            {dropdownOpen && user && (
+              <div className="absolute right-0 z-50 mt-3 w-56 overflow-hidden rounded-[12px] border border-[#E9DED3] bg-white shadow-xl">
+                <div className="border-b border-[#EFE6DD] px-4 py-3">
+                  <p className="truncate text-sm font-bold text-[#2E2E2E]">{user.name}</p>
+                  <p className="truncate text-xs text-[#7C7370]">{user.email}</p>
+                </div>
+                {user.role === 'admin' && (
+                  <button type="button" onClick={() => { onNavigate('admin'); setDropdownOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF]">
+                    Admin Dashboard
+                  </button>
+                )}
+                <button type="button" onClick={() => { onNavigate('profile'); setDropdownOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF]">
+                  My Profile
+                </button>
+                <button type="button" onClick={() => { onLogout(); setDropdownOpen(false); }} className="block w-full px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50">
+                  Sign Out
+                </button>
               </div>
             )}
           </div>
 
-          <button className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors">
-            Gift Kit & Card
-          </button>
-          
-          <button className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors">
-            Loyalty Rewards
-          </button>
-          
-          <button className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors">
-            Blog
-          </button>
-          
-          <button className="text-sm font-medium text-gray-600 hover:text-brand-dark transition-colors">
-            Contact Us
+          <button
+            type="button"
+            onClick={onOpenWishlist}
+            className="relative flex h-12 w-12 items-center justify-center rounded-full text-[#201A17] transition hover:bg-[#FAF4EF]"
+            aria-label="Wishlist"
+          >
+            <Heart className="h-6 w-6" strokeWidth={1.9} />
+            {wishlistCount > 0 && (
+              <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#8B5E3C] px-1 text-[10px] font-bold text-white">
+                {wishlistCount}
+              </span>
+            )}
           </button>
 
-        </nav>
-
+          <button
+            type="button"
+            onClick={onOpenCart}
+            className="relative flex h-12 w-12 items-center justify-center rounded-full text-[#201A17] transition hover:bg-[#FAF4EF]"
+            aria-label="Cart"
+          >
+            <ShoppingCart className="h-6 w-6" strokeWidth={1.9} />
+            {cartCount > 0 && (
+              <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#8B5E3C] px-1 text-[10px] font-bold text-white">
+                {cartCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+      </div>
+      <div className="border-t border-[#F1E8E0] px-4 py-3 lg:hidden">
+        <label className="mx-auto flex max-w-xl items-center gap-3 rounded-[10px] border border-[#E6D9CE] bg-white px-4 py-3 text-[#8B5E3C]">
+          <Search className="h-5 w-5" strokeWidth={1.8} />
+          <input
+            type="search"
+            placeholder="Search for toys, gift sets & more..."
+            className="w-full bg-transparent text-sm text-[#2E2E2E] outline-none placeholder:text-[#7C7370]"
+          />
+        </label>
       </div>
 
-      {/* Overlay to close profile dropdown on outside click */}
-      {dropdownOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-      )}
+      {dropdownOpen && <button type="button" aria-label="Close account menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setDropdownOpen(false)} />}
     </header>
   );
 }

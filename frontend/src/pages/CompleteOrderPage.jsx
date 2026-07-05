@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { stateDistricts } from '../utils/indiaStates';
 import { feeAPI } from '../api/feeService';
 import { createCashfreeSession } from '../api/cashfreeService';
+import { calculateOrderFees } from '../utils/feeCalculator';
 
 export default function CompleteOrderPage({ onNavigate }) {
   const { cartItems, getSubtotal, clearCart } = useCartStore();
@@ -62,116 +63,19 @@ export default function CompleteOrderPage({ onNavigate }) {
 
   const subtotal = getSubtotal();
   
-  // Calculate total weight (in kg)
-  const totalWeight = cartItems.reduce((acc, item) => {
-    let w = parseFloat(item.weight) || 0;
-    if (typeof item.weight === 'string' && item.weight.toLowerCase().includes('g') && !item.weight.toLowerCase().includes('kg')) {
-      w = w / 1000;
-    }
-    return acc + (w * item.qty);
-  }, 0);
-
   const currentState = savedAddresses.length > 0 && !isAddingAddress 
     ? savedAddresses[selectedAddressIndex]?.state 
     : formData.state;
 
-  // Normalize state for fee matching: anything that isn't 'Tamil Nadu' maps to 'Other State'
-  const feeState = currentState === 'Tamil Nadu' ? 'Tamil Nadu' : (currentState ? 'Other State' : '');
-
-  // Helper: does a fee apply to the current state?
-  const isStateMatch = (fee) => {
-    const states = Array.isArray(fee.applicationState) ? fee.applicationState : [fee.applicationState];
-    return states.includes(feeState) || states.includes('Tamil Nadu') && currentState === 'Tamil Nadu' || states.includes('All');
-  };
-
-  // Helper: does a fee apply to the current payment method?
-  const isPaymentMatch = (fee) => {
-    if (!fee.paymentMethod) return true;
-    const feePmName = (fee.paymentMethod?.name || '').toLowerCase().trim();
-    // 'both' or 'Both' applies to all payment methods
-    if (feePmName === 'both') return true;
-    // COD check
-    if (paymentMethod === 'COD') {
-      return feePmName === 'cod' || feePmName === 'cash on delivery';
-    }
-    // CashFree / online payment check
-    if (paymentMethod === 'CashFree') {
-      return feePmName === 'cashfree' || feePmName === 'cashfree gateway' || feePmName === 'online payment';
-    }
-    return false;
-  };
-
-  // Calculate dynamic shipping charge
-  let shippingCharge = 0; // Default to 0, strictly use configured fees
-  let codAdvance = 0;
-  let extraChargeSum = 0;
-  let extraFeesList = [];
-  if (subtotal > 0 && fees.length > 0 && feeState) {
-    const matchingFee = fees.find(fee => {
-      const isWeightBase = fee.feeCategory?.name?.toLowerCase().includes('weight');
-      return fee.active && isWeightBase && isStateMatch(fee) && isPaymentMatch(fee);
-    });
-
-    if (matchingFee && matchingFee.weightSlabs && matchingFee.weightSlabs.length > 0) {
-      const matchedSlab = matchingFee.weightSlabs.find(slab => totalWeight >= slab.minWeight && totalWeight <= slab.maxWeight);
-      if (matchedSlab) {
-        if (matchingFee.feeType === 'Percentage') {
-          shippingCharge = Math.round(subtotal * (matchedSlab.feeValue / 100));
-        } else {
-          shippingCharge = matchedSlab.feeValue;
-        }
-      } else {
-        // Dynamic calculation for weights outside configured slabs
-        const highestSlab = matchingFee.weightSlabs.reduce((prev, current) => (prev.maxWeight > current.maxWeight) ? prev : current);
-        const lowestSlab = matchingFee.weightSlabs.reduce((prev, current) => (prev.minWeight < current.minWeight) ? prev : current);
-        
-        if (totalWeight > highestSlab.maxWeight) {
-          // Extrapolate for higher weights
-          if (matchingFee.feeType === 'Percentage') {
-            shippingCharge = Math.round(subtotal * (highestSlab.feeValue / 100));
-          } else {
-            const extraWeight = totalWeight - highestSlab.maxWeight;
-            const slabInterval = highestSlab.maxWeight - highestSlab.minWeight || 1; // fallback interval to 1kg if min=max
-            const extraIntervals = Math.ceil(extraWeight / slabInterval);
-            shippingCharge = highestSlab.feeValue + (extraIntervals * highestSlab.feeValue);
-          }
-        } else if (totalWeight < lowestSlab.minWeight) {
-          // Apply minimum slab fee for lower weights
-          shippingCharge = matchingFee.feeType === 'Percentage'
-            ? Math.round(subtotal * (lowestSlab.feeValue / 100))
-            : lowestSlab.feeValue;
-        }
-      }
-    }
-
-    // Find all matching non-weight based flat fees
-    const matchingFlatFees = fees.filter(fee => {
-      const isWeightBase = fee.feeCategory?.name?.toLowerCase().includes('weight');
-      return fee.active && !isWeightBase && isStateMatch(fee) && isPaymentMatch(fee);
-    });
-
-    matchingFlatFees.forEach(fee => {
-      let charge = 0;
-      if (fee.feeType === 'Percentage') {
-        charge = Math.round(subtotal * (fee.flatFeeValue / 100));
-      } else {
-        charge = fee.flatFeeValue || 0;
-      }
-
-      if (charge > 0) {
-        const feeName = (fee.feeName || '').toLowerCase();
-        const catName = (fee.feeCategory?.name || '').toLowerCase();
-        const isAdvance = feeName.includes('advance') || catName.includes('advance');
-
-        if (isAdvance && paymentMethod === 'COD') {
-          codAdvance += charge;
-        } else {
-          extraFeesList.push({ name: fee.feeName || 'Fee', amount: charge });
-          extraChargeSum += charge;
-        }
-      }
-    });
-  }
+  const feeSummary = calculateOrderFees({
+    fees,
+    subtotal,
+    items: cartItems,
+    state: currentState,
+    paymentMethod,
+  });
+  const { totalWeight, shippingCharge, codAdvance, extraFeesList, appliedFees } = feeSummary;
+  const extraChargeSum = extraFeesList.reduce((sum, fee) => sum + fee.amount, 0);
 
   const orderTotal = subtotal + shippingCharge + extraChargeSum;
   const isCodAdvance = paymentMethod === 'COD' && codAdvance > 0;
@@ -302,15 +206,6 @@ export default function CompleteOrderPage({ onNavigate }) {
 
     try {
       setLoading(true);
-      const appliedFees = [];
-      if (shippingCharge > 0) {
-        appliedFees.push({ name: 'Weight Charge', amount: shippingCharge });
-      }
-      extraFeesList.forEach(f => appliedFees.push(f));
-      if (isCodAdvance) {
-        appliedFees.push({ name: 'Advance to Pay Now', amount: codAdvance });
-      }
-
       const orderData = {
         orderItems: cartItems.map(item => ({
           name: item.variantOptions ? `${item.name} (${item.variantOptions})` : item.name,
@@ -629,7 +524,7 @@ export default function CompleteOrderPage({ onNavigate }) {
                   <span className="text-gray-900 font-medium">₹{subtotal.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
-                  <span>Weight Charge ({totalWeight} kg)</span>
+                  <span>Weight Charge ({totalWeight.toLocaleString()} kg)</span>
                   <span className="text-gray-900 font-medium">₹{shippingCharge.toLocaleString()}</span>
                 </div>
                 {extraFeesList.map((fee, idx) => (
