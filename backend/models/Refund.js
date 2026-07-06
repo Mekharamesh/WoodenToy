@@ -22,6 +22,10 @@ const refundSchema = new mongoose.Schema({
     type: String,
     default: '-',
   },
+  refundDestination: {
+    type: String,
+    default: '',
+  },
   status: {
     type: String,
     enum: ['Approved Refund', 'Pending', 'Processing', 'Failed', 'Completed'],

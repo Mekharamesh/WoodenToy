@@ -97,9 +97,9 @@ export const orderService = {
     );
   },
 
-  cancelOrder: async (id) => {
+  cancelOrder: async (id, data = {}) => {
     return withAuthRetry(
-      (config) => axios.put(`${API_URL}/${id}/cancel`, {}, config),
+      (config) => axios.put(`${API_URL}/${id}/cancel`, data, config),
       'Failed to cancel order'
     );
   },

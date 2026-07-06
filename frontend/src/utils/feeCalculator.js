@@ -124,6 +124,7 @@ export const calculateOrderFees = ({ fees = [], subtotal = 0, items = [], state 
       result.appliedFees.push({
         name: weightFee.feeName || 'Weight Charge',
         amount: result.shippingCharge,
+        isWeightFee: true,
       });
     }
   }

@@ -77,7 +77,8 @@ const orderSchema = new mongoose.Schema(
     },
     fees: [{
       name: { type: String, required: true },
-      amount: { type: Number, required: true }
+      amount: { type: Number, required: true },
+      isWeightFee: { type: Boolean, default: false }
     }],
     codAdvance: {
       type: Number,

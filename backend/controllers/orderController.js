@@ -152,6 +152,10 @@ const updateOrderStatus = async (req, res) => {
     ];
 
     if (!validStatuses.includes(status)) {
+      console.log('--- INVALID STATUS TRIGGERED ---');
+      console.log('Received status:', `'${status}'`, 'Type:', typeof status);
+      console.log('Valid statuses:', validStatuses);
+      console.log('Order.VALID_STATUSES:', Order.VALID_STATUSES);
       return res.status(400).json({ message: 'Invalid order status' });
     }
 
@@ -385,6 +389,7 @@ const getCancellationPreview = async (req, res) => {
 // @access  Private
 const cancelOrder = async (req, res) => {
   try {
+    const { refundDestination } = req.body || {};
     const order = await Order.findById(req.params.id).populate('user', 'name');
 
     if (!order) {
@@ -418,6 +423,7 @@ const cancelOrder = async (req, res) => {
       amount: refundAmount,
       paymentType: order.paymentMethod === 'COD' ? 'COD' : 'Cashfree',
       slaTimeline: '24H LEFT',
+      refundDestination: refundDestination || '',
       status: 'Pending',
       refundActionStatus: 'Refund'
     });

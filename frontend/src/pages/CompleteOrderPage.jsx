@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import useCartStore from '../store/useCartStore';
 import { orderService } from '../api/orderService';
 import { authService } from '../api/authService';
-import { ArrowLeft, Plus, MapPin, Trash2, Edit2, CreditCard, Banknote, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, MapPin, Trash2, Edit2, CreditCard, Banknote, Loader2, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { stateDistricts } from '../utils/indiaStates';
 import { feeAPI } from '../api/feeService';
@@ -10,7 +10,13 @@ import { createCashfreeSession } from '../api/cashfreeService';
 import { calculateOrderFees } from '../utils/feeCalculator';
 
 export default function CompleteOrderPage({ onNavigate }) {
-  const { cartItems, getSubtotal, clearCart } = useCartStore();
+  const { cartItems, getSubtotal, clearCart, updateQuantity } = useCartStore();
+
+  const handleQtyChange = (productId, newQty, variant = null) => {
+    if (newQty >= 1 && newQty <= 10) {
+      updateQuantity(productId, newQty, variant);
+    }
+  };
 
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
@@ -543,6 +549,23 @@ export default function CompleteOrderPage({ onNavigate }) {
                       {item.weight && !isNaN(Number(item.weight)) && Number(item.weight) > 0 && (
                         <p className="text-xs text-gray-500">{(Number(item.weight) * item.qty)} kg</p>
                       )}
+                      <div className="flex items-center gap-2 mt-2">
+                        <button 
+                          onClick={() => handleQtyChange(item.product, item.qty - 1, item.variant)}
+                          disabled={item.qty <= 1}
+                          className="w-6 h-6 flex items-center justify-center rounded border border-[#E6DFD4] bg-white text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C] disabled:opacity-50 transition-colors"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
+                        <button 
+                          onClick={() => handleQtyChange(item.product, item.qty + 1, item.variant)}
+                          disabled={item.qty >= 10}
+                          className="w-6 h-6 flex items-center justify-center rounded border border-[#E6DFD4] bg-white text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C] disabled:opacity-50 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                     <div className="font-semibold text-gray-900 text-sm">
                       ₹{(item.price * item.qty).toLocaleString()}
@@ -556,13 +579,9 @@ export default function CompleteOrderPage({ onNavigate }) {
                   <span>Subtotal</span>
                   <span className="text-gray-900 font-medium">₹{subtotal.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Weight Charge ({totalWeight.toLocaleString()} kg)</span>
-                  <span className="text-gray-900 font-medium">₹{shippingCharge.toLocaleString()}</span>
-                </div>
-                {extraFeesList.map((fee, idx) => (
+                {appliedFees.filter(fee => fee.name.toLowerCase() !== 'advance').map((fee, idx) => (
                   <div key={idx} className="flex justify-between text-gray-600">
-                    <span>{fee.name}</span>
+                    <span>{fee.name} {fee.isWeightFee ? `(${totalWeight.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} kg)` : ''}</span>
                     <span className="text-gray-900 font-medium">₹{fee.amount.toLocaleString()}</span>
                   </div>
                 ))}

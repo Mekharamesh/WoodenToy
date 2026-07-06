@@ -15,7 +15,8 @@ export default function CancellationManagementPage() {
     orderStatus: 'Order Placed',
     cancellationFee: '',
     timeLimit: '',
-    isAllowed: true
+    isAllowed: true,
+    refundPercentage: 100
   });
 
   const fetchRules = async () => {
@@ -55,7 +56,7 @@ export default function CancellationManagementPage() {
         cancellationFee: Number(formData.cancellationFee) || 0,
         timeLimit: formData.timeLimit ? (formData.timeLimit.toString().includes('Days') || formData.timeLimit.toString().includes('Hours') || formData.timeLimit === '-' || formData.timeLimit === 'Before Delivery' ? formData.timeLimit : `${formData.timeLimit} Days`) : '-',
         isAllowed: formData.isAllowed,
-        refundPercentage: 100
+        refundPercentage: Number(formData.refundPercentage) || 0
       };
       
       if (editingId) {
@@ -68,7 +69,7 @@ export default function CancellationManagementPage() {
       
       setIsModalOpen(false);
       setEditingId(null);
-      setFormData({ orderStatus: 'Order Placed', cancellationFee: '', timeLimit: '', isAllowed: true });
+      setFormData({ orderStatus: 'Order Placed', cancellationFee: '', timeLimit: '', isAllowed: true, refundPercentage: 100 });
       fetchRules();
     } catch (e) {
       toast.error(e.message || 'Failed to save rule');
@@ -80,7 +81,8 @@ export default function CancellationManagementPage() {
       orderStatus: rule.orderStatus,
       cancellationFee: rule.cancellationFee,
       timeLimit: rule.timeLimit ? rule.timeLimit.replace(' Days', '') : '',
-      isAllowed: rule.isAllowed
+      isAllowed: rule.isAllowed,
+      refundPercentage: rule.refundPercentage ?? 100
     });
     setEditingId(rule._id);
     setIsModalOpen(true);
@@ -95,6 +97,25 @@ export default function CancellationManagementPage() {
       } catch (e) {
         toast.error(e.message || 'Failed to delete rule');
       }
+    }
+  };
+
+  const handleToggleAllowed = async (rule) => {
+    try {
+      const payload = {
+        paymentMethod: rule.paymentMethod,
+        orderStatus: rule.orderStatus,
+        cancellationFee: rule.cancellationFee,
+        timeLimit: rule.timeLimit,
+        isAllowed: !rule.isAllowed,
+        refundPercentage: rule.refundPercentage,
+        status: rule.status
+      };
+      await adminService.updateCancellationRule(rule._id, payload);
+      toast.success(`Cancellation ${!rule.isAllowed ? 'enabled' : 'disabled'} for ${rule.orderStatus}`);
+      fetchRules();
+    } catch (e) {
+      toast.error(e.message || 'Failed to toggle rule');
     }
   };
 
@@ -160,9 +181,9 @@ export default function CancellationManagementPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-8">
           {/* Main Content Area */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="space-y-8">
             
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -253,9 +274,20 @@ export default function CancellationManagementPage() {
                           <span className="text-sm font-bold text-[#141225]">{rule.timeLimit}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`text-sm font-bold ${rule.isAllowed ? 'text-emerald-600' : 'text-red-600'}`}>
-                            {rule.isAllowed ? 'Yes' : 'No'}
-                          </span>
+                          <button
+                            onClick={() => rule.status !== 'Locked' && handleToggleAllowed(rule)}
+                            disabled={rule.status === 'Locked'}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                              rule.status === 'Locked' ? 'bg-gray-200 cursor-not-allowed opacity-50' :
+                              rule.isAllowed ? 'bg-emerald-500' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                                rule.isAllowed ? 'translate-x-5' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex px-2 py-1 rounded text-xs font-bold ${
@@ -299,118 +331,6 @@ export default function CancellationManagementPage() {
                 </p>
               </div>
             </div>
-          </div>
-
-          {/* Right Sidebar Widgets */}
-          <div className="space-y-6">
-            
-            {/* Refund Calculation Sample */}
-            <div className="bg-white border border-[#E9DED3] rounded-[14px] p-6 shadow-sm">
-              <h3 className="text-sm font-bold text-[#141225] mb-5">Refund Calculation (Sample)</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#6D625C]">Product Amount</span>
-                  <span className="font-bold text-[#141225]">₹1,200.00</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#6D625C]">Platform Fee</span>
-                  <span className="font-bold text-[#141225]">₹100.00</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#6D625C]">Weight Charge</span>
-                  <span className="font-bold text-[#141225]">₹150.00</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#6D625C]">Cancellation Fee</span>
-                  <span className="font-bold text-red-600">-₹60.00</span>
-                </div>
-                <div className="pt-3 border-t border-dashed border-[#E9DED3] flex justify-between">
-                  <span className="font-bold text-[#141225]">Refund Amount</span>
-                  <span className="font-bold text-emerald-600 text-lg">₹1,090.00</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Cancellation Requests */}
-            <div className="bg-white border border-[#E9DED3] rounded-[14px] p-6 shadow-sm">
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="text-sm font-bold text-[#141225]">Recent Cancellation Requests</h3>
-                <button className="text-xs font-bold text-[#6D625C] hover:text-[#9A6031]">View All</button>
-              </div>
-              <div className="space-y-4 divide-y divide-[#E9DED3]">
-                <div className="pt-2 flex justify-between items-start gap-2">
-                  <div>
-                    <p className="text-xs font-bold text-[#141225]">#WT10012 <span className="text-[#6D625C] font-normal">Suguna M</span></p>
-                    <p className="text-xs text-[#8A817C] mt-1">Wrong Product</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded">Pending</span>
-                    <p className="text-xs font-bold text-[#141225] mt-1">₹540.00</p>
-                  </div>
-                </div>
-                <div className="pt-4 flex justify-between items-start gap-2">
-                  <div>
-                    <p className="text-xs font-bold text-[#141225]">#WT10011 <span className="text-[#6D625C] font-normal">Ramesh K</span></p>
-                    <p className="text-xs text-[#8A817C] mt-1">Ordered by mistake</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded">Approved</span>
-                    <p className="text-xs font-bold text-[#141225] mt-1">₹690.00</p>
-                  </div>
-                </div>
-                <div className="pt-4 flex justify-between items-start gap-2">
-                  <div>
-                    <p className="text-xs font-bold text-[#141225]">#WT10010 <span className="text-[#6D625C] font-normal">Kavya S</span></p>
-                    <p className="text-xs text-[#8A817C] mt-1">Delivery too late</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">Rejected</span>
-                    <p className="text-xs font-bold text-[#141225] mt-1">₹320.00</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Cancellation Type Settings */}
-            <div className="bg-white border border-[#E9DED3] rounded-[14px] p-6 shadow-sm">
-              <h3 className="text-sm font-bold text-[#141225] mb-4">Cancellation Type</h3>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="radio" name="cancelType" defaultChecked className="w-4 h-4 text-[#9A6031] focus:ring-[#9A6031] accent-[#9A6031]" />
-                  <span className="text-sm text-[#4A403B] font-medium">Full Refund</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="radio" name="cancelType" className="w-4 h-4 text-[#9A6031] focus:ring-[#9A6031] accent-[#9A6031]" />
-                  <span className="text-sm text-[#4A403B] font-medium">Partial Refund</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="radio" name="cancelType" className="w-4 h-4 text-[#9A6031] focus:ring-[#9A6031] accent-[#9A6031]" />
-                  <span className="text-sm text-[#4A403B] font-medium">Store Credit</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="radio" name="cancelType" className="w-4 h-4 text-[#9A6031] focus:ring-[#9A6031] accent-[#9A6031]" />
-                  <span className="text-sm text-[#4A403B] font-medium">No Refund</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Policy Notes */}
-            <div className="bg-[#FFFDFB] border border-[#F2E3D1] rounded-[14px] p-6 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <svg className="w-24 h-24 text-[#9A6031]" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1.8 18H8.2c-.1 0-.2-.1-.2-.2V17h8v2.8c0 .1-.1.2-.2.2zM16 15H8v-2h8v2zm0-4H8V9h8v2zm-3-6V3.5L18.5 9H13z"/></svg>
-              </div>
-              <h3 className="text-sm font-bold text-[#8B5E3C] mb-4 flex items-center gap-2">
-                <AlertCircle size={16} />
-                Cancellation Policy Notes
-              </h3>
-              <ul className="text-[11px] text-[#6D625C] space-y-2 list-disc pl-4 relative z-10">
-                <li>Cancellation is allowed based on the order status and time limit.</li>
-                <li>Fees are non-refundable and will be deducted from the refund amount.</li>
-                <li>Refund will be processed to the original payment method or wallet.</li>
-                <li>Out for delivery and delivered orders are not eligible for cancellation.</li>
-              </ul>
-            </div>
-
           </div>
         </div>
       </div>
@@ -461,13 +381,32 @@ export default function CancellationManagementPage() {
                     type="number" 
                     placeholder="Enter fee amount"
                     value={formData.cancellationFee}
-                    onChange={(e) => setFormData({ ...formData, cancellationFee: e.target.value })}
+                    onChange={(e) => {
+                      const fee = e.target.value;
+                      let newRefund = formData.refundPercentage;
+                      if (fee !== '') {
+                        const feeValue = Number(fee);
+                        newRefund = Math.max(0, Math.min(100, 100 - feeValue));
+                      }
+                      setFormData({ ...formData, cancellationFee: fee, refundPercentage: newRefund });
+                    }}
                     className="w-full rounded border border-[#E9DED3] px-3 py-2 text-sm text-[#141225] placeholder:text-[#A9A09B] focus:border-[#9A6031] focus:outline-none focus:ring-1 focus:ring-[#9A6031]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-[#4A403B]">Refund (%) <span className="text-red-500">*</span></label>
+                  <input 
+                    type="number" 
+                    placeholder="e.g. 100"
+                    value={formData.refundPercentage}
+                    onChange={(e) => setFormData({ ...formData, refundPercentage: e.target.value })}
+                    className="w-full rounded border border-[#E9DED3] px-3 py-2 text-sm text-[#141225] placeholder:text-[#A9A09B] focus:border-[#9A6031] focus:outline-none focus:ring-1 focus:ring-[#9A6031]"
+                  />
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-sm font-bold text-[#4A403B]">SLA (Days) <span className="text-red-500">*</span></label>
                   <input 
@@ -478,7 +417,9 @@ export default function CancellationManagementPage() {
                     className="w-full rounded border border-[#E9DED3] px-3 py-2 text-sm text-[#141225] placeholder:text-[#A9A09B] focus:border-[#9A6031] focus:outline-none focus:ring-1 focus:ring-[#9A6031]"
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-bold text-[#4A403B]">Status</label>
                   <div className="flex items-center gap-4 mt-2">

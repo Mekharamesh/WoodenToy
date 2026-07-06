@@ -31,7 +31,8 @@ import {
   X,
   ExternalLink,
   Truck,
-  Check
+  Check,
+  CreditCard
 } from 'lucide-react';
 import { authService } from '../api/authService';
 import { orderService } from '../api/orderService';
@@ -113,6 +114,8 @@ export default function CustomerProfilePage({
   const [cancelOrderTarget, setCancelOrderTarget] = useState(null);
   const [cancellationPreviewData, setCancellationPreviewData] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [showRefundDestinationModal, setShowRefundDestinationModal] = useState(false);
+  const [refundDestinationInput, setRefundDestinationInput] = useState('');
   
   useEffect(() => {
     try {
@@ -319,20 +322,32 @@ export default function CustomerProfilePage({
     </>
   );
 
-  const confirmCancelOrder = async () => {
+  const executeCancelOrder = async () => {
     if (!cancelOrderTarget) return;
     try {
       setCancelLoading(true);
-      await orderService.cancelOrder(cancelOrderTarget._id);
+      await orderService.cancelOrder(cancelOrderTarget._id, { refundDestination: refundDestinationInput });
       toast.success('Order cancelled successfully');
       setOrders(orders.map(o => o._id === cancelOrderTarget._id ? { ...o, status: 'Cancelled' } : o));
       setIsCancelModalOpen(false);
+      setShowRefundDestinationModal(false);
       setCancelOrderTarget(null);
       setCancellationPreviewData(null);
     } catch (e) {
       toast.error(e.message || 'Failed to cancel order');
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  const confirmCancelOrder = () => {
+    if (cancellationPreviewData?.estimatedRefund > 0) {
+      // Show refund destination modal
+      const defaultPhone = cancelOrderTarget?.shippingAddress?.phone || profile?.phone || '';
+      setRefundDestinationInput(defaultPhone);
+      setShowRefundDestinationModal(true);
+    } else {
+      executeCancelOrder();
     }
   };
 
@@ -357,9 +372,11 @@ export default function CustomerProfilePage({
               <tr>
                 <th className="p-4">Product Details</th>
                 <th className="p-4">Date</th>
-                <th className="p-4">Total</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Payment Type</th>
+                <th className="p-4 whitespace-nowrap">Total</th>
+                <th className="p-4 whitespace-nowrap">Paid</th>
+                <th className="p-4 whitespace-nowrap">Balance</th>
+                <th className="p-4 text-center">Status</th>
+                <th className="p-4 text-center">Payment</th>
                 <th className="p-4 text-center">Rating</th>
                 <th className="p-4 text-center">Action</th>
               </tr>
@@ -369,6 +386,9 @@ export default function CustomerProfilePage({
                 const firstItem = order.orderItems?.[0] || {};
                 const extraItemsCount = (order.orderItems?.length || 1) - 1;
                 const imageSrc = firstItem.image ? (firstItem.image.startsWith('http') ? firstItem.image : `http://localhost:5000${firstItem.image}`) : '/animal_balance_maze.png';
+
+                const paidAmount = order.paymentMethod === 'COD' ? (order.codAdvance || 200) : order.totalPrice;
+                const balanceAmount = order.paymentMethod === 'COD' ? (order.balanceAmount || Math.max(0, order.totalPrice - paidAmount)) : 0;
 
                 return (
                   <tr key={order._id} className="transition-colors hover:bg-[#FAF8F5]/50">
@@ -384,14 +404,16 @@ export default function CustomerProfilePage({
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 whitespace-nowrap font-medium">{formatDate(order.createdAt)}</td>
+                    <td className="p-4 whitespace-nowrap font-medium text-[#6D625C]">{formatDate(order.createdAt)}</td>
                     <td className="p-4 whitespace-nowrap font-black text-[#141225]">Rs. {Number(order.totalPrice || 0).toLocaleString()}</td>
-                    <td className="p-4 whitespace-nowrap">
+                    <td className="p-4 whitespace-nowrap font-bold text-emerald-600">Rs. {Number(paidAmount).toLocaleString()}</td>
+                    <td className="p-4 whitespace-nowrap font-bold text-red-500">Rs. {Number(balanceAmount).toLocaleString()}</td>
+                    <td className="p-4 whitespace-nowrap text-center">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-700' : order.status === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-[#F2E3D1] text-[#8B5E3C]'}`}>
                         {order.status || 'Pending'}
                       </span>
                     </td>
-                    <td className="p-4 whitespace-nowrap font-medium">{order.paymentMethod || 'Online'}</td>
+                    <td className="p-4 whitespace-nowrap font-medium text-center text-[#6D625C]">{order.paymentMethod || 'Online'}</td>
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-0.5 text-yellow-400">
                         {[...Array(5)].map((_, i) => (
@@ -401,7 +423,7 @@ export default function CustomerProfilePage({
                     </td>
                     <td className="p-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {['Placed', 'Pending', 'Packed'].includes(order.status) && (
+                        {!['Delivered', 'Cancelled'].includes(order.status) && (
                           <button 
                             type="button"
                             className="rounded border border-red-200 px-2.5 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
@@ -453,6 +475,7 @@ export default function CustomerProfilePage({
 
     const steps = [
       { id: 'ordered', label: 'Ordered', statuses: ['Placed', 'Pending', 'Packed', 'Shipping', 'Shipped', 'Out for delivery', 'Delivered'] },
+      { id: 'packed', label: 'Packed', statuses: ['Packed', 'Shipping', 'Shipped', 'Out for delivery', 'Delivered'] },
       { id: 'shipped', label: 'Shipped', statuses: ['Shipping', 'Shipped', 'Out for delivery', 'Delivered'] },
       { id: 'out_for_delivery', label: 'Out for Delivery', statuses: ['Out for delivery', 'Delivered'] },
       { id: 'delivery', label: 'Delivery', statuses: ['Delivered'] }
@@ -465,8 +488,8 @@ export default function CustomerProfilePage({
 
     const getStepDate = (idx) => {
       if (idx === 0) return formatDate(order.createdAt);
-      if (idx === 3 && order.deliveredAt) return formatDate(order.deliveredAt);
-      if (idx === 3 && currentStatusIndex >= 1) return formatDate(deliveryDate);
+      if (idx === steps.length - 1 && order.deliveredAt) return formatDate(order.deliveredAt);
+      if (idx === steps.length - 1 && currentStatusIndex >= 1) return formatDate(deliveryDate);
       return '';
     };
 
@@ -485,14 +508,14 @@ export default function CustomerProfilePage({
         </div>
 
         <div className="relative flex items-start justify-between w-full mx-auto px-4 sm:px-8">
-          {/* Progress bar background */}
-          <div className="absolute top-4 left-10 right-10 h-1 bg-gray-200 rounded-full" />
-          
-          {/* Active progress bar */}
-          <div 
-            className="absolute top-4 left-10 h-1 bg-emerald-500 rounded-full transition-all duration-500"
-            style={{ width: `${Math.max(0, (currentStatusIndex / (steps.length - 1)) * 100 - 15)}%` }}
-          />
+          {/* Progress bar track */}
+          <div className="absolute top-4 left-10 right-10 h-1 bg-gray-200 rounded-full">
+            {/* Active progress bar */}
+            <div 
+              className="absolute top-0 left-0 h-full bg-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${(currentStatusIndex / (steps.length - 1)) * 100}%` }}
+            />
+          </div>
 
           {steps.map((step, idx) => {
             const isCompleted = currentStatusIndex >= idx;
@@ -512,7 +535,12 @@ export default function CustomerProfilePage({
                   {isCompleted ? <Check className="w-4 h-4" /> : <div className="w-2.5 h-2.5 rounded-full bg-gray-200" />}
                 </div>
 
-                {isCurrent && idx > 0 && idx < 3 && (
+                {isCurrent && idx === 1 && (
+                  <div className="absolute top-1 -right-4 sm:-right-6 text-[#9A6031] bg-white p-0.5 rounded-full z-20 shadow-sm border border-[#E9DED3]">
+                    <Package className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+                  </div>
+                )}
+                {isCurrent && (idx === 2 || idx === 3) && (
                   <div className="absolute top-1 -right-4 sm:-right-6 text-blue-500 bg-white p-0.5 rounded-full z-20 shadow-sm border border-blue-100">
                     <Truck className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                   </div>
@@ -598,6 +626,46 @@ export default function CustomerProfilePage({
                 )}
               </div>
             )}
+          </div>
+
+          <div className="rounded-[14px] border border-[#E9DED3] bg-white p-5">
+            <h3 className="font-bold text-[#141225] mb-4">Payment Summary</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[#6D625C]">Items Total</span>
+                <span className="font-semibold text-[#141225]">Rs. {Number(activeOrder.itemsPrice || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#6D625C]">Shipping</span>
+                <span className="font-semibold text-[#141225]">{Number(activeOrder.shippingPrice) === 0 ? 'Free' : `Rs. ${Number(activeOrder.shippingPrice).toLocaleString()}`}</span>
+              </div>
+              {activeOrder.taxPrice > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[#6D625C]">Tax</span>
+                  <span className="font-semibold text-[#141225]">Rs. {Number(activeOrder.taxPrice).toLocaleString()}</span>
+                </div>
+              )}
+              {activeOrder.fees?.map((fee, idx) => (
+                <div key={idx} className="flex justify-between">
+                  <span className="text-[#6D625C]">{fee.name}</span>
+                  <span className="font-semibold text-[#141225]">Rs. {Number(fee.amount).toLocaleString()}</span>
+                </div>
+              ))}
+              <div className="border-t border-[#E9DED3] pt-3 mt-2 flex justify-between text-[15px]">
+                <span className="font-bold text-[#141225]">Total Amount</span>
+                <span className="font-black text-[#9A6031]">Rs. {Number(activeOrder.totalPrice || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-[15px]">
+                <span className="font-bold text-emerald-600">Paid ({activeOrder.paymentMethod})</span>
+                <span className="font-bold text-emerald-600">Rs. {Number(activeOrder.paymentMethod === 'COD' ? (activeOrder.codAdvance || 200) : activeOrder.totalPrice).toLocaleString()}</span>
+              </div>
+              {activeOrder.paymentMethod === 'COD' && (
+                <div className="flex justify-between border-t border-[#E9DED3] pt-3 mt-1 text-[15px]">
+                  <span className="font-bold text-red-500">Balance to Pay (at delivery)</span>
+                  <span className="font-black text-red-500">Rs. {Number(activeOrder.balanceAmount || Math.max(0, activeOrder.totalPrice - (activeOrder.codAdvance || 200))).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="rounded-[14px] border border-[#E9DED3] bg-white p-5">
@@ -1266,6 +1334,70 @@ export default function CustomerProfilePage({
                   className="flex-1 py-2.5 bg-[#C94A4A] text-white rounded-[8px] font-bold text-sm shadow-sm hover:bg-[#B33E3E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {cancelLoading ? 'Cancelling...' : 'Yes, Cancel Order'}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRefundDestinationModal && cancelOrderTarget && cancellationPreviewData && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-[#FAF8F5] rounded-2xl shadow-xl w-full max-w-[400px] border border-[#E9DED3] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                  <CreditCard size={16} className="stroke-[2.5]" />
+                </div>
+                <h2 className="text-base font-bold text-[#141225]">Refund Destination</h2>
+              </div>
+              <button 
+                onClick={() => setShowRefundDestinationModal(false)}
+                className="text-[#6D625C] hover:text-[#141225] transition-colors"
+                disabled={cancelLoading}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-5 pb-5">
+              <p className="text-sm text-[#4A403B] mb-5">
+                Please provide the Phone Number or UPI ID where you would like to receive your refund of <span className="font-bold text-[#141225]">₹{cancellationPreviewData.estimatedRefund.toFixed(2)}</span>.
+              </p>
+
+              <label className="block mb-6">
+                <span className="text-xs font-bold text-[#6D625C] uppercase tracking-wider mb-2 block">Phone Number / UPI ID</span>
+                <input
+                  type="text"
+                  value={refundDestinationInput}
+                  onChange={(e) => setRefundDestinationInput(e.target.value)}
+                  placeholder="e.g. 9080773897 or name@upi"
+                  className="w-full rounded-[10px] border border-[#E6D9CE] px-4 py-3 outline-none focus:border-[#9A6031] bg-white text-[#141225] font-medium"
+                />
+              </label>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowRefundDestinationModal(false)}
+                  className="flex-1 py-2.5 bg-white border border-[#E9DED3] text-[#4A403B] rounded-[8px] font-bold text-sm shadow-sm hover:bg-gray-50 transition-colors"
+                  disabled={cancelLoading}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={executeCancelOrder}
+                  disabled={cancelLoading || !refundDestinationInput.trim()}
+                  className="flex-[1.5] flex justify-center items-center gap-2 py-2.5 bg-[#647C5E] text-white rounded-[8px] font-bold text-sm shadow-sm hover:bg-[#52664d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cancelLoading ? 'Processing...' : (
+                    <>
+                      <CheckCircle2 size={16} /> Confirm Refund Details
+                    </>
+                  )}
                 </button>
               </div>
 
