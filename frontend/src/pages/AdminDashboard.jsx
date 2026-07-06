@@ -11,6 +11,8 @@ import OrdersPage from './admin/OrdersPage';
 import { staffAPI } from '../api/staffService';
 import FeeListPage from './admin/fees/FeeListPage';
 import AddFeePage from './admin/fees/AddFeePage';
+import CancellationManagementPage from './admin/cancellations/CancellationManagementPage';
+import RefundManagementPage from './admin/refunds/RefundManagementPage';
 
 export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [products, setProducts] = useState([]);
@@ -33,6 +35,10 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [feeSubTab, setFeeSubTab] = useState('list'); // 'list' | 'add'
   const [editingFee, setEditingFee] = useState(null);
   const [feeMenuOpen, setFeeMenuOpen] = useState(false);
+
+  // Refund Management state
+  const [refundSubTab, setRefundSubTab] = useState('list'); // 'list' | 'analytics' | 'settings'
+  const [refundMenuOpen, setRefundMenuOpen] = useState(false);
 
   // Dynamic permissions for sidebar
   const [userPermissions, setUserPermissions] = useState(null); // null = not loaded yet
@@ -644,6 +650,72 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                         Add New Fee
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Cancellation Management */}
+              {(isAdmin || canView('cancellation')) && (
+                <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
+                  <button
+                    onClick={() => setCurrentTab('cancellation')}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
+                      currentTab === 'cancellation' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                      Cancellation Management
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* Refund Management */}
+              {(isAdmin || canView('refund')) && (
+                <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
+                  <button
+                    onClick={() => setRefundMenuOpen(o => !o)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
+                      currentTab === 'refund' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                      Refund Management
+                    </span>
+                    <svg className={`w-3.5 h-3.5 transition-transform ${refundMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {refundMenuOpen && (
+                    <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
+                      <button
+                        onClick={() => { setCurrentTab('refund'); setRefundSubTab('list'); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                          currentTab === 'refund' && refundSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                        Refund List
+                      </button>
+                      <button
+                        onClick={() => { setCurrentTab('refund'); setRefundSubTab('analytics'); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                          currentTab === 'refund' && refundSubTab === 'analytics' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                        Refund Analytics
+                      </button>
+                      <button
+                        onClick={() => { setCurrentTab('refund'); setRefundSubTab('settings'); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                          currentTab === 'refund' && refundSubTab === 'settings' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
+                        Refund Settings
                       </button>
                     </div>
                   )}
@@ -1720,6 +1792,16 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               onNavigate={(tab) => setFeeSubTab(tab)} 
               editingFee={editingFee} 
             />
+          )}
+
+          {/* ── CANCELLATION MANAGEMENT ── */}
+          {(isAdmin || canView('cancellation')) && currentTab === 'cancellation' && (
+            <CancellationManagementPage />
+          )}
+
+          {/* ── REFUND MANAGEMENT ── */}
+          {(isAdmin || canView('refund')) && currentTab === 'refund' && (
+            <RefundManagementPage />
           )}
 
         </div>

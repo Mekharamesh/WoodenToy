@@ -42,12 +42,33 @@ export default function CompleteOrderPage({ onNavigate }) {
     if (cartItems.length === 0) {
       onNavigate('cart');
     }
-    // Load saved addresses from localStorage
-    const saved = JSON.parse(localStorage.getItem('wooden_toys_addresses') || '[]');
-    setSavedAddresses(saved);
-    if (saved.length === 0) {
-      setIsAddingAddress(true);
-    }
+    
+    // Load saved addresses
+    const loadAddresses = async () => {
+      let loadedAddresses = [];
+      if (authService.isAuthenticated()) {
+        try {
+          const profile = await authService.getProfile();
+          if (profile?.user?.addresses?.length > 0) {
+            loadedAddresses = profile.user.addresses;
+            localStorage.setItem('wooden_toys_addresses', JSON.stringify(loadedAddresses));
+          }
+        } catch (error) {
+          console.error('Failed to load profile addresses', error);
+        }
+      }
+      
+      if (loadedAddresses.length === 0) {
+        loadedAddresses = JSON.parse(localStorage.getItem('wooden_toys_addresses') || '[]');
+      }
+      
+      setSavedAddresses(loadedAddresses);
+      if (loadedAddresses.length === 0) {
+        setIsAddingAddress(true);
+      }
+    };
+
+    loadAddresses();
     
     // Fetch fees
     const fetchFees = async () => {
@@ -149,6 +170,12 @@ export default function CompleteOrderPage({ onNavigate }) {
     
     setSavedAddresses(updatedAddresses);
     localStorage.setItem('wooden_toys_addresses', JSON.stringify(updatedAddresses));
+    
+    // Sync with profile
+    if (authService.isAuthenticated()) {
+      authService.updateProfile({ addresses: updatedAddresses }).catch(err => console.error('Failed to sync address to profile:', err));
+    }
+
     setSelectedAddressIndex(editingAddressIndex !== null ? editingAddressIndex : updatedAddresses.length - 1);
     setIsAddingAddress(false);
     setEditingAddressIndex(null);
@@ -190,6 +217,12 @@ export default function CompleteOrderPage({ onNavigate }) {
     const updated = savedAddresses.filter((_, i) => i !== index);
     setSavedAddresses(updated);
     localStorage.setItem('wooden_toys_addresses', JSON.stringify(updated));
+    
+    // Sync with profile
+    if (authService.isAuthenticated()) {
+      authService.updateProfile({ addresses: updated }).catch(err => console.error('Failed to sync address deletion to profile:', err));
+    }
+
     if (selectedAddressIndex === index) setSelectedAddressIndex(0);
     if (updated.length === 0) setIsAddingAddress(true);
   };

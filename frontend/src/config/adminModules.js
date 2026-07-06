@@ -35,5 +35,15 @@ export const ADMIN_MODULES = [
     label: 'Fee Management',
     icon: '💰',
   },
+  {
+    key: 'cancellation',
+    label: 'Cancellation Management',
+    icon: '🚫',
+  },
+  {
+    key: 'refund',
+    label: 'Refund Management',
+    icon: '💳',
+  },
 ];
 

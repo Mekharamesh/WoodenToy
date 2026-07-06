@@ -4,7 +4,7 @@ import { authService } from './authService';
 const API_URL = 'http://localhost:5000/api/orders';
 export const ORDER_STATUS_OPTIONS = [
   'Placed',
-  'Processing',
+  'Packed',
   'Shipping',
   'Out for delivery',
   'Delivered',
@@ -94,6 +94,20 @@ export const orderService = {
     return withAuthRetry(
       (config) => axios.put(`${API_URL}/${id}/details`, detailsData, config),
       'Failed to update order details'
+    );
+  },
+
+  cancelOrder: async (id) => {
+    return withAuthRetry(
+      (config) => axios.put(`${API_URL}/${id}/cancel`, {}, config),
+      'Failed to cancel order'
+    );
+  },
+
+  getCancellationPreview: async (id) => {
+    return withAuthRetry(
+      (config) => axios.get(`${API_URL}/${id}/cancellation-preview`, config),
+      'Failed to fetch cancellation preview'
     );
   },
 };

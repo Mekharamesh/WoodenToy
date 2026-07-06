@@ -9,6 +9,8 @@ const {
   getMyOrders,
   getOrders,
   updateOrderDetails,
+  cancelOrder,
+  getCancellationPreview,
 } = require('../controllers/orderController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -21,6 +23,10 @@ router.route('/myorders').get(protect, getMyOrders);
 router.route('/:id').get(protect, getOrderById);
 
 router.route('/:id/details').put(protect, authorize('admin', 'manager', 'staff'), updateOrderDetails);
+
+router.route('/:id/cancel').put(protect, cancelOrder);
+
+router.route('/:id/cancellation-preview').get(protect, getCancellationPreview);
 
 router.route('/:id/pay').put(protect, updateOrderToPaid);
 

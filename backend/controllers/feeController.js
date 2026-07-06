@@ -112,7 +112,7 @@ exports.updateFee = async (req, res) => {
     const updatedFee = await Fee.findByIdAndUpdate(
       req.params.id,
       { $set: payload },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (!updatedFee) return res.status(404).json({ message: 'Fee not found' });
     res.status(200).json(updatedFee);

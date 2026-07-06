@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
 const generateAccessToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '15m' }); // 15 minutes
+    return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' }); // 30 days
 };
 
 const generateRefreshToken = (id) => {

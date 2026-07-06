@@ -27,7 +27,11 @@ import {
   Clock,
   ArrowRight,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  X,
+  ExternalLink,
+  Truck,
+  Check
 } from 'lucide-react';
 import { authService } from '../api/authService';
 import { orderService } from '../api/orderService';
@@ -104,6 +108,21 @@ export default function CustomerProfilePage({
   });
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelOrderTarget, setCancelOrderTarget] = useState(null);
+  const [cancellationPreviewData, setCancellationPreviewData] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  
+  useEffect(() => {
+    try {
+      const recent = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
+      setRecentlyViewed(recent);
+    } catch (e) {
+      console.error('Failed to parse recently viewed', e);
+    }
+  }, [activeModule]);
+
   const [form, setForm] = useState({
     name: profile.name || '',
     phone: profile.phone || '',
@@ -300,6 +319,23 @@ export default function CustomerProfilePage({
     </>
   );
 
+  const confirmCancelOrder = async () => {
+    if (!cancelOrderTarget) return;
+    try {
+      setCancelLoading(true);
+      await orderService.cancelOrder(cancelOrderTarget._id);
+      toast.success('Order cancelled successfully');
+      setOrders(orders.map(o => o._id === cancelOrderTarget._id ? { ...o, status: 'Cancelled' } : o));
+      setIsCancelModalOpen(false);
+      setCancelOrderTarget(null);
+      setCancellationPreviewData(null);
+    } catch (e) {
+      toast.error(e.message || 'Failed to cancel order');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   const renderOrders = () => (
     <section className="px-5 py-7 lg:px-7">
       <div className="flex items-center justify-between gap-4">
@@ -365,11 +401,24 @@ export default function CustomerProfilePage({
                     </td>
                     <td className="p-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {order.status !== 'Cancelled' && order.status !== 'Delivered' && (
+                        {['Placed', 'Pending', 'Packed'].includes(order.status) && (
                           <button 
                             type="button"
-                            className="rounded border border-red-200 px-2.5 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-50"
-                            onClick={() => toast.error('Cancellation disabled for demo')}
+                            className="rounded border border-red-200 px-2.5 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                            onClick={async () => {
+                              try {
+                                setCancelOrderTarget(order);
+                                setIsCancelModalOpen(true);
+                                setCancelLoading(true);
+                                const preview = await orderService.getCancellationPreview(order._id);
+                                setCancellationPreviewData(preview);
+                              } catch (e) {
+                                toast.error('Failed to load cancellation details');
+                                setIsCancelModalOpen(false);
+                              } finally {
+                                setCancelLoading(false);
+                              }
+                            }}
                           >
                             Cancel
                           </button>
@@ -393,6 +442,94 @@ export default function CustomerProfilePage({
     </section>
   );
 
+  const renderTrackingTimeline = (order) => {
+    if (order.status === 'Cancelled') {
+      return (
+        <div className="bg-red-50 text-red-600 p-4 rounded-xl font-bold flex items-center gap-2">
+          <AlertCircle className="w-5 h-5" /> Order Cancelled
+        </div>
+      );
+    }
+
+    const steps = [
+      { id: 'ordered', label: 'Ordered', statuses: ['Placed', 'Pending', 'Packed', 'Shipping', 'Shipped', 'Out for delivery', 'Delivered'] },
+      { id: 'shipped', label: 'Shipped', statuses: ['Shipping', 'Shipped', 'Out for delivery', 'Delivered'] },
+      { id: 'out_for_delivery', label: 'Out for Delivery', statuses: ['Out for delivery', 'Delivered'] },
+      { id: 'delivery', label: 'Delivery', statuses: ['Delivered'] }
+    ];
+
+    const currentStatusIndex = steps.map(s => s.statuses.includes(order.status)).lastIndexOf(true);
+    
+    const orderDate = new Date(order.createdAt);
+    const deliveryDate = new Date(orderDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const getStepDate = (idx) => {
+      if (idx === 0) return formatDate(order.createdAt);
+      if (idx === 3 && order.deliveredAt) return formatDate(order.deliveredAt);
+      if (idx === 3 && currentStatusIndex >= 1) return formatDate(deliveryDate);
+      return '';
+    };
+
+    return (
+      <div className="py-2 mb-6">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shadow-sm">
+            <Package className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-[#141225]">Order {order.status === 'Delivered' ? 'Delivered' : 'Placed'}</h3>
+            {order.status !== 'Delivered' && (
+              <p className="text-[#6D625C] text-sm mt-0.5">Estimated Delivery by {formatDate(deliveryDate)}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="relative flex items-start justify-between w-full mx-auto px-4 sm:px-8">
+          {/* Progress bar background */}
+          <div className="absolute top-4 left-10 right-10 h-1 bg-gray-200 rounded-full" />
+          
+          {/* Active progress bar */}
+          <div 
+            className="absolute top-4 left-10 h-1 bg-emerald-500 rounded-full transition-all duration-500"
+            style={{ width: `${Math.max(0, (currentStatusIndex / (steps.length - 1)) * 100 - 15)}%` }}
+          />
+
+          {steps.map((step, idx) => {
+            const isCompleted = currentStatusIndex >= idx;
+            const isCurrent = currentStatusIndex === idx;
+            
+            return (
+              <div key={step.id} className="relative z-10 flex flex-col items-center gap-2">
+                {isCurrent && idx === 0 && (
+                  <div className="absolute -top-10 bg-gray-800 text-white text-[10px] sm:text-xs font-bold px-2 py-1 rounded-lg shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Shipping Soon!
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45" />
+                  </div>
+                )}
+                
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-sm transition-colors duration-300 ${isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-gray-300 text-transparent'}`}>
+                  {isCompleted ? <Check className="w-4 h-4" /> : <div className="w-2.5 h-2.5 rounded-full bg-gray-200" />}
+                </div>
+
+                {isCurrent && idx > 0 && idx < 3 && (
+                  <div className="absolute top-1 -right-4 sm:-right-6 text-blue-500 bg-white p-0.5 rounded-full z-20 shadow-sm border border-blue-100">
+                    <Truck className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+                  </div>
+                )}
+
+                <div className="text-center mt-2 w-16 sm:w-20">
+                  <p className={`text-[10px] sm:text-xs font-bold ${isCompleted ? 'text-[#141225]' : 'text-gray-400'}`}>{step.label}</p>
+                  <p className={`text-[9px] sm:text-[10px] mt-0.5 ${isCompleted ? 'text-[#6D625C]' : 'text-transparent'}`}>{getStepDate(idx)}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderOrderDetails = () => {
     if (!activeOrder) return null;
     return (
@@ -406,6 +543,10 @@ export default function CustomerProfilePage({
         </div>
 
         <div className="space-y-6">
+          <div className="rounded-[14px] border border-[#E9DED3] bg-white p-5 sm:p-7">
+            {renderTrackingTimeline(activeOrder)}
+          </div>
+
           <div className="rounded-[14px] border border-[#E9DED3] bg-white p-5">
             <h3 className="font-bold text-[#141225] mb-4">Products</h3>
             <div className="divide-y divide-[#E9DED3]">
@@ -418,7 +559,10 @@ export default function CustomerProfilePage({
                     </div>
                     <div className="flex-1">
                       <p className="font-bold text-[#141225]">{item.name}</p>
-                      <p className="text-sm text-[#6D625C] mt-1">Qty: {item.qty} | Rs. {Number(item.price).toLocaleString()}</p>
+                      <p className="text-sm text-[#6D625C] mt-1">
+                        Qty: {item.qty} | Rs. {Number(item.price).toLocaleString()}
+                        {(item.weight && item.weight !== '0' && item.weight !== 0) ? ` | Weight: ${item.weight}` : ''}
+                      </p>
                     </div>
                     <div>
                       <button 
@@ -438,6 +582,22 @@ export default function CustomerProfilePage({
                 {activeOrder.status || 'Pending'}
               </span>
             </div>
+            {activeOrder.trackingId && (
+              <div className="mt-4 pt-4 border-t border-[#E9DED3] flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-bold text-[#6D625C]">Tracking ID:</p>
+                  <p className="text-sm font-semibold text-[#141225]">{activeOrder.trackingId}</p>
+                </div>
+                {activeOrder.trackingUrl && (
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm font-bold text-[#6D625C]">Tracking Link:</p>
+                    <a href={activeOrder.trackingUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
+                      Track Order <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="rounded-[14px] border border-[#E9DED3] bg-white p-5">
@@ -456,10 +616,11 @@ export default function CustomerProfilePage({
           
           <div className="pt-4">
             <h3 className="font-bold text-[#141225] mb-4">Recently Viewed Products</h3>
-            {savedItems && savedItems.length > 0 ? (
+            {recentlyViewed && recentlyViewed.length > 0 ? (
                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                 {savedItems.slice(0, 3).map((item, i) => {
-                   const imageSrc = item.image ? (item.image.startsWith('http') ? item.image : `http://localhost:5000${item.image}`) : '/animal_balance_maze.png';
+                 {recentlyViewed.slice(0, 3).map((item, i) => {
+                   const imgUrl = typeof item.image === 'string' ? item.image : (item.image?.url || '');
+                   const imageSrc = imgUrl ? (imgUrl.startsWith('http') ? imgUrl : `http://localhost:5000${imgUrl}`) : '/animal_balance_maze.png';
                    return (
                      <div key={i} className="group relative overflow-hidden rounded-[12px] border border-[#E9DED3] bg-white p-3 cursor-pointer shadow-sm hover:shadow-md transition-shadow" onClick={() => onNavigate('product-detail', { _id: item.id || item._id })}>
                        <div className="aspect-square bg-[#F8F3EF] mb-3 rounded-lg overflow-hidden">
@@ -989,6 +1150,130 @@ export default function CustomerProfilePage({
           </form>
         </div>
       )}
+      {isCancelModalOpen && cancelOrderTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-[#FAF8F5] rounded-2xl shadow-xl w-full max-w-[400px] border border-[#E9DED3] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-500">
+                  <X size={16} className="stroke-[3]" />
+                </div>
+                <h2 className="text-base font-bold text-[#141225]">Cancel Order</h2>
+              </div>
+              <button 
+                onClick={() => { setIsCancelModalOpen(false); setCancelOrderTarget(null); setCancellationPreviewData(null); }}
+                className="text-[#6D625C] hover:text-[#141225] transition-colors"
+                disabled={cancelLoading}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-5 pb-5">
+              <p className="text-sm font-semibold text-[#4A403B] mb-4">
+                Are you sure you want to cancel the order for <span className="font-bold text-[#141225]">{cancelOrderTarget.orderItems[0]?.name}</span>?
+              </p>
+
+              {/* Product Info */}
+              <div className="flex gap-4 items-center mb-5">
+                <div className="w-14 h-14 rounded-lg bg-[#F3E7D7] overflow-hidden border border-[#E9DED3] shrink-0">
+                  <img 
+                    src={cancelOrderTarget.orderItems[0]?.image ? (cancelOrderTarget.orderItems[0].image.startsWith('http') ? cancelOrderTarget.orderItems[0].image : `http://localhost:5000${cancelOrderTarget.orderItems[0].image}`) : '/animal_balance_maze.png'} 
+                    alt={cancelOrderTarget.orderItems[0]?.name} 
+                    className="w-full h-full object-cover" 
+                  />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-[#141225] line-clamp-1">{cancelOrderTarget.orderItems[0]?.name}</h4>
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-[11px] text-[#8A817C]">Qty: {cancelOrderTarget.orderItems.reduce((acc, item) => acc + item.qty, 0)}</p>
+                    <p className="text-sm font-bold text-[#141225]">₹{cancelOrderTarget.itemsPrice.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Breakdown */}
+              <div className="space-y-2 border-t border-[#E9DED3] pt-4 mb-4">
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-[#6D625C] font-semibold">Shipping & Fees</span>
+                  <span className="text-[#141225] font-bold">+₹{(cancellationPreviewData?.shippingAndFees || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-[#6D625C] font-semibold">Total Order Amount</span>
+                  <span className="text-[#141225] font-bold">₹{cancelOrderTarget.totalPrice.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-[#6D625C] font-semibold">Payment Method</span>
+                  <span className="text-[#141225] font-bold">{cancelOrderTarget.paymentMethod}</span>
+                </div>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-[#6D625C] font-semibold">Amount Paid</span>
+                  {cancellationPreviewData ? (
+                    <span className="text-[#141225] font-bold">₹{cancellationPreviewData.amountPaid.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-[#8A817C] text-[11px] italic">Calculating...</span>
+                  )}
+                </div>
+                <div className="flex justify-between text-[13px] pt-1">
+                  <span className="text-red-500 font-bold">Cancellation Fee</span>
+                  {cancellationPreviewData ? (
+                    <span className="text-red-500 font-bold">-₹{cancellationPreviewData.cancellationFee.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-[#8A817C] text-[11px] italic">Calculating...</span>
+                  )}
+                </div>
+                <div className="flex justify-between text-[15px] pt-2 border-t border-dashed border-[#E9DED3]">
+                  <span className="text-[#141225] font-bold">Estimated Refund</span>
+                  {cancellationPreviewData ? (
+                    <span className="text-emerald-600 font-bold">₹{cancellationPreviewData.estimatedRefund.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-[#8A817C] text-[11px] italic mt-1">Calculating...</span>
+                  )}
+                </div>
+              </div>
+              
+              {cancellationPreviewData?.notAllowedReason && (
+                 <p className="text-xs text-red-500 font-bold text-center mb-4">{cancellationPreviewData.notAllowedReason}</p>
+              )}
+              {cancellationPreviewData && !cancellationPreviewData.notAllowedReason && (
+                <div className="text-[10px] text-center text-[#8A817C] mb-4">
+                  <p>Refund will be processed in 1 working day.</p>
+                  <p className="mt-1 font-semibold text-[#6D625C]">
+                    (Allowed within {cancellationPreviewData.timeLimit || '-'} for '{cancellationPreviewData.ruleStatus || '-'}' status)
+                  </p>
+                  {cancellationPreviewData.cancellationFee > 0 && (
+                    <p className="mt-0.5 text-red-400">
+                      *Cancellation Fee of ₹{cancellationPreviewData.cancellationFee.toFixed(2)} applied for {cancellationPreviewData.ruleMethod} orders.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => { setIsCancelModalOpen(false); setCancelOrderTarget(null); setCancellationPreviewData(null); }}
+                  className="flex-1 py-2.5 bg-white border border-[#E9DED3] text-[#4A403B] rounded-[8px] font-bold text-sm shadow-sm hover:bg-gray-50 transition-colors"
+                  disabled={cancelLoading}
+                >
+                  No, Keep Order
+                </button>
+                <button 
+                  onClick={confirmCancelOrder}
+                  disabled={cancelLoading || (cancellationPreviewData && !cancellationPreviewData.isAllowed)}
+                  className="flex-1 py-2.5 bg-[#C94A4A] text-white rounded-[8px] font-bold text-sm shadow-sm hover:bg-[#B33E3E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cancelLoading ? 'Cancelling...' : 'Yes, Cancel Order'}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
     </section>
   );
 }

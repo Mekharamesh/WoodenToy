@@ -297,6 +297,20 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
             }))
           });
           setProduct(productData);
+
+          try {
+            const recent = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
+            const filtered = recent.filter(item => item._id !== productData._id);
+            filtered.unshift({
+              _id: productData._id,
+              name: productData.name,
+              price: productData.price,
+              image: productData.image || (productData.images && productData.images.length > 0 ? productData.images[0] : null)
+            });
+            localStorage.setItem('recentlyViewed', JSON.stringify(filtered.slice(0, 10)));
+          } catch (e) {
+            console.error('Failed to save recently viewed', e);
+          }
         }
       })
       .catch(() => {

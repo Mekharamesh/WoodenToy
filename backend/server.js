@@ -12,6 +12,8 @@ const roleRoutes = require('./routes/roleRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const feeRoutes = require('./routes/feeRoutes');
+const cancellationRoutes = require('./routes/cancellationRoutes');
+const refundRoutes = require('./routes/refundRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const seedAttributes = require('./seedAttributes');
 const Order = require('./models/Order');
@@ -47,6 +49,8 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/fees', feeRoutes);
+app.use('/api/cancellation-rules', cancellationRoutes);
+app.use('/api/refunds', refundRoutes);
 app.use('/api/payment', paymentRoutes);
 
 

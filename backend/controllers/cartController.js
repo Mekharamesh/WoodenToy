@@ -40,7 +40,7 @@ const replaceCart = async (req, res) => {
     const cart = await Cart.findOneAndUpdate(
       { user: req.user._id },
       { user: req.user._id, items },
-      { new: true, upsert: true, runValidators: true }
+      { returnDocument: 'after', upsert: true, runValidators: true }
     );
     res.json(cart);
   } catch (error) {

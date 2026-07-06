@@ -1,6 +1,19 @@
 const Order = require('../models/Order');
 const Fee = require('../models/Fee');
+const Refund = require('../models/Refund');
+const CancellationRule = require('../models/CancellationRule');
 const { calculateOrderFees } = require('../utils/feeCalculator');
+
+const mapOrderStatusToRuleStatus = (status) => {
+  const mapping = {
+    'Placed': 'Order Placed',
+    'Packed': 'Packed',
+    'Shipping': 'Shipped',
+    'Out for delivery': 'Out for Delivery',
+    'Delivered': 'Delivered'
+  };
+  return mapping[status] || 'Order Placed';
+};
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -109,7 +122,7 @@ const updateOrderToPaid = async (req, res) => {
         update_time: req.body.update_time,
         email_address: req.body.email_address,
       };
-      order.status = 'Processing';
+      order.status = 'Packed';
 
       const updatedOrder = await order.save();
       res.json(updatedOrder);
@@ -134,7 +147,7 @@ const updateOrderStatus = async (req, res) => {
       'Delivered',
       'Cancelled',
       'Pending',
-      'Processing',
+      'Packed',
       'Shipped',
     ];
 
@@ -150,7 +163,7 @@ const updateOrderStatus = async (req, res) => {
     const STATUS_WEIGHTS = {
       'Pending': 0,
       'Placed': 1,
-      'Processing': 2,
+      'Packed': 2,
       'Shipping': 3,
       'Shipped': 4,
       'Out for delivery': 5,
@@ -184,7 +197,7 @@ const updateOrderStatus = async (req, res) => {
       order.isDelivered = false;
     }
 
-    if (['Placed', 'Shipping', 'Out for delivery', 'Pending', 'Processing', 'Shipped'].includes(status)) {
+    if (['Placed', 'Shipping', 'Out for delivery', 'Pending', 'Packed', 'Shipped'].includes(status)) {
       order.isDelivered = false;
     }
 
@@ -271,7 +284,7 @@ const updateOrderDetails = async (req, res) => {
 
     if (status && status !== order.status) {
       const STATUS_WEIGHTS = {
-        'Pending': 0, 'Placed': 1, 'Processing': 2, 'Shipping': 3,
+        'Pending': 0, 'Placed': 1, 'Packed': 2, 'Shipping': 3,
         'Shipped': 4, 'Out for delivery': 5, 'Delivered': 6, 'Cancelled': 99
       };
       
@@ -310,6 +323,113 @@ const updateOrderDetails = async (req, res) => {
   }
 };
 
+// @desc    Get cancellation preview (fee and refund estimate)
+// @route   GET /api/orders/:id/cancellation-preview
+// @access  Private
+const getCancellationPreview = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('orderItems.product', 'name image price');
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const ruleMethod = order.paymentMethod === 'Cashfree' ? 'Online' : 'COD';
+    const ruleStatus = mapOrderStatusToRuleStatus(order.status);
+
+    const rule = await CancellationRule.findOne({
+      paymentMethod: ruleMethod,
+      orderStatus: ruleStatus
+    });
+
+    let cancellationFee = 0;
+    let isAllowed = true;
+    let notAllowedReason = '';
+
+    let timeLimit = null;
+
+    if (rule) {
+      timeLimit = rule.timeLimit;
+      if (!rule.isAllowed) {
+        isAllowed = false;
+        notAllowedReason = `Cancellation is not allowed when order is ${ruleStatus}`;
+      } else {
+        cancellationFee = rule.cancellationFee || 0;
+      }
+    }
+
+    const amountPaid = order.paymentMethod === 'COD' ? 200 : order.totalPrice;
+    const estimatedRefund = Math.max(0, amountPaid - cancellationFee);
+
+    res.json({
+      orderId: order._id,
+      items: order.orderItems,
+      shippingAndFees: (order.shippingPrice || 0) + (order.taxPrice || 0),
+      totalOrderAmount: order.totalPrice,
+      paymentMethod: order.paymentMethod,
+      amountPaid,
+      cancellationFee,
+      estimatedRefund,
+      isAllowed,
+      notAllowedReason,
+      ruleStatus,
+      ruleMethod,
+      timeLimit,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server Error' });
+  }
+};
+
+// @desc    Cancel order and create refund
+// @route   PUT /api/orders/:id/cancel
+// @access  Private
+const cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('user', 'name');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check cancellation rule
+    const ruleMethod = order.paymentMethod === 'Cashfree' ? 'Online' : 'COD';
+    const ruleStatus = mapOrderStatusToRuleStatus(order.status);
+    const rule = await CancellationRule.findOne({ paymentMethod: ruleMethod, orderStatus: ruleStatus });
+
+    let cancellationFee = 0;
+    if (rule) {
+      if (!rule.isAllowed) {
+        return res.status(400).json({ message: `Cancellation is not allowed when order is ${ruleStatus}` });
+      }
+      cancellationFee = rule.cancellationFee || 0;
+    }
+
+    // Update order status to Cancelled
+    order.status = 'Cancelled';
+    const updatedOrder = await order.save();
+
+    const amountPaid = order.paymentMethod === 'COD' ? 200 : order.totalPrice;
+    const refundAmount = Math.max(0, amountPaid - cancellationFee);
+
+    // Create a Refund entry
+    const newRefund = new Refund({
+      orderId: `#WT${order._id.toString().slice(-5).toUpperCase()}`,
+      customerName: order.user ? order.user.name : 'Guest',
+      amount: refundAmount,
+      paymentType: order.paymentMethod === 'COD' ? 'COD' : 'Cashfree',
+      slaTimeline: '24H LEFT',
+      status: 'Pending',
+      refundActionStatus: 'Refund'
+    });
+    
+    await newRefund.save();
+
+    res.json(updatedOrder);
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server Error' });
+  }
+};
+
 module.exports = {
   addOrderItems,
   getOrderById,
@@ -319,6 +439,6 @@ module.exports = {
   getMyOrders,
   getOrders,
   updateOrderDetails,
+  cancelOrder,
+  getCancellationPreview,
 };
-
-

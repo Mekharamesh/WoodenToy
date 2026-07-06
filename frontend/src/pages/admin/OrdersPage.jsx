@@ -13,6 +13,12 @@ export default function OrdersPage() {
   const [editFormData, setEditFormData] = useState({});
   const [saving, setSaving] = useState(false);
   const [isEditingShipping, setIsEditingShipping] = useState(false);
+  
+  // Shipping Modal State
+  const [showShippingModal, setShowShippingModal] = useState(false);
+  const [shippingModalOrder, setShippingModalOrder] = useState(null);
+  const [shippingTrackingId, setShippingTrackingId] = useState('');
+  const [shippingTrackingUrl, setShippingTrackingUrl] = useState('');
 
   useEffect(() => {
     fetchOrders();
@@ -47,6 +53,40 @@ export default function OrdersPage() {
       fetchOrders();
     } catch (error) {
       toast.error(error.message);
+    }
+  };
+
+  const handleStatusSelectChange = (order, status) => {
+    if (status === 'Shipping') {
+      setShippingModalOrder(order);
+      setShippingTrackingId(order.trackingId || '');
+      setShippingTrackingUrl(order.trackingUrl || '');
+      setShowShippingModal(true);
+    } else {
+      handleStatusChange(order._id, status);
+    }
+  };
+
+  const submitShippingDetails = async () => {
+    if (!shippingTrackingId || !shippingTrackingUrl) {
+      toast.error('Please provide both tracking ID and URL');
+      return;
+    }
+    try {
+      setSaving(true);
+      await orderService.updateOrderDetails(shippingModalOrder._id, {
+        status: 'Shipping',
+        trackingId: shippingTrackingId,
+        trackingUrl: shippingTrackingUrl
+      });
+      toast.success('Order status updated to Shipping');
+      setShowShippingModal(false);
+      setShippingModalOrder(null);
+      fetchOrders();
+    } catch (error) {
+      toast.error(error.message || 'Failed to update order');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -106,7 +146,7 @@ export default function OrdersPage() {
   const STATUS_WEIGHTS = {
     'Pending': 0,
     'Placed': 1,
-    'Processing': 2,
+    'Packed': 2,
     'Shipping': 3,
     'Shipped': 4,
     'Out for delivery': 5,
@@ -126,7 +166,7 @@ export default function OrdersPage() {
       case 'Shipping': return 'bg-sky-100 text-sky-700';
       case 'Out for delivery': return 'bg-purple-100 text-purple-700';
       case 'Pending': return 'bg-amber-100 text-amber-700';
-      case 'Processing': return 'bg-blue-100 text-blue-700';
+      case 'Packed': return 'bg-blue-100 text-blue-700';
       case 'Shipped': return 'bg-violet-100 text-violet-700';
       case 'Delivered': return 'bg-green-100 text-green-700';
       case 'Cancelled': return 'bg-red-100 text-red-700';
@@ -222,7 +262,7 @@ export default function OrdersPage() {
                       <select
                         className="appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-gray-900 rounded-full focus:outline-none"
                         value={order.status}
-                        onChange={(e) => handleStatusChange(order._id, e.target.value)}
+                        onChange={(e) => handleStatusSelectChange(order, e.target.value)}
                       >
                         {ORDER_STATUS_OPTIONS.map((statusOption) => (
                           <option 
@@ -336,12 +376,14 @@ export default function OrdersPage() {
                   </div>
                   
                   {selectedOrder.fees && selectedOrder.fees.length > 0 ? (
-                    selectedOrder.fees.map((fee, idx) => (
-                      <div key={idx} className="min-w-[120px]">
-                        <p className="text-xs uppercase tracking-widest text-gray-500">{fee.name}</p>
-                        <p className="mt-2 font-semibold text-gray-900">₹{fee.amount.toLocaleString()}</p>
-                      </div>
-                    ))
+                    selectedOrder.fees
+                      .filter(fee => !(selectedOrder.paymentMethod === 'COD' && fee.name.toLowerCase() === 'advance'))
+                      .map((fee, idx) => (
+                        <div key={idx} className="min-w-[120px]">
+                          <p className="text-xs uppercase tracking-widest text-gray-500">{fee.name}</p>
+                          <p className="mt-2 font-semibold text-gray-900">₹{fee.amount.toLocaleString()}</p>
+                        </div>
+                      ))
                   ) : (
                     selectedOrder.shippingPrice > 0 && (
                       <div className="min-w-[120px]">
@@ -354,7 +396,7 @@ export default function OrdersPage() {
                   {(selectedOrder.codAdvance > 0 || selectedOrder.paymentMethod === 'COD') && (
                     <>
                       <div className="min-w-[120px]">
-                        <p className="text-xs uppercase tracking-widest text-gray-500">Paid Amount</p>
+                        <p className="text-xs uppercase tracking-widest text-gray-500">Advance (Paid)</p>
                         <p className="mt-2 font-semibold text-gray-900">₹{(selectedOrder.codAdvance || 0).toLocaleString()}</p>
                       </div>
                       <div className="min-w-[120px]">
@@ -367,7 +409,15 @@ export default function OrdersPage() {
                   {selectedOrder.paymentMethod !== 'COD' && (
                      <div className="min-w-[120px]">
                         <p className="text-xs uppercase tracking-widest text-gray-500">Total Paid</p>
-                        <p className="mt-2 font-semibold text-gray-900">₹{selectedOrder.totalPrice.toLocaleString()}</p>
+                        <p className="mt-2 font-semibold text-gray-900">₹{(
+                          (selectedOrder.itemsPrice ?? (selectedOrder.totalPrice - (selectedOrder.shippingPrice||0))) +
+                          (selectedOrder.fees && selectedOrder.fees.length > 0
+                            ? selectedOrder.fees
+                                .filter(fee => !(selectedOrder.paymentMethod === 'COD' && fee.name.toLowerCase() === 'advance'))
+                                .reduce((sum, f) => sum + f.amount, 0)
+                            : (selectedOrder.shippingPrice || 0)
+                          )
+                        ).toLocaleString()}</p>
                      </div>
                   )}
                 </div>
@@ -535,12 +585,14 @@ export default function OrdersPage() {
                 </div>
                 
                 {selectedOrder.fees && selectedOrder.fees.length > 0 ? (
-                  selectedOrder.fees.map((fee, idx) => (
-                    <div key={idx} className="min-w-[120px]">
-                      <p className="text-xs uppercase tracking-widest text-gray-500">{fee.name}</p>
-                      <p className="mt-2 font-semibold text-gray-900">₹{fee.amount.toLocaleString()}</p>
-                    </div>
-                  ))
+                  selectedOrder.fees
+                    .filter(fee => !(selectedOrder.paymentMethod === 'COD' && fee.name.toLowerCase() === 'advance'))
+                    .map((fee, idx) => (
+                      <div key={idx} className="min-w-[120px]">
+                        <p className="text-xs uppercase tracking-widest text-gray-500">{fee.name}</p>
+                        <p className="mt-2 font-semibold text-gray-900">₹{fee.amount.toLocaleString()}</p>
+                      </div>
+                    ))
                 ) : (
                   selectedOrder.shippingPrice > 0 && (
                     <div className="min-w-[120px]">
@@ -553,7 +605,7 @@ export default function OrdersPage() {
                 {(selectedOrder.codAdvance > 0 || selectedOrder.paymentMethod === 'COD') && (
                   <>
                     <div className="min-w-[120px]">
-                      <p className="text-xs uppercase tracking-widest text-gray-500">Paid Amount</p>
+                      <p className="text-xs uppercase tracking-widest text-gray-500">Advance (Paid)</p>
                       <p className="mt-2 font-semibold text-gray-900">₹{(selectedOrder.codAdvance || 0).toLocaleString()}</p>
                     </div>
                     <div className="min-w-[120px]">
@@ -566,7 +618,15 @@ export default function OrdersPage() {
                 {selectedOrder.paymentMethod !== 'COD' && (
                     <div className="min-w-[120px]">
                       <p className="text-xs uppercase tracking-widest text-gray-500">Total Paid</p>
-                      <p className="mt-2 font-semibold text-gray-900">₹{selectedOrder.totalPrice.toLocaleString()}</p>
+                      <p className="mt-2 font-semibold text-gray-900">₹{(
+                        (selectedOrder.itemsPrice ?? (selectedOrder.totalPrice - (selectedOrder.shippingPrice||0))) +
+                        (selectedOrder.fees && selectedOrder.fees.length > 0
+                          ? selectedOrder.fees
+                              .filter(fee => !(selectedOrder.paymentMethod === 'COD' && fee.name.toLowerCase() === 'advance'))
+                              .reduce((sum, f) => sum + f.amount, 0)
+                          : (selectedOrder.shippingPrice || 0)
+                        )
+                      ).toLocaleString()}</p>
                     </div>
                 )}
               </div>
@@ -635,6 +695,64 @@ export default function OrdersPage() {
                 disabled={saving}
               >
                 {saving ? 'Saving...' : <><Save className="w-4 h-4"/> Save Changes</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showShippingModal && shippingModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E6DFD4]">
+              <h2 className="text-lg font-bold text-gray-900">Enter Shipping Details</h2>
+              <button onClick={() => setShowShippingModal(false)} className="text-gray-500 hover:text-gray-900">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Order ID</p>
+                <p className="font-semibold text-gray-900">{shippingModalOrder._id.substring(shippingModalOrder._id.length - 8)}</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Tracking ID</label>
+                <input
+                  type="text"
+                  placeholder="e.g. AWB123456789"
+                  className="w-full px-4 py-2 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30"
+                  value={shippingTrackingId}
+                  onChange={(e) => setShippingTrackingId(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Tracking URL</label>
+                <input
+                  type="url"
+                  placeholder="https://tracker.example.com/..."
+                  className="w-full px-4 py-2 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30"
+                  value={shippingTrackingUrl}
+                  onChange={(e) => setShippingTrackingUrl(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="border-t border-[#E6DFD4] p-6 flex justify-end gap-3 bg-gray-50">
+              <button 
+                onClick={() => setShowShippingModal(false)} 
+                className="px-6 py-2 rounded-xl font-bold text-gray-700 bg-white border border-[#E6DFD4] hover:bg-gray-50 transition-colors"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={submitShippingDetails} 
+                className="px-6 py-2 rounded-xl font-bold text-white bg-[#8B5E3C] hover:bg-[#7a5234] transition-colors flex items-center gap-2"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save & Update Status'}
               </button>
             </div>
           </div>

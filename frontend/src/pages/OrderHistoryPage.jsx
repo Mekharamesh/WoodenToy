@@ -29,7 +29,7 @@ export default function OrderHistoryPage({ onNavigate }) {
     switch (status) {
       case 'Paid': return 'bg-green-100 text-green-700 border-green-200';
       case 'Pending': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'Processing': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'Packed': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'Shipped': return 'bg-purple-100 text-purple-700 border-purple-200';
       case 'Delivered': return 'bg-green-100 text-green-700 border-green-200';
       case 'Cancelled': return 'bg-red-100 text-red-700 border-red-200';
@@ -95,16 +95,28 @@ export default function OrderHistoryPage({ onNavigate }) {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
-                    <button 
-                      onClick={() => onNavigate('order-success', order._id)}
-                      className="text-sm font-bold text-[#8B5E3C] hover:text-[#7a5234] flex items-center gap-1"
-                    >
-                      View Details <ExternalLink className="w-4 h-4" />
-                    </button>
+                  <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(order.status)}`}>
+                        {order.status}
+                      </span>
+                      <button 
+                        onClick={() => onNavigate('order-success', order._id)}
+                        className="text-sm font-bold text-[#8B5E3C] hover:text-[#7a5234] flex items-center gap-1"
+                      >
+                        View Details <ExternalLink className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {order.trackingId && (
+                      <div className="text-right mt-1">
+                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">Tracking ID: <span className="text-gray-900 font-bold">{order.trackingId}</span></p>
+                        {order.trackingUrl && (
+                          <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 justify-end">
+                            Track <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

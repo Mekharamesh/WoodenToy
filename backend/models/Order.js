@@ -18,7 +18,7 @@ const ORDER_STATUSES = [
   'Shipping',
   'Out for delivery',
   'Pending',
-  'Processing',
+  'Packed',
   'Shipped',
   'Delivered',
   'Cancelled',
