@@ -80,5 +80,19 @@ export const adminService = {
       (config) => axios.post(`${API_URL}/refunds/seed`, {}, config),
       'Failed to seed refunds'
     );
+  },
+
+  approveRefund: async (id) => {
+    return withAuthRetry(
+      (config) => axios.put(`${API_URL}/refunds/${id}/approve`, {}, config),
+      'Failed to approve refund'
+    );
+  },
+
+  getDashboardStats: async () => {
+    return withAuthRetry(
+      (config) => axios.get(`${API_URL}/orders/dashboard-stats`, config),
+      'Failed to fetch dashboard stats'
+    );
   }
 };

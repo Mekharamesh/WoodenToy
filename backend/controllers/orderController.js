@@ -2,6 +2,8 @@ const Order = require('../models/Order');
 const Fee = require('../models/Fee');
 const Refund = require('../models/Refund');
 const CancellationRule = require('../models/CancellationRule');
+const User = require('../models/User');
+const Product = require('../models/Product');
 const { calculateOrderFees } = require('../utils/feeCalculator');
 
 const mapOrderStatusToRuleStatus = (status) => {
@@ -390,7 +392,7 @@ const getCancellationPreview = async (req, res) => {
 const cancelOrder = async (req, res) => {
   try {
     const { refundDestination } = req.body || {};
-    const order = await Order.findById(req.params.id).populate('user', 'name');
+    const order = await Order.findById(req.params.id).populate('user', 'name email');
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
@@ -409,30 +411,107 @@ const cancelOrder = async (req, res) => {
       cancellationFee = rule.cancellationFee || 0;
     }
 
-    // Update order status to Cancelled
-    order.status = 'Cancelled';
-    const updatedOrder = await order.save();
-
     const amountPaid = order.paymentMethod === 'COD' ? 200 : order.totalPrice;
     const refundAmount = Math.max(0, amountPaid - cancellationFee);
 
     // Create a Refund entry
     const newRefund = new Refund({
-      orderId: `#WT${order._id.toString().slice(-5).toUpperCase()}`,
+      orderId: `#${order._id.toString().slice(-8).toUpperCase()}`,
+      orderRef: order._id,
+      originalStatus: order.status, // this is the status before it's updated to 'Cancelled' below
+      cancellationFee: cancellationFee,
+      amountPaid: amountPaid,
       customerName: order.user ? order.user.name : 'Guest',
+      customerEmail: order.user ? order.user.email : '',
+      customerPhone: order.shippingAddress?.phone || '',
       amount: refundAmount,
       paymentType: order.paymentMethod === 'COD' ? 'COD' : 'Cashfree',
-      slaTimeline: '24H LEFT',
+      slaTimeline: rule && rule.timeLimit ? rule.timeLimit : '-',
       refundDestination: refundDestination || '',
-      status: 'Pending',
+      status: 'Approval Pending',
       refundActionStatus: 'Refund'
     });
+    
+    // Update order status to Cancelled
+    order.status = 'Cancelled';
+    const updatedOrder = await order.save();
     
     await newRefund.save();
 
     res.json(updatedOrder);
   } catch (error) {
     res.status(500).json({ message: error.message || 'Server Error' });
+  }
+};
+
+// @desc    Get dashboard stats
+// @route   GET /api/orders/dashboard-stats
+// @access  Private/Admin
+const getDashboardStats = async (req, res) => {
+  try {
+    const totalOrders = await Order.countDocuments();
+    const totalCustomers = await User.countDocuments({ role: 'user' });
+    const totalProducts = await Product.countDocuments();
+    
+    // Revenue logic: sum of all paid orders
+    const orders = await Order.find({ isPaid: true });
+    const totalRevenue = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+
+    // Revenue analytics: daily revenue over the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+    
+    const recentOrders = await Order.find({ 
+      isPaid: true, 
+      createdAt: { $gte: thirtyDaysAgo } 
+    });
+
+    const revenueByDate = {};
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      revenueByDate[dateStr] = 0;
+    }
+
+    recentOrders.forEach(order => {
+      const dateStr = new Date(order.createdAt).toISOString().split('T')[0];
+      if (revenueByDate[dateStr] !== undefined) {
+        revenueByDate[dateStr] += (order.totalPrice || 0);
+      }
+    });
+
+    const revenueAnalytics = Object.keys(revenueByDate).map(date => ({
+      date,
+      revenue: revenueByDate[date]
+    }));
+
+    // Order Volume: orders by day of week (1=Sun)
+    // Actually day of week: 0=Sun, 1=Mon, ..., 6=Sat
+    const orderVolumeArray = Array(7).fill(0);
+    const allOrders = await Order.find();
+    allOrders.forEach(order => {
+      const day = new Date(order.createdAt).getDay();
+      orderVolumeArray[day] += 1;
+    });
+    
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const orderVolume = daysOfWeek.map((day, idx) => ({
+      name: day,
+      value: orderVolumeArray[idx]
+    }));
+
+    res.json({
+      totalRevenue,
+      totalOrders,
+      totalCustomers,
+      totalProducts,
+      revenueAnalytics,
+      orderVolume
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -444,6 +523,7 @@ module.exports = {
   updateOrderToDelivered,
   getMyOrders,
   getOrders,
+  getDashboardStats,
   updateOrderDetails,
   cancelOrder,
   getCancellationPreview,

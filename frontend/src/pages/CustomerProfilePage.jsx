@@ -327,7 +327,7 @@ export default function CustomerProfilePage({
     try {
       setCancelLoading(true);
       await orderService.cancelOrder(cancelOrderTarget._id, { refundDestination: refundDestinationInput });
-      toast.success('Order cancelled successfully');
+      toast.success('Cancellation requested, refund pending');
       setOrders(orders.map(o => o._id === cancelOrderTarget._id ? { ...o, status: 'Cancelled' } : o));
       setIsCancelModalOpen(false);
       setShowRefundDestinationModal(false);
@@ -1265,9 +1265,15 @@ export default function CustomerProfilePage({
               {/* Financial Breakdown */}
               <div className="space-y-2 border-t border-[#E9DED3] pt-4 mb-4">
                 <div className="flex justify-between text-[13px]">
-                  <span className="text-[#6D625C] font-semibold">Shipping & Fees</span>
-                  <span className="text-[#141225] font-bold">+₹{(cancellationPreviewData?.shippingAndFees || 0).toFixed(2)}</span>
+                  <span className="text-[#6D625C] font-semibold">Base Shipping</span>
+                  <span className="text-[#141225] font-bold">+₹{(cancelOrderTarget.shippingPrice || 0).toFixed(2)}</span>
                 </div>
+                {cancelOrderTarget.fees && cancelOrderTarget.fees.map((fee, index) => (
+                  <div key={index} className="flex justify-between text-[13px]">
+                    <span className="text-[#6D625C] font-semibold">{fee.name}</span>
+                    <span className="text-[#141225] font-bold">+₹{(fee.amount || 0).toFixed(2)}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between text-[13px]">
                   <span className="text-[#6D625C] font-semibold">Total Order Amount</span>
                   <span className="text-[#141225] font-bold">₹{cancelOrderTarget.totalPrice.toFixed(2)}</span>

@@ -9,6 +9,30 @@ const refundSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  customerPhone: {
+    type: String,
+    default: '',
+  },
+  customerEmail: {
+    type: String,
+    default: '',
+  },
+  orderRef: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+  },
+  originalStatus: {
+    type: String,
+    default: '',
+  },
+  cancellationFee: {
+    type: Number,
+    default: 0,
+  },
+  amountPaid: {
+    type: Number,
+    default: 0,
+  },
   amount: {
     type: Number,
     required: true,
@@ -28,8 +52,8 @@ const refundSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Approved Refund', 'Pending', 'Processing', 'Failed', 'Completed'],
-    default: 'Pending',
+    enum: ['Approved Refund', 'Approval Pending', 'Refund Approved', 'Pending', 'Processing', 'Failed', 'Completed'],
+    default: 'Approval Pending',
   },
   refundActionStatus: {
     type: String,

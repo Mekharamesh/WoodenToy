@@ -11,8 +11,11 @@ const {
   updateOrderDetails,
   cancelOrder,
   getCancellationPreview,
+  getDashboardStats,
 } = require('../controllers/orderController');
 const { protect, authorize } = require('../middleware/authMiddleware');
+
+router.route('/dashboard-stats').get(protect, authorize('admin', 'manager', 'staff'), getDashboardStats);
 
 router.route('/')
   .post(protect, addOrderItems)
