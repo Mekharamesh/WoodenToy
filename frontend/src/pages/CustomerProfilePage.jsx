@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { authService } from '../api/authService';
 import { orderService } from '../api/orderService';
+import { uploadAPI } from '../api/catalogAdminService';
 import useCartStore from '../store/useCartStore';
 
 const modules = [
@@ -356,7 +357,6 @@ export default function CustomerProfilePage({
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-[#141225]">Order History</h2>
-          <p className="mt-1 text-sm text-[#6D625C]">Orders are loaded from your backend account.</p>
         </div>
         <button type="button" onClick={() => onNavigate('order-history')} className="rounded-[8px] bg-[#9A6031] px-4 py-2 text-sm font-bold text-white">Open Full Page</button>
       </div>
@@ -1125,7 +1125,6 @@ export default function CustomerProfilePage({
               </div>
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-[#141225]">{modules.find((item) => item.id === activeModule)?.label || 'My Profile'}</h1>
-                <p className="mt-1 text-sm text-[#6D625C]">Customer panel connected with backend profile, orders, and cart.</p>
               </div>
             </div>
             <button type="button" onClick={() => setIsEditing(true)} className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[#9A6031] px-5 py-3 text-sm font-bold text-white shadow-[0_12px_25px_rgba(139,94,60,0.2)] transition hover:bg-[#7E4B25]">
@@ -1172,7 +1171,42 @@ export default function CustomerProfilePage({
                   <option value="Prefer not to say">Prefer not to say</option>
                 </select>
               </label>
-              <Field className="md:col-span-2" label="Profile Image URL" value={form.profileImage} onChange={(value) => setForm((current) => ({ ...current, profileImage: value }))} placeholder="/animal_balance_maze.png or https://..." />
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-[#4A403B] mb-2">Profile Image</label>
+                <div className="flex items-center gap-4">
+                  {form.profileImage ? (
+                    <img src={form.profileImage} alt="Profile preview" className="w-16 h-16 rounded-full object-cover border border-[#E9DED3]" />
+                  ) : (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#FAF4EF] text-[#8B5E3C]">
+                      <User size={32} />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input 
+                      type="file" 
+                      accept="image/jpeg, image/png, image/webp" 
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        try {
+                          toast.loading('Uploading image...', { id: 'upload-image' });
+                          const response = await uploadAPI.uploadImages([file]);
+                          if (response?.data?.success && response.data.data.urls?.length > 0) {
+                            setForm(current => ({ ...current, profileImage: response.data.data.urls[0] }));
+                            toast.success('Image uploaded successfully!', { id: 'upload-image' });
+                          } else {
+                             toast.error('Upload failed or no URL returned', { id: 'upload-image' });
+                          }
+                        } catch (err) {
+                          console.error(err);
+                          toast.error('Failed to upload image', { id: 'upload-image' });
+                        }
+                      }}
+                      className="w-full text-sm text-[#6D625C] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-[#FAF4EF] file:text-[#8B5E3C] hover:file:bg-[#F1E8E0] cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
               <Field label="Preferred Age Group" value={form.preferredAgeGroup} onChange={(value) => setForm((current) => ({ ...current, preferredAgeGroup: value }))} />
               <label className="flex items-center gap-3 pt-7">
                 <input type="checkbox" checked={form.emailNotifications} onChange={(event) => setForm((current) => ({ ...current, emailNotifications: event.target.checked }))} className="h-4 w-4 accent-[#9A6031]" />

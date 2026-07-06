@@ -52,7 +52,7 @@ export default function Header({
           <button type="button" onClick={() => onNavigate('home')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
             Home
           </button>
-          <button type="button" className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+          <button type="button" onClick={() => onNavigate('shop')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
             All Products
           </button>
 
@@ -67,7 +67,7 @@ export default function Header({
             {activeMenu === 'byAge' && (
               <div className="absolute left-0 top-full w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl">
                 {['0-6 Months', '6-12 Months', '1-2 Years', '2-3 Years', '3+ Years'].map((age) => (
-                  <button key={age} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                  <button key={age} onClick={() => onNavigate('shop', { ageGroup: age })} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                     {age}
                   </button>
                 ))}
@@ -92,14 +92,14 @@ export default function Header({
                     const subs = getSubCategories(mainCat._id);
                     return (
                       <div key={mainCat._id} className="group relative">
-                        <button type="button" className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                        <button type="button" onClick={() => onNavigate('shop', { category: mainCat._id })} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                           {mainCat.name}
                           {subs.length > 0 && <ChevronDown className="-rotate-90 h-4 w-4" strokeWidth={1.8} />}
                         </button>
                         {subs.length > 0 && (
                           <div className="absolute left-full top-0 hidden w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl group-hover:block">
                             {subs.map((subCat) => (
-                              <button key={subCat._id} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                              <button key={subCat._id} onClick={() => onNavigate('shop', { category: subCat._id })} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                                 {subCat.name}
                               </button>
                             ))}
