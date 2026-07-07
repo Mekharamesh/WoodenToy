@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { productV2API } from '../api/catalogV2Service';
+import ProductReviewSection from '../components/ProductReviewSection';
 
 const finishOptions = ['Natural Maple', 'Oak Tint'];
 const featureBullets = [
@@ -529,6 +530,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
   }
 
   return (
+    <>
     <section className="py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -898,5 +900,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
         </div>
       )}
     </section>
+    <ProductReviewSection product={product} user={user} />
+    </>
   );
 }

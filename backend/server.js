@@ -15,6 +15,7 @@ const feeRoutes = require('./routes/feeRoutes');
 const cancellationRoutes = require('./routes/cancellationRoutes');
 const refundRoutes = require('./routes/refundRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const reviewRoutes  = require('./routes/reviewRoutes');
 const seedAttributes = require('./seedAttributes');
 const Order = require('./models/Order');
 
@@ -52,6 +53,7 @@ app.use('/api/fees', feeRoutes);
 app.use('/api/cancellation-rules', cancellationRoutes);
 app.use('/api/refunds', refundRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 
 app.get('/', (req, res) => {

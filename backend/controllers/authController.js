@@ -241,4 +241,60 @@ const updateProfile = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, refreshToken, forgotPassword, getProfile, updateProfile };
+// @desc    Get all customers with their order stats (Admin only)
+// @route   GET /api/auth/customers
+// @access  Private/Admin
+const getCustomers = async (req, res) => {
+    try {
+        const Order = require('../models/Order');
+        const users = await User.find({ role: 'user' }).select('-password -resetPasswordToken -resetPasswordExpire').lean();
+
+        // Aggregate order stats per user
+        const orderStats = await Order.aggregate([
+            { $group: {
+                _id: '$user',
+                totalOrders: { $sum: 1 },
+                totalSpend: { $sum: '$totalPrice' },
+                lastOrderDate: { $max: '$createdAt' }
+            }}
+        ]);
+
+        const statsMap = {};
+        orderStats.forEach(s => { statsMap[String(s._id)] = s; });
+
+        const customers = users.map(u => {
+            const stats = statsMap[String(u._id)] || { totalOrders: 0, totalSpend: 0, lastOrderDate: null };
+            return {
+                ...u,
+                totalOrders: stats.totalOrders,
+                totalSpend: stats.totalSpend,
+                lastOrderDate: stats.lastOrderDate,
+            };
+        });
+
+        // Sort by totalSpend desc
+        customers.sort((a, b) => (b.totalSpend || 0) - (a.totalSpend || 0));
+
+        res.json(customers);
+    } catch (error) {
+        res.status(500).json({ message: error.message || 'Failed to fetch customers' });
+    }
+};
+
+// @desc    Get a single customer's order history (Admin only)
+// @route   GET /api/auth/customers/:id/orders
+// @access  Private/Admin
+const getCustomerOrders = async (req, res) => {
+    try {
+        const Order = require('../models/Order');
+        const orders = await Order.find({ user: req.params.id })
+            .populate('orderItems.product', 'name image')
+            .sort({ createdAt: -1 })
+            .lean();
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ message: error.message || 'Failed to fetch customer orders' });
+    }
+};
+
+module.exports = { registerUser, loginUser, refreshToken, forgotPassword, getProfile, updateProfile, getCustomers, getCustomerOrders };

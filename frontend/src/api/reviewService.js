@@ -1,0 +1,41 @@
+import axios from 'axios';
+
+const API_URL = 'http://localhost:5000/api/reviews';
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+export const reviewService = {
+  getReviews: async (productId, params = {}) => {
+    const res = await axios.get(`${API_URL}/${productId}`, { params });
+    return res.data;
+  },
+
+  getGallery: async (productId) => {
+    const res = await axios.get(`${API_URL}/${productId}/gallery`);
+    return res.data;
+  },
+
+  createReview: async (productId, formData) => {
+    const res = await axios.post(`${API_URL}/${productId}`, formData, {
+      headers: { ...getAuthHeaders(), 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
+  voteReview: async (reviewId, vote) => {
+    const res = await axios.put(`${API_URL}/${reviewId}/vote`, { vote }, {
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    });
+    return res.data;
+  },
+
+  deleteReview: async (reviewId) => {
+    const res = await axios.delete(`${API_URL}/${reviewId}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.data;
+  },
+};

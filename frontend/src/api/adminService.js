@@ -94,5 +94,19 @@ export const adminService = {
       (config) => axios.get(`${API_URL}/orders/dashboard-stats`, config),
       'Failed to fetch dashboard stats'
     );
-  }
+  },
+
+  getCustomers: async () => {
+    return withAuthRetry(
+      (config) => axios.get(`${API_URL}/auth/customers`, config),
+      'Failed to fetch customers'
+    );
+  },
+
+  getCustomerOrders: async (userId) => {
+    return withAuthRetry(
+      (config) => axios.get(`${API_URL}/auth/customers/${userId}/orders`, config),
+      'Failed to fetch customer orders'
+    );
+  },
 };

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, refreshToken, forgotPassword, getProfile, updateProfile } = require('../controllers/authController');
+const { registerUser, loginUser, refreshToken, forgotPassword, getProfile, updateProfile, getCustomers, getCustomerOrders } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 router.post('/register', registerUser);
@@ -19,5 +19,9 @@ router.get('/admin', protect, authorize('admin'), (req, res) => {
 router.get('/staff', protect, authorize('staff', 'admin'), (req, res) => {
     res.json({ message: 'Staff area data' });
 });
+
+// Admin: Customer Management
+router.route('/customers').get(protect, authorize('admin', 'manager', 'staff'), getCustomers);
+router.route('/customers/:id/orders').get(protect, authorize('admin', 'manager', 'staff'), getCustomerOrders);
 
 module.exports = router;

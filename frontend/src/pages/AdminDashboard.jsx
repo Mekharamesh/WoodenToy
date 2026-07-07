@@ -16,6 +16,7 @@ import AddFeePage from './admin/fees/AddFeePage';
 import CancellationManagementPage from './admin/cancellations/CancellationManagementPage';
 import RefundManagementPage from './admin/refunds/RefundManagementPage';
 import InventoryManagement from './admin/inventory/InventoryManagement';
+import CustomerManagementPage from './admin/customers/CustomerManagementPage';
 
 export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [products, setProducts] = useState([]);
@@ -45,6 +46,9 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
 
   // Inventory Management state
   const [inventoryMenuOpen, setInventoryMenuOpen] = useState(false);
+
+  // Customer Management state
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
 
   // Dynamic permissions for sidebar
   const [userPermissions, setUserPermissions] = useState(null); // null = not loaded yet
@@ -669,7 +673,36 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                 </div>
               )}
 
-              {/* Fee Management */}
+              {/* Customer Management */}
+              {isAdmin && (
+                <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
+                  <button
+                    onClick={() => setCustomerMenuOpen(o => !o)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
+                      currentTab === 'customers' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      Customer Management
+                    </span>
+                    <svg className={`w-3.5 h-3.5 transition-transform ${customerMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {customerMenuOpen && (
+                    <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
+                      <button
+                        onClick={() => { setCurrentTab('customers'); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
+                          currentTab === 'customers' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                        Customer List
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               {(isAdmin || canView('fees')) && (
                 <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
                   <button
@@ -1861,6 +1894,11 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
           {/* ── REFUND MANAGEMENT ── */}
           {(isAdmin || canView('refund')) && currentTab === 'refund' && (
             <RefundManagementPage />
+          )}
+
+          {/* ── CUSTOMER MANAGEMENT ── */}
+          {isAdmin && currentTab === 'customers' && (
+            <CustomerManagementPage />
           )}
 
         </div>
