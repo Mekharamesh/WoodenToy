@@ -1,13 +1,12 @@
 import React from 'react';
 import useCartStore from '../store/useCartStore';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { getImageSrc } from '../utils/imageUtils';
 
 export default function ReviewOrderPage({ onNavigate }) {
   const { cartItems, getSubtotal } = useCartStore();
 
   const subtotal = getSubtotal();
-  // Shipping charge will be calculated on the next page based on state and payment method
-  const shippingCharge = 0; // Set to 0 here, calculated at checkout
   const total = subtotal;
 
   if (cartItems.length === 0) {
@@ -58,7 +57,7 @@ export default function ReviewOrderPage({ onNavigate }) {
               <div key={index} className="bg-white p-5 rounded-3xl shadow-sm border border-[#E6DFD4] flex flex-col sm:flex-row gap-5 items-center sm:items-start">
                 <div className="w-32 h-32 bg-[#F8F4EC] rounded-2xl overflow-hidden shrink-0">
                   {item.image ? (
-                    <img src={item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : (item.image.startsWith('/uploads') || item.image.startsWith('uploads/')) ? `http://localhost:5000${item.image.startsWith('/') ? '' : '/'}${item.image}` : item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img src={getImageSrc(item.image)} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">No Image</div>
                   )}
@@ -97,10 +96,9 @@ export default function ReviewOrderPage({ onNavigate }) {
                   <span>Subtotal ({cartItems.length} items)</span>
                   <span className="text-gray-900 font-bold">₹{subtotal.toLocaleString()}</span>
                 </div>
-
               </div>
 
-              <div className="flex justify-between items-end mb-8">
+              <div className="flex justify-between items-end my-8">
                 <span className="text-lg font-bold text-gray-900">Total Price</span>
                 <span className="text-3xl font-black text-[#8B5E3C]">₹{total.toLocaleString()}</span>
               </div>

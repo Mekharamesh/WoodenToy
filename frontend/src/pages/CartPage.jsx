@@ -1,6 +1,7 @@
 import React from 'react';
 import useCartStore from '../store/useCartStore';
 import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag } from 'lucide-react';
+import { getImageSrc } from '../utils/imageUtils';
 
 export default function CartPage({ onNavigate }) {
   const { cartItems, removeFromCart, updateQuantity, getSubtotal } = useCartStore();
@@ -59,7 +60,7 @@ export default function CartPage({ onNavigate }) {
                 <div className="col-span-6 flex items-center gap-4 w-full">
                   <div className="w-24 h-24 bg-[#F8F4EC] rounded-2xl overflow-hidden shrink-0">
                     {item.image ? (
-                      <img src={item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : (item.image.startsWith('/uploads') || item.image.startsWith('uploads/')) ? `http://localhost:5000${item.image.startsWith('/') ? '' : '/'}${item.image}` : item.image} alt={item.name} className="w-full h-full object-cover" />
+                      <img src={getImageSrc(item.image)} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400">No Img</div>
                     )}

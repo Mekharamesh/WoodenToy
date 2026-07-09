@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, Heart, Search, ShoppingCart, User } from 'lucide-react';
 import { catalogService } from '../api/catalogService';
+import { cmsService } from '../api/cmsService';
 
 export default function Header({
   user,
   onLogout,
   onNavigate,
   cartCount,
-  onOpenCart,
   wishlistCount,
-  onOpenWishlist,
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [categories, setCategories] = useState([]);
   const [activeMenu, setActiveMenu] = useState(null);
+  const [navItems, setNavItems] = useState([]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -25,7 +25,19 @@ export default function Header({
       }
     };
 
+    const fetchNavbars = async () => {
+      try {
+        const res = await cmsService.getNavbars();
+        if (res.success && res.data) {
+          setNavItems(res.data.filter((item) => item.status));
+        }
+      } catch (err) {
+        console.error('Failed to load navbars from CMS', err);
+      }
+    };
+
     fetchCategories();
+    fetchNavbars();
   }, []);
 
   const mainCategories = categories.filter((category) => !category.parentCategory);
@@ -49,76 +61,97 @@ export default function Header({
         </button>
 
         <nav className="hidden flex-1 items-center justify-center gap-6 xl:flex">
-          <button type="button" onClick={() => onNavigate('home')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
-            Home
-          </button>
-          <button type="button" onClick={() => onNavigate('shop')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
-            All Products
-          </button>
+          {navItems.length > 0 ? (
+            navItems.map((item) => (
+              <button
+                key={item._id}
+                type="button"
+                onClick={() => {
+                  if (item.url.startsWith('http')) {
+                    window.location.href = item.url;
+                  } else {
+                    onNavigate(item.url.replace(/^\//, '') || 'home');
+                  }
+                }}
+                className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]"
+              >
+                {item.title}
+              </button>
+            ))
+          ) : (
+            <>
+              <button type="button" onClick={() => onNavigate('home')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+                Home
+              </button>
+              <button type="button" onClick={() => onNavigate('shop')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+                All Products
+              </button>
 
-          <div
-            className="relative flex min-h-[88px] items-center"
-            onMouseEnter={() => setActiveMenu('byAge')}
-            onMouseLeave={() => setActiveMenu(null)}
-          >
-            <button type="button" className="flex items-center gap-1 text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
-              By Age <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
-            </button>
-            {activeMenu === 'byAge' && (
-              <div className="absolute left-0 top-full w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl">
-                {['0-6 Months', '6-12 Months', '1-2 Years', '2-3 Years', '3+ Years'].map((age) => (
-                  <button key={age} onClick={() => onNavigate('shop', { ageGroup: age })} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
-                    {age}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div
-            className="relative flex min-h-[88px] items-center"
-            onMouseEnter={() => setActiveMenu('byCategory')}
-            onMouseLeave={() => setActiveMenu(null)}
-          >
-            <button type="button" className="flex items-center gap-1 text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
-              By Category <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
-            </button>
-            {activeMenu === 'byCategory' && (
-              <div className="absolute left-0 top-full w-64 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl">
-                {mainCategories.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-[#8B827C]">Loading categories...</div>
-                ) : (
-                  mainCategories.map((mainCat) => {
-                    const subs = getSubCategories(mainCat._id);
-                    return (
-                      <div key={mainCat._id} className="group relative">
-                        <button type="button" onClick={() => onNavigate('shop', { category: mainCat._id })} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
-                          {mainCat.name}
-                          {subs.length > 0 && <ChevronDown className="-rotate-90 h-4 w-4" strokeWidth={1.8} />}
-                        </button>
-                        {subs.length > 0 && (
-                          <div className="absolute left-full top-0 hidden w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl group-hover:block">
-                            {subs.map((subCat) => (
-                              <button key={subCat._id} onClick={() => onNavigate('shop', { category: subCat._id })} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
-                                {subCat.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+              <div
+                className="relative flex min-h-[88px] items-center"
+                onMouseEnter={() => setActiveMenu('byAge')}
+                onMouseLeave={() => setActiveMenu(null)}
+              >
+                <button type="button" className="flex items-center gap-1 text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+                  By Age <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
+                </button>
+                {activeMenu === 'byAge' && (
+                  <div className="absolute left-0 top-full w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl">
+                    {['0-6 Months', '6-12 Months', '1-2 Years', '2-3 Years', '3+ Years'].map((age) => (
+                      <button key={age} onClick={() => onNavigate('shop', { ageGroup: age })} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                        {age}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
 
-          <button type="button" className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
-            Gift Kit & Card
-          </button>
-          <button type="button" className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
-            Loyalty Rewards
-          </button>
+              <div
+                className="relative flex min-h-[88px] items-center"
+                onMouseEnter={() => setActiveMenu('byCategory')}
+                onMouseLeave={() => setActiveMenu(null)}
+              >
+                <button type="button" className="flex items-center gap-1 text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+                  By Category <ChevronDown className="h-4 w-4" strokeWidth={1.8} />
+                </button>
+                {activeMenu === 'byCategory' && (
+                  <div className="absolute left-0 top-full w-64 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl">
+                    {mainCategories.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-[#8B827C]">Loading categories...</div>
+                    ) : (
+                      mainCategories.map((mainCat) => {
+                        const subs = getSubCategories(mainCat._id);
+                        return (
+                          <div key={mainCat._id} className="group relative">
+                            <button type="button" onClick={() => onNavigate('shop', { category: mainCat._id })} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                              {mainCat.name}
+                              {subs.length > 0 && <ChevronDown className="-rotate-90 h-4 w-4" strokeWidth={1.8} />}
+                            </button>
+                            {subs.length > 0 && (
+                              <div className="absolute left-full top-0 hidden w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl group-hover:block">
+                                {subs.map((subCat) => (
+                                  <button key={subCat._id} onClick={() => onNavigate('shop', { category: subCat._id })} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                                    {subCat.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button type="button" className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+                Gift Kit & Card
+              </button>
+              <button type="button" className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+                Loyalty Rewards
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="flex shrink-0 items-center gap-5">
@@ -165,7 +198,7 @@ export default function Header({
 
           <button
             type="button"
-            onClick={onOpenWishlist}
+            onClick={() => onNavigate('wishlist')}
             className="relative flex h-12 w-12 items-center justify-center rounded-full text-[#201A17] transition hover:bg-[#FAF4EF]"
             aria-label="Wishlist"
           >
@@ -179,7 +212,7 @@ export default function Header({
 
           <button
             type="button"
-            onClick={onOpenCart}
+            onClick={() => onNavigate('cart')}
             className="relative flex h-12 w-12 items-center justify-center rounded-full text-[#201A17] transition hover:bg-[#FAF4EF]"
             aria-label="Cart"
           >

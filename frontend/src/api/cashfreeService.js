@@ -28,7 +28,7 @@ export const createCashfreeSession = async (orderId) => {
     headers: getAuthHeaders(),
     body: JSON.stringify({ orderId }),
   });
-  
+
   if (res.status === 401) {
     const refreshed = await authService.refreshSession();
     if (refreshed) {
@@ -59,7 +59,7 @@ export const verifyCashfreePayment = async (orderId, cfOrderId) => {
     headers: getAuthHeaders(),
     body: JSON.stringify({ orderId, cfOrderId }),
   });
-  
+
   if (res.status === 401) {
     const refreshed = await authService.refreshSession();
     if (refreshed) {

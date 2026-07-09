@@ -48,6 +48,9 @@ const useCartStore = create(
 
       // Add item to cart
       addToCart: (product, qty = 1) => {
+        const productId = product._id || product.id || product.productId || null;
+        const productCategory = product.category?._id || product.category || product.categoryId || product.category_id || null;
+        const productSubCategory = product.subCategory?._id || product.subCategory || product.subCategoryId || product.subCategory_id || null;
         const variantPrice = product.selectedVariant?.basePrice ?? product.selectedVariant?.price;
         const finalPrice = variantPrice != null ? variantPrice : product.price;
 
@@ -70,10 +73,12 @@ const useCartStore = create(
               : (product?.inventory?.stockQuantity || product?.stock || 0);
 
         const item = {
-          product: product._id,
+          product: productId,
           name: product.name,
           image: finalImage,
           price: finalPrice,
+          category: productCategory,
+          subCategory: productSubCategory,
           weight: product.selectedVariant?.weight || product.shippingWeight || product.weight || product.additionalInfo?.find(info => info.key?.toLowerCase() === 'weight')?.value || '',
           qty,
           variant: product.selectedVariant?._id || product.selectedVariant?.id || null,

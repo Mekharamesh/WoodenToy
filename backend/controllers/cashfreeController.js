@@ -42,7 +42,7 @@ const createPaymentSession = async (req, res) => {
     }
 
     // Build the return URL â€” app reads ?view=cashfree-callback on load
-    const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}?view=cashfree-callback&app_order_id=${order._id}&order_id={order_id}&cf_id={cf_order_id}`;
+    const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/cashfree-callback?app_order_id=${order._id}&order_id={order_id}&cf_id={cf_order_id}`;
 
     // Create Cashfree order/session
     const cfOrder = await createCashfreeOrder({

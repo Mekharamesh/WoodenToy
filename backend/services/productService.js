@@ -1,4 +1,7 @@
 const Product = require('../models/Product');
+const Category = require('../models/Category');
+const SubCategory = require('../models/SubCategory');
+const Attribute = require('../models/Attribute');
 const ProductAttributeValue = require('../models/ProductAttributeValue');
 const ProductVariant = require('../models/ProductVariant');
 const ProductVariantOption = require('../models/ProductVariantOption');
@@ -57,6 +60,40 @@ const validateAndNormalizeAttributeValues = async ({ category, subCategory, attr
     }
 
     return normalized;
+};
+
+const slugify = (value = '') => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+const ensureUniqueProductSku = async (requestedSku, fallbackBase) => {
+    const baseSku = String(requestedSku || fallbackBase || 'SKU').trim().toUpperCase().replace(/\s+/g, '-');
+    if (!baseSku) {
+        return 'SKU';
+    }
+
+    let candidate = baseSku;
+    let counter = 2;
+    while (await Product.exists({ sku: candidate })) {
+        candidate = `${baseSku}-${counter}`;
+        counter += 1;
+    }
+
+    return candidate;
+};
+
+const ensureUniqueVariantSku = async (requestedSku, fallbackBase) => {
+    const baseSku = String(requestedSku || fallbackBase || 'SKU').trim().toUpperCase().replace(/\s+/g, '-');
+    if (!baseSku) {
+        return 'SKU';
+    }
+
+    let candidate = baseSku;
+    let counter = 2;
+    while (await ProductVariant.exists({ sku: candidate })) {
+        candidate = `${baseSku}-${counter}`;
+        counter += 1;
+    }
+
+    return candidate;
 };
 
 /**
@@ -260,10 +297,17 @@ const createProduct = async (data, auditContext) => {
         variants,        // Array of { variantAttributes: [{attribute, value}], sku, barcode, price, compareAtPrice, costPrice, stock, images }
     } = data;
 
-    const generatedSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    const existing = await Product.findOne({ slug: generatedSlug, isDeleted: false });
+    const generatedSlug = slugify(name);
+    const existing = await Product.findOne({ slug: generatedSlug });
+    let slug = generatedSlug;
     if (existing) {
-        throw new Error('Product with this name/slug already exists');
+        let counter = 2;
+        while (await Product.exists({ slug, isDeleted: false })) {
+            slug = `${generatedSlug}-${counter}`;
+            counter += 1;
+        }
+    } else {
+        slug = generatedSlug;
     }
 
     const normalizedAttributeValues = await validateAndNormalizeAttributeValues({
@@ -274,17 +318,18 @@ const createProduct = async (data, auditContext) => {
 
     const normalizedPrice = Number(price);
     const normalizedCompareAtPrice = Number(compareAtPrice);
+    const uniqueSku = await ensureUniqueProductSku(sku, generatedSlug);
 
     // Create Base Product
     const product = await Product.create({
         name,
         description,
-        slug: generatedSlug,
+        slug,
         category,
         subCategory,
         price: Number.isFinite(normalizedPrice) ? normalizedPrice : 0,
         compareAtPrice: Number.isFinite(normalizedCompareAtPrice) ? normalizedCompareAtPrice : 0,
-        sku,
+        sku: uniqueSku,
         barcode,
         shortDescription,
         costPrice,
@@ -350,9 +395,10 @@ const createProduct = async (data, auditContext) => {
     if (variants && Array.isArray(variants)) {
         for (let idx = 0; idx < variants.length; idx++) {
             const v = variants[idx];
+            const variantSku = await ensureUniqueVariantSku(v.sku, `${uniqueSku}-V${idx + 1}`);
             const variantDoc = await ProductVariant.create({
                 product: product._id,
-                sku: v.sku ? v.sku.toUpperCase() : `${sku}-V${idx + 1}`.toUpperCase(),
+                sku: variantSku,
                 barcode: v.barcode,
                 basePrice: v.basePrice || price,
                 discountPrice: v.discountPrice,

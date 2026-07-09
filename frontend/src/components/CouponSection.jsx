@@ -1,0 +1,80 @@
+import React, { useEffect, useState } from 'react';
+import { adminService } from '../api/adminService';
+import toast from 'react-hot-toast';
+import { Ticket, CheckCircle2 } from 'lucide-react';
+
+export default function CouponSection({ subtotal, items = [], onApplyCoupon }) {
+  const [coupons, setCoupons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCoupon, setSelectedCoupon] = useState('');
+  const [applying, setApplying] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await adminService.getEligibleCoupons(subtotal, items);
+        const normalizedCoupons = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.coupons)
+            ? data.coupons
+            : Array.isArray(data?.data)
+              ? data.data
+              : [];
+        setCoupons(normalizedCoupons);
+        if (selectedCoupon && !normalizedCoupons.some((coupon) => coupon.couponCode === selectedCoupon)) {
+          setSelectedCoupon('');
+          onApplyCoupon?.({ coupon: null, discountAmount: 0 });
+        }
+      } catch (err) {
+        console.error(err);
+        setCoupons([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [subtotal, items]);
+
+  const handleApply = async () => {
+    if (!selectedCoupon) return;
+    setApplying(true);
+    try {
+      const result = await adminService.applyCoupon(selectedCoupon, subtotal, items);
+      onApplyCoupon?.(result);
+      toast.success('Coupon applied successfully');
+    } catch (err) {
+      toast.error(err.message || 'Coupon could not be applied');
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  return (
+    <div className="rounded-3xl border border-[#E6DFD4] bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <Ticket size={18} className="text-[#8B5E3C]" />
+        <h3 className="text-lg font-bold text-[#2F241D]">Coupons & Offers</h3>
+      </div>
+      {loading ? (
+        <div className="text-sm text-gray-500">Loading coupons…</div>
+      ) : coupons.length === 0 ? (
+        <p className="text-sm text-gray-500">No eligible coupons available for this order.</p>
+      ) : (
+        <div className="space-y-3">
+          {coupons.map((coupon) => (
+            <label key={coupon._id} className="flex items-start gap-3 rounded-2xl border border-[#E6DFD4] p-3">
+              <input type="radio" name="coupon" value={coupon.couponCode} checked={selectedCoupon === coupon.couponCode} onChange={() => setSelectedCoupon(coupon.couponCode)} className="mt-1 h-4 w-4" />
+              <div className="flex-1">
+                <div className="font-semibold text-[#2F241D]">{coupon.couponCode}</div>
+                <div className="text-sm text-gray-600">{coupon.description || `${coupon.discountType} ${coupon.discountValue}${coupon.discountType === 'Percentage' ? '%' : ''}`}</div>
+              </div>
+            </label>
+          ))}
+          <button onClick={handleApply} disabled={applying || !selectedCoupon} className="inline-flex items-center gap-2 rounded-xl bg-[#8B5E3C] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+            <CheckCircle2 size={16} /> {applying ? 'Applying…' : 'Apply Coupon'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

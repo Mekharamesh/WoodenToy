@@ -314,10 +314,16 @@ export const ProductsPage = () => {
         };
 
         try {
+            let result;
             if (editId) {
-                await productV2API.update(editId, payload);
+                result = await productV2API.update(editId, payload);
             } else {
-                await productV2API.create(payload);
+                result = await productV2API.create(payload);
+            }
+
+            const createdProduct = result?.product || result?.data || result;
+            if (createdProduct?.sku && !editId) {
+                setFormData(prev => ({ ...prev, sku: createdProduct.sku }));
             }
             setIsFormOpen(false);
             fetchProducts();

@@ -18,10 +18,13 @@ import RefundManagementPage from './admin/refunds/RefundManagementPage';
 import InventoryManagement from './admin/inventory/InventoryManagement';
 import CustomerManagementPage from './admin/customers/CustomerManagementPage';
 import ReviewManagementPage from './admin/reviews/ReviewManagementPage';
+import CouponManagementPage from './admin/coupons/CouponManagementPage';
+import HomePageCMS from './admin/CMS/HomePageCMS';
 
 export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [subCategories, setSubCategories] = useState([]);
   const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard' | 'catalog' | 'products'
   const [catalogSubTab, setCatalogSubTab] = useState('categories'); // 'categories' | 'subcategories' | etc.
   const [productSubTab, setProductSubTab] = useState('list'); // 'list' | 'add'
@@ -148,6 +151,18 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
         }
       })
       .catch(err => console.error("Failed to load categories in admin", err));
+
+    // Fetch subcategories separately (the backend stores them as a distinct collection)
+    catalogService.getSubCategories()
+      .then(data => {
+        if (Array.isArray(data)) {
+          setSubCategories(data);
+        } else if (data?.data) {
+          setSubCategories(data.data);
+        }
+      })
+      .catch(err => console.error("Failed to load subcategories in admin", err));
+
     // Fetch dashboard stats
     adminService.getDashboardStats()
       .then(data => {
@@ -190,9 +205,9 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
 
   // Update selected subcategory option when main category changes
   useEffect(() => {
-    const subcats = categories.filter(c => c.parentCategory && (c.parentCategory._id === selectedCategory || c.parentCategory === selectedCategory));
+    const subcats = getSubCategoriesForCategory(selectedCategory);
     if (subcats.length > 0) {
-      setSelectedSubCategory(subcats[0]._id);
+      setSelectedSubCategory(prev => (prev && subcats.some(c => c._id === prev) ? prev : subcats[0]._id));
     } else {
       setSelectedSubCategory('');
     }
@@ -443,8 +458,33 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
   };
 
   // Filter parents and children
+  const getSubCategoriesForCategory = (categoryId) => {
+    if (!categoryId) return [];
+
+    const matchedSubCategories = subCategories.filter(sub => {
+      const parentId = typeof sub.category === 'object' ? sub.category?._id : sub.category;
+      return parentId === categoryId;
+    });
+
+    const matchedChildCategories = categories.filter(cat => {
+      const parentId = typeof cat.parentCategory === 'object' ? cat.parentCategory?._id : cat.parentCategory;
+      return parentId === categoryId;
+    });
+
+    const uniqueResults = [];
+    const seenIds = new Set();
+
+    [...matchedSubCategories, ...matchedChildCategories].forEach(item => {
+      if (!item?._id || seenIds.has(item._id)) return;
+      seenIds.add(item._id);
+      uniqueResults.push(item);
+    });
+
+    return uniqueResults;
+  };
+
   const parentCategories = categories.filter(c => !c.parentCategory);
-  const currentSubCategories = categories.filter(c => c.parentCategory && (c.parentCategory._id === selectedCategory || c.parentCategory === selectedCategory));
+  const currentSubCategories = getSubCategoriesForCategory(selectedCategory);
 
   return (
     <div className="flex h-screen bg-brand-light font-sans text-brand-dark overflow-hidden">
@@ -526,6 +566,23 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                     </div>
                   )}
                 </>
+              )}
+
+              {/* CMS Management */}
+              {(isAdmin || canView('cms')) && (
+              <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2 mb-1">
+                <button
+                  onClick={() => setCurrentTab('cms')}
+                  className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mt-1 mb-0.5 ${
+                    currentTab === 'cms' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                    CMS Management
+                  </span>
+                </button>
+              </div>
               )}
 
               {/* Catalog Dropdown - only shown if user has catalog view permission */}
@@ -702,6 +759,21 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Coupons & Offers */}
+              {isAdmin && (
+                <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
+                  <button
+                    onClick={() => setCurrentTab('coupons')}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
+                      currentTab === 'coupons' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2H5zm0 10a2 2 0 00-2 2v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 00-2-2H5z" /></svg>
+                    Coupons & Offers
+                  </button>
                 </div>
               )}
 
@@ -1851,7 +1923,12 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
           {canAccessCatalog && currentTab === 'v2-attributes' && <AttributesPage />}
           {canAccessCatalog && currentTab === 'v2-products' && <ProductsPage />}
 
-          {/* ── STAFF MANAGEMENT ── */}
+          {/* 🔥 CMS MANAGEMENT 🔥 */}
+          {(isAdmin || canView('cms')) && currentTab === 'cms' && (
+            <HomePageCMS />
+          )}
+
+          {/* 🔥 STAFF MANAGEMENT ── */}
           {canAccessStaff && currentTab === 'staff' && staffSubTab === 'list' && (
             <StaffListPage
               canCreate={hasPermission('staff_management', 'create')}
@@ -1916,6 +1993,11 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
           {/* ── CUSTOMER MANAGEMENT ── */}
           {isAdmin && currentTab === 'customers' && (
             <CustomerManagementPage />
+          )}
+
+          {/* ── COUPONS & OFFERS MANAGEMENT ── */}
+          {isAdmin && currentTab === 'coupons' && (
+            <CouponManagementPage />
           )}
 
           {/* ── RATING & REVIEW MANAGEMENT ── */}

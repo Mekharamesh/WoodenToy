@@ -12,6 +12,7 @@ const authenticatedRequest = async (url, options = {}) => {
   try {
     const response = await fetch(url, {
       ...options,
+      cache: 'no-store', // Always fetch fresh data from MongoDB
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders(),
@@ -26,6 +27,7 @@ const authenticatedRequest = async (url, options = {}) => {
         // Retry request with new token headers
         const retryResponse = await fetch(url, {
           ...options,
+          cache: 'no-store',
           headers: {
             'Content-Type': 'application/json',
             ...getAuthHeaders(),
@@ -60,6 +62,7 @@ export const catalogService = {
     try {
       const response = await fetch(`${API_BASE_URL}/product`, {
         method: 'GET',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -82,6 +85,7 @@ export const catalogService = {
     try {
       const response = await fetch(`${API_BASE_URL}/product/${productId}`, {
         method: 'GET',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
         },

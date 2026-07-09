@@ -23,6 +23,7 @@ const handleResponse = async (response) => {
 const request = async (path, options = {}) => {
     const doFetch = () => fetch(`${V2_BASE_URL}${path}`, {
         ...options,
+        cache: 'no-store', // Always fetch fresh data from backend — no browser caching
         headers: {
             ...getHeaders(),
             ...options.headers,

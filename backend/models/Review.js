@@ -33,6 +33,13 @@ const reviewSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  orderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+  },
+  orderItemId: {
+    type: mongoose.Schema.Types.ObjectId,
+  },
   helpfulVotes: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     vote: { type: String, enum: ['helpful', 'not_helpful'] },
@@ -48,7 +55,7 @@ const reviewSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-// Prevent a user from reviewing the same product twice
-reviewSchema.index({ product: 1, user: 1 }, { unique: true });
+// Allow one review per delivered order item, even if the same product is purchased again later
+reviewSchema.index({ user: 1, orderId: 1, orderItemId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Review', reviewSchema);

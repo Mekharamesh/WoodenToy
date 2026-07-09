@@ -23,7 +23,7 @@ function StarInput({ value, onChange }) {
   );
 }
 
-export default function WriteReviewModal({ productId, user, onClose, onSuccess }) {
+export default function WriteReviewModal({ productId, orderId, orderItemId, user, onClose, onSuccess }) {
   const [rating, setRating]   = useState(0);
   const [title, setTitle]     = useState('');
   const [desc, setDesc]       = useState('');
@@ -55,9 +55,11 @@ export default function WriteReviewModal({ productId, user, onClose, onSuccess }
       fd.append('rating', rating);
       fd.append('title', title);
       fd.append('description', desc);
+      if (orderId) fd.append('orderId', orderId);
+      if (orderItemId) fd.append('orderItemId', orderItemId);
       imgFiles.forEach(f => fd.append('images', f));
       vidFiles.forEach(f => fd.append('videos', f));
-      // Always try create first; if user already reviewed, silently update instead
+
       let review;
       try {
         review = await reviewService.createReview(productId, fd);

@@ -8,6 +8,8 @@ import { stateDistricts } from '../utils/indiaStates';
 import { feeAPI } from '../api/feeService';
 import { createCashfreeSession } from '../api/cashfreeService';
 import { calculateOrderFees } from '../utils/feeCalculator';
+import { getImageSrc } from '../utils/imageUtils';
+import CouponSection from '../components/CouponSection';
 
 export default function CompleteOrderPage({ onNavigate }) {
   const { cartItems, getSubtotal, clearCart, updateQuantity } = useCartStore();
@@ -27,6 +29,8 @@ export default function CompleteOrderPage({ onNavigate }) {
   const [loading, setLoading] = useState(false);
   const [fees, setFees] = useState([]);
   const [cityError, setCityError] = useState('');
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
 
   const currentUser = authService.getCurrentUser();
 
@@ -103,12 +107,24 @@ export default function CompleteOrderPage({ onNavigate }) {
   });
   const { totalWeight, shippingCharge, codAdvance, extraFeesList, appliedFees } = feeSummary;
   const extraChargeSum = extraFeesList.reduce((sum, fee) => sum + fee.amount, 0);
+  const discountedSubtotal = Math.max(subtotal - discountAmount, 0);
 
-  const orderTotal = subtotal + shippingCharge + extraChargeSum;
+  const orderTotal = discountedSubtotal + shippingCharge + extraChargeSum;
   const isCodAdvance = paymentMethod === 'COD' && codAdvance > 0;
   const balanceAmount = isCodAdvance ? (orderTotal - codAdvance) : 0; // Deduct advance from order total
 
   const total = orderTotal;
+
+  const handleApplyCoupon = (result) => {
+    if (!result?.coupon) {
+      setAppliedCoupon(null);
+      setDiscountAmount(0);
+      return;
+    }
+
+    setAppliedCoupon(result?.coupon || null);
+    setDiscountAmount(Number(result?.discountAmount || 0));
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -264,7 +280,9 @@ export default function CompleteOrderPage({ onNavigate }) {
         codAdvance,
         balanceAmount,
         orderNotes,
-        fees: appliedFees
+        fees: appliedFees,
+        couponCode: appliedCoupon?.couponCode || null,
+        discountAmount
       };
 
       // Create the order in our backend first
@@ -514,6 +532,10 @@ export default function CompleteOrderPage({ onNavigate }) {
               </div>
             </div>
 
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#E6DFD4]">
+              <CouponSection subtotal={subtotal} items={cartItems} onApplyCoupon={handleApplyCoupon} />
+            </div>
+
             {/* Order Notes Card */}
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#E6DFD4]">
               <h2 className="text-lg font-bold text-gray-900 mb-3">Order Notes (Optional)</h2>
@@ -521,7 +543,7 @@ export default function CompleteOrderPage({ onNavigate }) {
                 value={orderNotes}
                 onChange={(e) => setOrderNotes(e.target.value)}
                 placeholder="Notes about your order, e.g. special notes for delivery."
-                className="w-full px-4 py-3 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 min-h-[100px] resize-y"
+                className="w-full px-4 py-3 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 min-h-25 resize-y"
               />
             </div>
           </div>
@@ -531,12 +553,12 @@ export default function CompleteOrderPage({ onNavigate }) {
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#E6DFD4] sticky top-8">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Your Order</h2>
               
-              <div className="space-y-4 mb-6 border-b border-[#E6DFD4] pb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-4 mb-6 border-b border-[#E6DFD4] pb-6 max-h-75 overflow-y-auto pr-2 custom-scrollbar">
                 {cartItems.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-4">
                     <div className="w-16 h-16 bg-[#F8F4EC] rounded-xl overflow-hidden shrink-0 relative">
                       {item.image ? (
-                         <img src={item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : (item.image.startsWith('/uploads') || item.image.startsWith('uploads/')) ? `http://localhost:5000${item.image.startsWith('/') ? '' : '/'}${item.image}` : item.image} alt={item.name} className="w-full h-full object-cover" />
+                         <img src={getImageSrc(item.image)} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
                          <div className="w-full h-full bg-gray-200"></div>
                       )}
@@ -580,6 +602,12 @@ export default function CompleteOrderPage({ onNavigate }) {
                   <span>Subtotal</span>
                   <span className="text-gray-900 font-medium">₹{subtotal.toLocaleString()}</span>
                 </div>
+                {discountAmount > 0 && appliedCoupon && (
+                  <div className="flex justify-between text-emerald-700 font-medium">
+                    <span>Coupon {appliedCoupon.couponCode}</span>
+                    <span>-₹{discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
                 {appliedFees.filter(fee => fee.name.toLowerCase() !== 'advance').map((fee, idx) => (
                   <div key={idx} className="flex justify-between text-gray-600">
                     <span>{fee.name} {fee.isWeightFee ? `(${totalWeight.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} kg)` : ''}</span>

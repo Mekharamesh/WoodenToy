@@ -1,20 +1,24 @@
 const express = require('express');
 const router  = express.Router();
 const {
-  getReviews, getGallery, createReview,
-  getMyReview, updateMyReview,
+  getReviews, getFeaturedReviews, getGallery, createReview,
+  getMyOrderItemReview, getMyReview, updateMyReview,
   voteReview, replyToReview, deleteReview, getStats,
   adminGetAllReviews, adminUpdateReviewStatus, adminGetGlobalStats,
 } = require('../controllers/reviewController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 // Public: read reviews + stats + gallery
+router.get('/featured',           getFeaturedReviews);
 router.get('/:productId',          getReviews);
 router.get('/:productId/stats',    getStats);
 router.get('/:productId/gallery',  getGallery);
 
 // Protected: write review
 router.post('/:productId', protect, createReview);
+
+// Protected: get own review for a specific order item
+router.get('/order-item/:orderId/:orderItemId', protect, getMyOrderItemReview);
 
 // Protected: get / update own review for a product
 router.get('/:productId/my-review',  protect, getMyReview);

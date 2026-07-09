@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productV2API } from '../api/catalogV2Service';
 import ProductReviewSection from '../components/ProductReviewSection';
@@ -265,39 +266,43 @@ const findMatchingVariant = (product, selectedAttributes) => {
 };
 
 export default function ProductDetails({ product: initialProduct, user, onNavigate, onAddToCart, onBuyNow, onAddToWishlist }) {
+  const { id: routeId } = useParams();
+  const productId = initialProduct?._id || initialProduct?.id || routeId;
+  
   const [selectedFinish, setSelectedFinish] = useState(finishOptions[0]);
   const [quantity, setQuantity] = useState(1);
   const [zipCode, setZipCode] = useState('');
   const [showPolicy, setShowPolicy] = useState(false);
-  const [product, setProduct] = useState(initialProduct);
+  const [product, setProduct] = useState(initialProduct || null);
   const [activeTab, setActiveTab] = useState('Description');
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [showSharePopup, setShowSharePopup] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [expandedFields, setExpandedFields] = useState({});
+  const [loadingProduct, setLoadingProduct] = useState(!initialProduct && !!productId);
+  const LIVE_REFRESH_MS = 8000;
 
   useEffect(() => {
-    if (!initialProduct?._id) return;
+    if (!productId) {
+      setProduct(initialProduct || null);
+      setLoadingProduct(false);
+      return;
+    }
 
     let active = true;
-    productV2API.getById(initialProduct._id)
-      .then((data) => {
-        if (active && data) {
-          const productData = data.product || data;
-          console.log('📥 Product loaded from API:', {
-            name: productData.name,
-            description: productData.description,
-            shortDescription: productData.shortDescription,
-            additionalInfo: productData.additionalInfo,
-            hasVariants: !!productData.variants,
-            variantCount: productData.variants?.length,
-            firstVariant: productData.variants?.[0],
-            variants: productData.variants?.map(v => ({
-              _id: v._id,
-              sku: v.sku,
-              options: v.options,
-            }))
-          });
+    const loadProductData = async () => {
+      setLoadingProduct(true);
+
+      try {
+        const [productResponse, recommendationsResponse] = await Promise.all([
+          productV2API.getById(productId),
+          productV2API.getAll({ limit: 4, isActive: 'true' })
+        ]);
+
+        if (!active) return;
+
+        const productData = productResponse?.product || productResponse;
+        if (productData && typeof productData === 'object') {
           setProduct(productData);
 
           try {
@@ -314,26 +319,32 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
             console.error('Failed to save recently viewed', e);
           }
         }
-      })
-      .catch(() => {
-        // Keep using the initial product object if detail fetch fails.
-      });
 
-    // Fetch recommended products
-    productV2API.getAll({ limit: 4, isActive: 'true' })
-      .then(data => {
+        const recommendations = recommendationsResponse?.products || recommendationsResponse?.data || [];
         if (active) {
-          const list = data.products || data.data || [];
-          // Filter out the current product from recommendations
-          setRecommendedProducts(list.filter(p => p._id !== initialProduct._id).slice(0, 4));
+          setRecommendedProducts(recommendations.filter(p => p._id !== productData?._id).slice(0, 4));
         }
-      })
-      .catch(err => console.error('Failed to load recommendations', err));
+      } catch (err) {
+        console.error('Failed to load product details', err);
+      } finally {
+        if (active) setLoadingProduct(false);
+      }
+    };
 
-    return () => { active = false; };
-  }, [initialProduct?._id]);
+    loadProductData();
+
+    const intervalId = window.setInterval(() => {
+      loadProductData();
+    }, LIVE_REFRESH_MS);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [productId]);
 
   const images = useMemo(() => {
+    if (!product || typeof product !== 'object') return [];
     const imgs = [];
     const pushImage = (img) => {
       if (!img) return;
@@ -387,7 +398,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
   // Determine attribute names to show. Prefer variant-derived options; fall back to
   // product-level attributeValues if no variants exist.
   const productAttributes = useMemo(() => {
-    if (!product) return [];
+    if (!product || typeof product !== 'object') return [];
 
     // If we have variant-derived options, use them
     const attrNames = Object.keys(variantAttributeOptions);
@@ -519,14 +530,32 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
   };
 
   useEffect(() => {
-    // If the component mounted but there's no product at all, redirect to home.
-    if (!product && !initialProduct) {
+    // If the component mounted but there's no product at all, and it's not currently loading one, redirect to home.
+    if (!product && !initialProduct && !productId && !loadingProduct) {
       onNavigate('home');
     }
-  }, [product, initialProduct, onNavigate]);
+  }, [product, initialProduct, productId, loadingProduct, onNavigate]);
+
+  if (loadingProduct) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50">Loading product...</div>;
+  }
 
   if (!product) {
-    return null;
+    return (
+      <section className="min-h-screen bg-slate-50 px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-3xl rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <h1 className="text-3xl font-semibold text-slate-900">Product not found</h1>
+          <p className="mt-4 text-slate-600">The product you requested is no longer available in the catalog.</p>
+          <button
+            type="button"
+            onClick={() => onNavigate('home')}
+            className="mt-8 inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-slate-800"
+          >
+            Back to Home
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -755,29 +784,6 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
           </div>
         </div>
 
-        {/* --- RECOMMENDED PRODUCTS --- */}
-        {recommendedProducts.length > 0 && (
-          <div className="mt-16">
-            <h2 className="text-2xl font-bold text-slate-900 mb-8 text-center font-serif">You May Also Like</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {recommendedProducts.map(p => (
-                <div key={p._id} className="group cursor-pointer" onClick={() => onNavigate('product-detail', p)}>
-                  <div className="aspect-square bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200">
-                    <img 
-                      src={p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || p.image || '/wood-placeholder.png'} 
-                      alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => { e.target.style.display='none'; }}
-                    />
-                  </div>
-                  <h3 className="font-semibold text-slate-900 text-sm mb-1 truncate">{p.name}</h3>
-                  <p className="text-slate-600 text-sm font-bold">₹{p.price?.toFixed(2)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* --- TABS MOVED TO BOTTOM --- */}
         {(() => {
           const customFields = getCustomAdditionalInfo(product);
@@ -900,7 +906,34 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
         </div>
       )}
     </section>
-    <ProductReviewSection product={product} user={user} />
+
+    <div>
+      <ProductReviewSection product={product} user={user} />
+    </div>
+
+    {recommendedProducts.length > 0 && (
+      <div className="bg-[#f8f6f1] px-4 py-10 md:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-2xl font-bold text-slate-900 mb-8 text-center font-serif">You May Also Like</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {recommendedProducts.map(p => (
+              <div key={p._id} className="group cursor-pointer" onClick={() => onNavigate('product-detail', p)}>
+                <div className="aspect-square bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200">
+                  <img
+                    src={p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || p.image || '/wood-placeholder.png'}
+                    alt={p.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => { e.target.style.display='none'; }}
+                  />
+                </div>
+                <h3 className="font-semibold text-slate-900 text-sm mb-1 truncate">{p.name}</h3>
+                <p className="text-slate-600 text-sm font-bold">₹{p.price?.toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }

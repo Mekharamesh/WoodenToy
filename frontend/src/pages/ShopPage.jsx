@@ -6,6 +6,7 @@ export default function ShopPage({ user, onNavigate, onAddToCart, onAddToWishlis
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const LIVE_REFRESH_MS = 8000;
 
   // Filters state
   const [selectedCategory, setSelectedCategory] = useState(initialFilters?.category || '');
@@ -27,16 +28,16 @@ export default function ShopPage({ user, onNavigate, onAddToCart, onAddToWishlis
   }, []);
 
   useEffect(() => {
-    setIsLoading(true);
-    // Fetch products based on filters
-    const fetchParams = { isActive: 'true' };
-    if (selectedCategory) fetchParams.category = selectedCategory;
-    if (selectedAgeGroup) fetchParams.ageGroup = selectedAgeGroup;
+    const fetchProducts = async (showSpinner = true) => {
+      if (showSpinner) setIsLoading(true);
 
-    productV2API.getAll(fetchParams)
-      .then(data => {
+      const fetchParams = { isActive: 'true' };
+      if (selectedCategory) fetchParams.category = selectedCategory;
+      if (selectedAgeGroup) fetchParams.ageGroup = selectedAgeGroup;
+
+      try {
+        const data = await productV2API.getAll(fetchParams);
         const list = data.products || data.data || [];
-        // Optional client-side filtering if backend doesn't support these fully yet
         let filteredList = list;
         if (selectedCategory) {
           filteredList = filteredList.filter(p => p.category === selectedCategory || p.subCategory === selectedCategory || (p.category && p.category._id === selectedCategory) || (p.subCategory && p.subCategory._id === selectedCategory));
@@ -45,9 +46,20 @@ export default function ShopPage({ user, onNavigate, onAddToCart, onAddToWishlis
           filteredList = filteredList.filter(p => p.ageGroup && p.ageGroup.includes(selectedAgeGroup));
         }
         setProducts(filteredList);
-      })
-      .catch(err => console.error("Failed to load shop products", err))
-      .finally(() => setIsLoading(false));
+      } catch (err) {
+        console.error("Failed to load shop products", err);
+      } finally {
+        if (showSpinner) setIsLoading(false);
+      }
+    };
+
+    fetchProducts(true);
+
+    const intervalId = window.setInterval(() => {
+      fetchProducts(false);
+    }, LIVE_REFRESH_MS);
+
+    return () => window.clearInterval(intervalId);
   }, [selectedCategory, selectedAgeGroup]);
 
   return (
@@ -139,10 +151,10 @@ export default function ShopPage({ user, onNavigate, onAddToCart, onAddToWishlis
                       className="aspect-square bg-[#F5F5F5] overflow-hidden cursor-pointer"
                       onClick={() => onNavigate('product-detail', product)}
                     >
-                      {product.images && product.images.length > 0 ? (
+                      {Array.isArray(product.images) && product.images.length > 0 ? (
                         <img 
-                          src={product.images[0].url || product.images[0]} 
-                          alt={product.name}
+                          src={typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url || ''} 
+                          alt={product.name || 'Product'}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
@@ -165,7 +177,7 @@ export default function ShopPage({ user, onNavigate, onAddToCart, onAddToWishlis
                         className="text-base font-bold text-[#141225] leading-tight mb-2 cursor-pointer hover:text-[#8B5E3C] transition-colors line-clamp-2 min-h-[40px]"
                         onClick={() => onNavigate('product-detail', product)}
                       >
-                        {product.name}
+                        {product.name || 'Untitled Product'}
                       </h3>
                       
                       <div className="flex items-center gap-1 mb-4">
@@ -176,7 +188,7 @@ export default function ShopPage({ user, onNavigate, onAddToCart, onAddToWishlis
                       </div>
 
                       <div className="flex items-center justify-between mt-auto">
-                        <span className="text-lg font-bold text-[#141225]">${(product.price || 0).toFixed(2)}</span>
+                        <span className="text-lg font-bold text-[#141225]">₹{Number(product.price || 0).toFixed(2)}</span>
                         <button 
                           onClick={() => onAddToCart(product)}
                           className="w-10 h-10 rounded-full bg-[#FAF4EF] text-[#8B5E3C] flex items-center justify-center hover:bg-[#8B5E3C] hover:text-white transition-colors"

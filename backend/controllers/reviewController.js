@@ -26,6 +26,20 @@ const fileFilter = (_, file, cb) => {
 const upload = multer({ storage, fileFilter, limits: { fileSize: 50 * 1024 * 1024 } });
 
 /* ── helpers ──────────────────────────────────────── */
+const findReviewForOrderItem = async ({ userId, productId, orderId, orderItemId }) => {
+  const query = {
+    user: userId,
+    product: productId,
+  };
+
+  if (orderId && orderItemId) {
+    query.orderId = orderId;
+    query.orderItemId = orderItemId;
+  }
+
+  return Review.findOne(query);
+};
+
 const buildStatsForProduct = async (productId) => {
   const reviews = await Review.find({ product: productId, status: 'approved' });
   const total   = reviews.length;
@@ -76,6 +90,32 @@ const getReviews = async (req, res) => {
 };
 
 /* ── Get all images from reviews of a product ──── */
+// Featured reviews for the home landing page.
+// GET /api/reviews/featured
+const getFeaturedReviews = async (req, res) => {
+  try {
+    const { limit = 12 } = req.query;
+    const safeLimit = Math.min(Math.max(Number(limit) || 12, 1), 24);
+
+    const reviews = await Review.find({
+      status: 'approved',
+      $or: [
+        { description: { $exists: true, $ne: '' } },
+        { title: { $exists: true, $ne: '' } },
+      ],
+    })
+      .populate('user', 'name profileImage')
+      .populate('product', 'name')
+      .sort({ rating: -1, createdAt: -1 })
+      .limit(safeLimit)
+      .lean();
+
+    res.json({ reviews });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // GET /api/reviews/:productId/gallery
 const getGallery = async (req, res) => {
   try {
@@ -99,43 +139,84 @@ const createReview = [
   ]),
   async (req, res) => {
     try {
-      const { rating, title, description } = req.body;
+      const { rating, title, description, orderId, orderItemId } = req.body;
       const productId = req.params.productId;
 
-      // Check duplicate
-      const existing = await Review.findOne({ product: productId, user: req.user._id });
-      if (existing) return res.status(400).json({ message: 'You have already reviewed this product.' });
+      const existing = await findReviewForOrderItem({
+        userId: req.user._id,
+        productId,
+        orderId,
+        orderItemId,
+      });
+      if (existing) return res.status(400).json({ message: 'You have already reviewed this item.' });
 
       const baseUrl   = `${req.protocol}://${req.get('host')}`;
       const imageUrls = (req.files?.images || []).map(f => `${baseUrl}/uploads/${f.filename}`);
       const videoUrls = (req.files?.videos || []).map(f => `${baseUrl}/uploads/${f.filename}`);
 
-      // Check verified purchase
-      const hasBought = await Order.findOne({
-        user: req.user._id,
-        'orderItems.product': productId,
-        status: 'Delivered',
-      });
+      const purchasedItem = orderId && orderItemId
+        ? await Order.findOne({
+            _id: orderId,
+            user: req.user._id,
+            status: 'Delivered',
+            'orderItems._id': orderItemId,
+            'orderItems.product': productId,
+          })
+        : await Order.findOne({
+            user: req.user._id,
+            'orderItems.product': productId,
+            status: 'Delivered',
+          });
 
       const review = await Review.create({
         product: productId,
         user: req.user._id,
+        orderId: orderId || undefined,
+        orderItemId: orderItemId || undefined,
         rating: Number(rating),
         title: title || '',
         description: description || '',
         images: imageUrls,
         videos: videoUrls,
-        isVerifiedPurchase: !!hasBought,
+        isVerifiedPurchase: !!purchasedItem,
       });
 
       const populated = await review.populate('user', 'name profileImage');
       res.status(201).json(populated);
     } catch (err) {
-      if (err.code === 11000) return res.status(400).json({ message: 'You have already reviewed this product.' });
+      if (err.code === 11000) return res.status(400).json({ message: 'You have already reviewed this item.' });
       res.status(500).json({ message: err.message });
     }
   },
 ];
+
+/* ── Get current user's review for a specific order item ─── */
+// GET /api/reviews/order-item/:orderId/:orderItemId
+const getMyOrderItemReview = async (req, res) => {
+  try {
+    const { orderId, orderItemId } = req.params;
+
+    const order = await Order.findOne({
+      _id: orderId,
+      user: req.user._id,
+    });
+
+    if (!order) return res.status(404).json({ message: 'Order not found.' });
+
+    const orderItem = order.orderItems.find(item => String(item._id) === String(orderItemId));
+    if (!orderItem) return res.status(404).json({ message: 'Order item not found.' });
+
+    const review = await Review.findOne({
+      user: req.user._id,
+      orderId,
+      orderItemId,
+    }).populate('user', 'name profileImage').lean();
+
+    res.json(review || null);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 /* ── Get current user's review for a product ─── */
 // GET /api/reviews/:productId/my-review
@@ -161,10 +242,15 @@ const updateMyReview = [
   ]),
   async (req, res) => {
     try {
-      const { rating, title, description } = req.body;
+      const { rating, title, description, orderId, orderItemId } = req.body;
       const productId = req.params.productId;
 
-      const existing = await Review.findOne({ product: productId, user: req.user._id });
+      const existing = await findReviewForOrderItem({
+        userId: req.user._id,
+        productId,
+        orderId,
+        orderItemId,
+      });
       if (!existing) return res.status(404).json({ message: 'No review found to update.' });
 
       const baseUrl   = `${req.protocol}://${req.get('host')}`;
@@ -174,6 +260,8 @@ const updateMyReview = [
       existing.rating      = Number(rating);
       existing.title       = title || '';
       existing.description = description || '';
+      existing.orderId     = orderId || existing.orderId;
+      existing.orderItemId = orderItemId || existing.orderItemId;
       existing.status      = 'pending'; // reset to pending for re-moderation
       if (newImages.length > 0) existing.images = newImages;
       if (newVideos.length > 0) existing.videos = newVideos;
@@ -403,5 +491,4 @@ const adminGetGlobalStats = async (req, res) => {
   }
 };
 
-module.exports = { getReviews, getGallery, createReview, getMyReview, updateMyReview, voteReview, replyToReview, deleteReview, getStats, adminGetAllReviews, adminUpdateReviewStatus, adminGetGlobalStats };
-
+module.exports = { getReviews, getFeaturedReviews, getGallery, createReview, getMyOrderItemReview, getMyReview, updateMyReview, voteReview, replyToReview, deleteReview, getStats, adminGetAllReviews, adminUpdateReviewStatus, adminGetGlobalStats };

@@ -28,8 +28,8 @@ export default function App() {
 
     const savedView = localStorage.getItem('currentView') || 'home';
     const savedUser = authService.getCurrentUser();
-    // If the saved view requires auth but there is no user, reset to home
-    const authRequiredViews = ['admin', 'profile', 'review-order', 'complete-order', 'order-success', 'order-history', 'cashfree-callback'];
+    // Only protect truly private views; checkout pages should remain accessible.
+    const authRequiredViews = ['admin', 'profile', 'order-history', 'cashfree-callback'];
     if (authRequiredViews.includes(savedView) && !savedUser) {
       localStorage.setItem('currentView', 'home');
       return 'home';
@@ -63,7 +63,7 @@ export default function App() {
   const handleBuyNow = (product) => {
     const addedQuantity = product.quantity || 1;
     addToCart(product, addedQuantity);
-    handleNavigate('checkout');
+    handleNavigate('review-order');
   };
 
   const handleUpdateQuantity = (index, delta) => {
@@ -113,7 +113,7 @@ export default function App() {
 
   const handleCheckoutClick = () => {
     setIsCartOpen(false);
-    handleNavigate('cart');
+    handleNavigate('review-order');
   };
 
   // Removed redundant load session on mount since it's now initialized in useState
@@ -273,11 +273,11 @@ export default function App() {
           <CartPage onNavigate={handleNavigate} />
         )}
 
-        {view === 'review-order' && user && (
+        {(view === 'review-order' || view === 'checkout') && (
           <ReviewOrderPage onNavigate={handleNavigate} />
         )}
 
-        {view === 'complete-order' && user && (
+        {view === 'complete-order' && (
           <CompleteOrderPage onNavigate={handleNavigate} />
         )}
 

@@ -44,6 +44,7 @@ import WriteReviewModal from '../components/WriteReviewModal';
 const modules = [
   { id: 'profile', label: 'My Profile', icon: User },
   { id: 'orders', label: 'Order History', icon: Package },
+  { id: 'reviews', label: 'Reviews & Ratings', icon: Star },
   { id: 'addresses', label: 'Addresses', icon: MapPin },
   { id: 'cart', label: 'Cart', icon: ShoppingBag },
   { id: 'wishlist', label: 'Wishlist', icon: Heart },
@@ -121,7 +122,7 @@ export default function CustomerProfilePage({
   const [refundDestinationInput, setRefundDestinationInput] = useState('');
   const [reviewModalProduct, setReviewModalProduct] = useState(null);
   const [productRatings, setProductRatings] = useState({}); // { productId: avgRating }
-  const [userReviews, setUserReviews] = useState({});       // { productId: userRating | null }
+  const [userReviews, setUserReviews] = useState({});       // { "orderId:orderItemId": userRating | null }
   
   useEffect(() => {
     try {
@@ -157,7 +158,7 @@ export default function CustomerProfilePage({
   }, [profile._id, profile.name, profile.phone, profile.dateOfBirth, profile.gender, profile.profileImage, profile.addresses, profile.preferences]);
 
   useEffect(() => {
-    if (activeModule !== 'orders') return;
+    if (!['orders', 'reviews'].includes(activeModule)) return;
 
     const loadOrders = async () => {
       try {
@@ -165,15 +166,24 @@ export default function CustomerProfilePage({
         const data = await orderService.getMyOrders();
         setOrders(data || []);
 
-        // Collect all unique product IDs from delivered orders
+        // Collect product IDs for avg ratings and order-item IDs for the user's own reviews.
         const deliveredProductIds = [...new Set(
           (data || [])
             .filter(o => o.status === 'Delivered')
             .flatMap(o => o.orderItems?.map(item => item.product).filter(Boolean) || [])
         )];
+        const deliveredReviewTargets = (data || [])
+          .filter(o => o.status === 'Delivered')
+          .flatMap(o => (o.orderItems || [])
+            .filter(item => item.product && item._id)
+            .map(item => ({
+              key: `${o._id}:${item._id}`,
+              orderId: o._id,
+              orderItemId: item._id,
+            }))
+          );
 
-        if (deliveredProductIds.length > 0) {
-          // Fetch product avg ratings AND user's own reviews in parallel
+        if (deliveredProductIds.length > 0 || deliveredReviewTargets.length > 0) {
           const [avgEntries, userEntries] = await Promise.all([
             Promise.all(
               deliveredProductIds.map(async (productId) => {
@@ -185,11 +195,11 @@ export default function CustomerProfilePage({
               })
             ),
             Promise.all(
-              deliveredProductIds.map(async (productId) => {
+              deliveredReviewTargets.map(async ({ key, orderId, orderItemId }) => {
                 try {
-                  const review = await reviewService.getMyReview(productId);
-                  return [productId, review?.rating ?? null];
-                } catch { return [productId, null]; }
+                  const review = await reviewService.getMyOrderItemReview(orderId, orderItemId);
+                  return [key, review?.rating ?? null];
+                } catch { return [key, null]; }
               })
             ),
           ]);
@@ -217,6 +227,37 @@ export default function CustomerProfilePage({
   const displayEmail = profile.email || user?.email || '';
   const displayPhone = profile.phone || 'Not added';
   const profileImage = form.profileImage || profile.profileImage || '/animal_balance_maze.png';
+
+  const getImageUrl = (image) => {
+    if (!image) return '/animal_balance_maze.png';
+    if (typeof image !== 'string') return '/animal_balance_maze.png';
+    if (image.startsWith('http') || image.startsWith('data:')) return image;
+    if (image.startsWith('/uploads') || image.startsWith('uploads/')) {
+      return `http://localhost:5000${image.startsWith('/') ? '' : '/'}${image}`;
+    }
+    return image;
+  };
+
+  const reviewTargets = useMemo(() => {
+    return (orders || []).flatMap((order) =>
+      (order.orderItems || []).filter((item) => item?.product && item?._id).map((item) => {
+        const reviewKey = `${order._id}:${item._id}`;
+        const myRating = reviewKey ? userReviews[reviewKey] : undefined;
+        const hasReviewed = myRating != null && myRating > 0;
+        return {
+          key: reviewKey,
+          order,
+          item,
+          productId: item.product,
+          orderId: order._id,
+          orderItemId: item._id,
+          hasReviewed,
+          myRating,
+          orderStatus: order.status || 'Pending',
+        };
+      })
+    );
+  }, [orders, userReviews]);
 
   const updateAddress = (index, field, value) => {
     setForm((current) => ({
@@ -390,6 +431,82 @@ export default function CustomerProfilePage({
     }
   };
 
+  const renderReviews = () => (
+    <section className="px-5 py-7 lg:px-7">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-[#141225]">Reviews & Ratings</h2>
+          <p className="mt-1 text-sm text-[#6D625C]">Your delivered purchases are listed here so you can add or update a review anytime.</p>
+        </div>
+        <span className="rounded-full bg-[#F2E3D1] px-3 py-1 text-xs font-bold text-[#8B5E3C]">{reviewTargets.length} Items</span>
+      </div>
+
+      {ordersLoading ? (
+        <p className="mt-8 text-sm text-[#6D625C]">Loading review items...</p>
+      ) : reviewTargets.length === 0 ? (
+        <EmptyState icon={Star} title="No review items yet" text="Once your order is delivered, the products will appear here for review." action="Shop Now" onAction={() => onNavigate('home')} />
+      ) : (
+        <div className="mt-6 space-y-4">
+          {reviewTargets.map(({ key, order, item, productId, orderId, orderItemId, hasReviewed, myRating, orderStatus }) => {
+            const imageSrc = getImageUrl(item.image);
+            return (
+              <div key={key} className="rounded-[14px] border border-[#E9DED3] bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-1 items-center gap-4">
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[10px] bg-[#F8F3EF]">
+                      <img src={imageSrc} alt={item.name} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-[#141225]">{item.name}</p>
+                      <p className="mt-1 text-sm text-[#6D625C]">Qty: {item.qty} • Rs. {Number(item.price || 0).toLocaleString()}</p>
+                      <p className="mt-1 text-sm text-[#6D625C]">Order #{order._id?.slice(-8).toUpperCase()} • Status: <span className={`font-semibold ${orderStatus === 'Delivered' ? 'text-emerald-600' : 'text-[#8B5E3C]'}`}>{orderStatus}</span></p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    {orderStatus === 'Delivered' ? (
+                      hasReviewed ? (
+                        <div className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-2 text-center">
+                          <p className="text-sm font-bold text-emerald-700">Reviewed ✓</p>
+                          <p className="text-xs text-emerald-600">Your rating: {myRating}/5</p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setReviewModalProduct({ productId, orderId, orderItemId, reviewKey: key })}
+                              className="transition hover:scale-110"
+                              title={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                            >
+                              <Star className="h-5 w-5 text-[#C4B9B0]" fill="none" />
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    ) : (
+                      <div className="rounded-[10px] border border-[#E9DED3] bg-[#FAF8F5] px-4 py-2 text-sm font-semibold text-[#6D625C]">
+                        Review after delivery
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setActiveOrder(order); setActiveModule('order-details'); }}
+                      className="rounded-[8px] border border-[#E9DED3] px-4 py-2.5 text-sm font-bold text-[#141225] transition hover:bg-[#FAF8F5]"
+                    >
+                      View Order
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+
   const renderOrders = () => (
     <section className="px-5 py-7 lg:px-7">
       <div className="flex items-center justify-between gap-4">
@@ -455,7 +572,8 @@ export default function CustomerProfilePage({
                     <td className="p-4 text-center">
                       {order.status === 'Delivered' ? (() => {
                         const productId = firstItem?.product;
-                        const myRating = productId ? userReviews[productId] : undefined;
+                        const reviewKey = firstItem?._id ? `${order._id}:${firstItem._id}` : '';
+                        const myRating = reviewKey ? userReviews[reviewKey] : undefined;
                         const hasReviewed = myRating != null && myRating > 0;
                         const avg = productRatings[productId] ?? 0;
                         const displayRating = hasReviewed ? myRating : Math.round(avg * 2) / 2;
@@ -495,7 +613,12 @@ export default function CustomerProfilePage({
                         // Not reviewed yet — clickable
                         return (
                           <button
-                            onClick={() => setReviewModalProduct(productId)}
+                            onClick={() => setReviewModalProduct({
+                              productId,
+                              orderId: order._id,
+                              orderItemId: firstItem._id,
+                              reviewKey,
+                            })}
                             className="flex flex-col items-center justify-center gap-0.5 group"
                             title="Write a Review"
                           >
@@ -688,7 +811,12 @@ export default function CustomerProfilePage({
                       </button>
                       {activeOrder.status === 'Delivered' && (
                         <button 
-                          onClick={() => setReviewModalProduct(item.product)}
+                          onClick={() => setReviewModalProduct({
+                            productId: item.product,
+                            orderId: activeOrder._id,
+                            orderItemId: item._id,
+                            reviewKey: `${activeOrder._id}:${item._id}`,
+                          })}
                           className="sm:ml-2 rounded-[8px] border border-[#9A6031] text-[#9A6031] px-5 py-2.5 text-xs font-bold transition hover:bg-[#FAF8F5] w-full sm:w-auto mt-2 sm:mt-0 shadow-sm"
                         >
                           Write Review
@@ -1230,6 +1358,7 @@ export default function CustomerProfilePage({
 
           {activeModule === 'profile' && renderProfile()}
           {activeModule === 'orders' && renderOrders()}
+          {activeModule === 'reviews' && renderReviews()}
           {activeModule === 'order-details' && renderOrderDetails()}
           {activeModule === 'addresses' && renderAddresses()}
           {activeModule === 'cart' && renderCart()}
@@ -1542,10 +1671,20 @@ export default function CustomerProfilePage({
       )}
       {reviewModalProduct && (
         <WriteReviewModal
-          productId={reviewModalProduct}
+          productId={reviewModalProduct.productId || reviewModalProduct}
+          orderId={reviewModalProduct.orderId}
+          orderItemId={reviewModalProduct.orderItemId}
           user={user}
           onClose={() => setReviewModalProduct(null)}
-          onSuccess={() => setReviewModalProduct(null)}
+          onSuccess={(review) => {
+            if (reviewModalProduct.reviewKey) {
+              setUserReviews(current => ({
+                ...current,
+                [reviewModalProduct.reviewKey]: review?.rating ?? null,
+              }));
+            }
+            setReviewModalProduct(null);
+          }}
         />
       )}
 

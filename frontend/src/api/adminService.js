@@ -109,4 +109,60 @@ export const adminService = {
       'Failed to fetch customer orders'
     );
   },
+
+  getCoupons: async (params = {}) => {
+    return withAuthRetry(
+      (config) => axios.get(`${API_URL}/coupons`, { ...config, params }),
+      'Failed to fetch coupons'
+    );
+  },
+
+  createCoupon: async (data) => {
+    return withAuthRetry(
+      (config) => axios.post(`${API_URL}/coupons`, data, config),
+      'Failed to create coupon'
+    );
+  },
+
+  updateCoupon: async (id, data) => {
+    return withAuthRetry(
+      (config) => axios.put(`${API_URL}/coupons/${id}`, data, config),
+      'Failed to update coupon'
+    );
+  },
+
+  deleteCoupon: async (id) => {
+    return withAuthRetry(
+      (config) => axios.delete(`${API_URL}/coupons/${id}`, config),
+      'Failed to delete coupon'
+    );
+  },
+
+  toggleCouponStatus: async (id) => {
+    return withAuthRetry(
+      (config) => axios.patch(`${API_URL}/coupons/${id}/toggle-status`, {}, config),
+      'Failed to update coupon status'
+    );
+  },
+
+  toggleCouponVisibility: async (id) => {
+    return withAuthRetry(
+      (config) => axios.patch(`${API_URL}/coupons/${id}/toggle-visibility`, {}, config),
+      'Failed to update coupon visibility'
+    );
+  },
+
+  getEligibleCoupons: async (subtotal, items = []) => {
+    return withAuthRetry(
+      (config) => axios.post(`${API_URL}/coupons/eligible`, { subtotal, items }, config),
+      'Failed to fetch eligible coupons'
+    );
+  },
+
+  applyCoupon: async (couponCode, subtotal, items = []) => {
+    return withAuthRetry(
+      (config) => axios.post(`${API_URL}/coupons/apply`, { couponCode, subtotal, items }, config),
+      'Failed to apply coupon'
+    );
+  },
 };

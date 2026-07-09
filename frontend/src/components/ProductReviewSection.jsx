@@ -4,13 +4,21 @@ import { reviewService } from '../api/reviewService';
 import {
   Star, ThumbsUp, ThumbsDown, Image as ImageIcon, Video,
   X, Upload, MessageSquare, ChevronDown, ZoomIn, Send,
-  ShieldCheck, Camera, BarChart2
+  ShieldCheck, Camera, BarChart2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════════ */
 const fmt = (n) => Number(n || 0).toFixed(1);
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const normalizeMediaUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  const clean = url.startsWith('/') ? url : `/${url}`;
+  return `${API_BASE_URL}${clean}`;
+};
 
 const StarRow = ({ rating, size = 16, filled = 'text-amber-400', empty = 'text-gray-300' }) => (
   <span className="inline-flex gap-0.5">
@@ -26,9 +34,10 @@ const Avatar = ({ user, size = 40 }) => {
   const bg     = colors[name.charCodeAt(0) % colors.length];
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   return user?.profileImage ? (
-    <img src={user.profileImage} alt={name}
+    <img src={normalizeMediaUrl(user.profileImage)} alt={name}
       className="rounded-full object-cover shrink-0"
-      style={{ width: size, height: size }} />
+      style={{ width: size, height: size }}
+      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/animal_balance_maze.png'; }} />
   ) : (
     <div className="rounded-full flex items-center justify-center text-white font-bold shrink-0"
       style={{ width: size, height: size, background: bg, fontSize: size * 0.38 }}>
@@ -56,15 +65,15 @@ function Lightbox({ images, startIndex, onClose }) {
     return () => window.removeEventListener('keydown', handleKey);
   });
   return (
-    <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-100 bg-black/90 flex items-center justify-center" onClick={onClose}>
       <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white">
         <X size={32} />
       </button>
       <button onClick={(e) => { e.stopPropagation(); prev(); }}
         className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-4xl px-2"
         style={{ display: idx === 0 ? 'none' : undefined }}>‹</button>
-      <img src={images[idx]} alt="" className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain"
-        onClick={e => e.stopPropagation()} />
+      <img src={normalizeMediaUrl(images[idx])} alt="" className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain"
+        onClick={e => e.stopPropagation()} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/animal_balance_maze.png'; }} />
       <button onClick={(e) => { e.stopPropagation(); next(); }}
         className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-4xl px-2"
         style={{ display: idx === images.length - 1 ? 'none' : undefined }}>›</button>
@@ -180,7 +189,7 @@ function WriteReviewForm({ productId, user, onSuccess }) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-[#E9DED3] shadow-sm overflow-hidden">
-      <div className="bg-gradient-to-r from-[#9A6031] to-[#C78B4A] px-6 py-4">
+      <div className="bg-linear-to-r from-[#9A6031] to-[#C78B4A] px-6 py-4">
         <h2 className="text-white font-bold text-lg flex items-center gap-2">
           <MessageSquare size={18} /> Write Your Review
         </h2>
@@ -217,7 +226,7 @@ function WriteReviewForm({ productId, user, onSuccess }) {
         <div className="grid md:grid-cols-2 gap-4">
           {/* Images */}
           <div>
-            <label className="block text-sm font-bold text-[#141225] mb-1.5 flex items-center gap-1.5">
+            <label className="flex items-center gap-1.5 text-sm font-bold text-[#141225] mb-1.5">
               <Camera size={14} className="text-[#9A6031]" /> Upload Images (max 5)
             </label>
             <input ref={imgRef} type="file" accept="image/jpeg,image/png,image/webp,image/jpg"
@@ -233,7 +242,7 @@ function WriteReviewForm({ productId, user, onSuccess }) {
               <div className="flex flex-wrap gap-2 mt-2">
                 {previews.map((src, i) => (
                   <div key={i} className="relative">
-                    <img src={src} alt="" className="w-16 h-16 object-cover rounded-lg border border-[#E9DED3]" />
+                    <img src={normalizeMediaUrl(src)} alt="" className="w-16 h-16 object-cover rounded-lg border border-[#E9DED3]" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/animal_balance_maze.png'; }} />
                     <button type="button" onClick={() => removeImg(i)}
                       className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px]">
                       ✕
@@ -246,7 +255,7 @@ function WriteReviewForm({ productId, user, onSuccess }) {
 
           {/* Video */}
           <div>
-            <label className="block text-sm font-bold text-[#141225] mb-1.5 flex items-center gap-1.5">
+            <label className="flex items-center gap-1.5 text-sm font-bold text-[#141225] mb-1.5">
               <Video size={14} className="text-[#9A6031]" /> Upload Video (optional)
             </label>
             <input ref={vidRef} type="file" accept="video/mp4,video/quicktime"
@@ -283,7 +292,7 @@ function WriteReviewForm({ productId, user, onSuccess }) {
 ═══════════════════════════════════════════════════ */
 function ReviewCard({ review, user, onVote, onOpenImage }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#E9DED3] shadow-sm p-5 space-y-3">
+    <div className="bg-white rounded-2xl border border-[#E9DED3] shadow-sm p-5 space-y-3 h-full">
       {/* Header */}
       <div className="flex items-start gap-3">
         <Avatar user={review.user} size={42} />
@@ -312,7 +321,7 @@ function ReviewCard({ review, user, onVote, onOpenImage }) {
         <div className="flex flex-wrap gap-2">
           {review.images.map((img, i) => (
             <div key={i} className="relative group cursor-pointer" onClick={() => onOpenImage(review.images, i)}>
-              <img src={img} alt="" className="w-20 h-20 object-cover rounded-xl border border-[#E9DED3] group-hover:opacity-90 transition" />
+              <img src={normalizeMediaUrl(img)} alt="" className="w-20 h-20 object-cover rounded-xl border border-[#E9DED3] group-hover:opacity-90 transition" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/animal_balance_maze.png'; }} />
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                 <ZoomIn size={18} className="text-white drop-shadow" />
               </div>
@@ -323,7 +332,7 @@ function ReviewCard({ review, user, onVote, onOpenImage }) {
 
       {/* Videos */}
       {review.videos?.length > 0 && review.videos.map((v, i) => (
-        <video key={i} src={v} controls className="rounded-xl max-w-xs w-full border border-[#E9DED3]" />
+        <video key={i} src={normalizeMediaUrl(v)} controls className="rounded-xl max-w-xs w-full border border-[#E9DED3]" />
       ))}
 
       {/* Helpful + Not Helpful */}
@@ -369,6 +378,7 @@ export default function ProductReviewSection({ product, user }) {
   const [page, setPage]           = useState(1);
   const [hasMore, setHasMore]     = useState(false);
   const [lightbox, setLightbox]   = useState(null); // { images, index }
+  const [reviewSlide, setReviewSlide] = useState(0);
   const LIMIT = 5;
 
   const productId = product?._id;
@@ -404,6 +414,10 @@ export default function ProductReviewSection({ product, user }) {
     loadReviews('newest', 1, false);
     loadGallery();
   }, [productId]);
+
+  useEffect(() => {
+    setReviewSlide(0);
+  }, [productId, sort, reviews.length]);
 
   const handleSort = (newSort) => {
     setSort(newSort);
@@ -445,12 +459,15 @@ export default function ProductReviewSection({ product, user }) {
 
   /* ── stats ──────────────────────── */
   const allImages = reviews.flatMap(r => r.images || []);
+  const hasReviewSlider = reviews.length > 1;
+  const prevReview = () => setReviewSlide(prev => (prev - 1 + reviews.length) % reviews.length);
+  const nextReview = () => setReviewSlide(prev => (prev + 1) % reviews.length);
 
   /* ──────────────────────────────────
      RENDER
   ────────────────────────────────── */
   return (
-    <div className="bg-[#FAF8F5] py-12 px-4">
+    <div className="py-12 px-4">
       <div className="max-w-5xl mx-auto space-y-10">
 
         {/* ── RATING SUMMARY ── */}
@@ -464,10 +481,10 @@ export default function ProductReviewSection({ product, user }) {
             </div>
             <div className="flex flex-col sm:flex-row gap-0">
               {/* Left: Big score box */}
-              <div className="sm:w-48 shrink-0 flex flex-col items-center justify-center p-8 bg-amber-400 gap-1">
-                <span className="text-6xl font-black text-white leading-none">{fmt(stats.avg)}</span>
-                <Star size={28} className="text-white mt-1" fill="currentColor" />
-                <span className="text-sm font-semibold text-amber-100 mt-2">{stats.total} ratings</span>
+              <div className="sm:w-48 shrink-0 flex flex-col items-center justify-center p-8 gap-1">
+                <span className="text-6xl font-black text-[#141225] leading-none">{fmt(stats.avg)}</span>
+                <Star size={28} className="text-amber-400 mt-1" fill="currentColor" />
+                <span className="text-sm font-semibold text-[#6D625C] mt-2">{stats.total} ratings</span>
               </div>
 
               {/* Right: Labeled bars */}
@@ -488,15 +505,37 @@ export default function ProductReviewSection({ product, user }) {
             <h2 className="text-xl font-bold text-[#141225] flex items-center gap-2">
               <MessageSquare size={18} className="text-[#9A6031]" /> Customer Reviews
             </h2>
-            <div className="relative">
-              <select value={sort} onChange={e => handleSort(e.target.value)}
-                className="appearance-none bg-white border border-[#E9DED3] rounded-xl pl-3 pr-8 py-2 text-sm text-[#141225] focus:outline-none focus:border-[#9A6031] cursor-pointer">
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="highest_rating">Highest Rating</option>
-                <option value="lowest_rating">Lowest Rating</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8A817C] pointer-events-none" />
+            <div className="flex items-center gap-2">
+              {hasReviewSlider && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={prevReview}
+                    className="w-9 h-9 rounded-full border border-[#E9DED3] bg-white text-[#6D625C] hover:border-[#9A6031] hover:text-[#9A6031] transition flex items-center justify-center"
+                    aria-label="Previous customer review"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextReview}
+                    className="w-9 h-9 rounded-full border border-[#E9DED3] bg-white text-[#6D625C] hover:border-[#9A6031] hover:text-[#9A6031] transition flex items-center justify-center"
+                    aria-label="Next customer review"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+              <div className="relative">
+                <select value={sort} onChange={e => handleSort(e.target.value)}
+                  className="appearance-none bg-white border border-[#E9DED3] rounded-xl pl-3 pr-8 py-2 text-sm text-[#141225] focus:outline-none focus:border-[#9A6031] cursor-pointer">
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                  <option value="highest_rating">Highest Rating</option>
+                  <option value="lowest_rating">Lowest Rating</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8A817C] pointer-events-none" />
+              </div>
             </div>
           </div>
 
@@ -513,16 +552,39 @@ export default function ProductReviewSection({ product, user }) {
               <p className="text-sm text-[#8A817C] mt-1">Be the first customer to review this product.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {reviews.map(r => (
-                <ReviewCard
-                  key={r._id}
-                  review={r}
-                  user={user}
-                  onVote={handleVote}
-                  onOpenImage={(imgs, i) => setLightbox({ images: imgs, index: i })}
-                />
-              ))}
+            <div className="space-y-5">
+              <div className="overflow-hidden">
+                <div
+                  className="flex transition-transform duration-500 ease-in-out"
+                  style={{ transform: `translateX(-${reviewSlide * 100}%)` }}
+                >
+                  {reviews.map(r => (
+                    <div key={r._id} className="w-full shrink-0 px-0.5">
+                      <ReviewCard
+                        review={r}
+                        user={user}
+                        onVote={handleVote}
+                        onOpenImage={(imgs, i) => setLightbox({ images: imgs, index: i })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {hasReviewSlider && (
+                <div className="flex items-center justify-center gap-2">
+                  {reviews.map((r, index) => (
+                    <button
+                      key={r._id}
+                      type="button"
+                      onClick={() => setReviewSlide(index)}
+                      className={`h-2 rounded-full transition-all ${index === reviewSlide ? 'w-7 bg-[#9A6031]' : 'w-2 bg-[#D8C9BC]'}`}
+                      aria-label={`Go to customer review ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+
               {hasMore && (
                 <div className="text-center pt-2">
                   <button onClick={loadMore}
@@ -545,7 +607,7 @@ export default function ProductReviewSection({ product, user }) {
               {gallery.map((g, i) => (
                 <div key={i} onClick={() => setLightbox({ images: gallery.map(x => x.url), index: i })}
                   className="relative group cursor-pointer aspect-square overflow-hidden rounded-xl border border-[#E9DED3]">
-                  <img src={g.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                  <img src={normalizeMediaUrl(g.url)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/animal_balance_maze.png'; }} />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
                     <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 transition drop-shadow" />
                   </div>

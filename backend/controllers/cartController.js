@@ -1,4 +1,6 @@
 const Cart = require('../models/Cart');
+const Product = require('../models/Product');
+const ProductVariant = require('../models/ProductVariant');
 
 const normalizeItem = (item = {}) => ({
   product: item.product,
@@ -20,13 +22,42 @@ const getOrCreateCart = async (userId) => {
   return cart;
 };
 
-// @desc    Get logged-in user's cart
+// @desc    Get logged-in user's cart (with live prices from MongoDB)
 // @route   GET /api/cart
 // @access  Private
 const getCart = async (req, res) => {
   try {
     const cart = await getOrCreateCart(req.user._id);
-    res.json(cart);
+
+    // Enrich cart items with LIVE prices from the products/variants collections
+    const enrichedItems = await Promise.all(
+      cart.items.map(async (item) => {
+        try {
+          const obj = item.toObject ? item.toObject() : { ...item };
+          if (item.variant) {
+            // Has a variant — get live variant price
+            const variant = await ProductVariant.findById(item.variant).lean();
+            if (variant) {
+              obj.price = variant.basePrice ?? variant.price ?? item.price;
+              obj.name = obj.name; // Keep existing name
+            }
+          } else {
+            // Base product — get live product price and name
+            const product = await Product.findById(item.product).lean();
+            if (product) {
+              obj.price = product.price ?? item.price;
+              obj.name = product.name ?? item.name;
+            }
+          }
+          return obj;
+        } catch (e) {
+          // If enrichment fails, return the original item unchanged
+          return item.toObject ? item.toObject() : { ...item };
+        }
+      })
+    );
+
+    res.json({ ...cart.toObject(), items: enrichedItems });
   } catch (error) {
     res.status(500).json({ message: error.message || 'Failed to fetch cart' });
   }

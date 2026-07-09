@@ -8,6 +8,11 @@ const getAuthHeaders = () => {
 };
 
 export const reviewService = {
+  getFeaturedReviews: async (params = {}) => {
+    const res = await axios.get(`${API_URL}/featured`, { params });
+    return res.data;
+  },
+
   getReviews: async (productId, params = {}) => {
     const res = await axios.get(`${API_URL}/${productId}`, { params });
     return res.data;
@@ -24,6 +29,13 @@ export const reviewService = {
       headers: getAuthHeaders(),
     });
     return res.data; // null or review object
+  },
+
+  getMyOrderItemReview: async (orderId, orderItemId) => {
+    const res = await axios.get(`${API_URL}/order-item/${orderId}/${orderItemId}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.data;
   },
 
   createReview: async (productId, formData) => {
