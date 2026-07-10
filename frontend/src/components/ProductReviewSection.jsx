@@ -108,22 +108,24 @@ function StarInput({ value, onChange }) {
 /* ═══════════════════════════════════════════════════
    RATING BREAKDOWN BAR (new labeled style)
 ═══════════════════════════════════════════════════ */
-const STAR_LABELS = { 5: '⭐⭐⭐⭐⭐', 4: '⭐⭐⭐⭐', 3: '⭐⭐⭐', 2: '⭐⭐', 1: '⭐' };
 const STAR_COLORS = { 5: '#22c55e', 4: '#4ade80', 3: '#f59e0b', 2: '#f97316', 1: '#ef4444' };
 
 function RatingBar({ star, pct, count }) {
-  const label = STAR_LABELS[star] || `${star} Star`;
   const color = STAR_COLORS[star] || '#9A6031';
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-sm font-semibold text-[#4A403B] w-20 shrink-0">{label}</span>
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_24px] items-center gap-3">
+      <span className="flex items-center gap-0.5 text-[#141225]">
+        {Array.from({ length: star }, (_, idx) => (
+          <Star key={idx} size={14} className="text-amber-400" fill="currentColor" />
+        ))}
+      </span>
       <div className="flex-1 bg-[#F2EBE4] rounded-full h-2.5 overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
-      <span className="text-sm font-semibold text-[#6D625C] w-6 text-right shrink-0">{count}</span>
+      <span className="text-sm font-semibold text-[#6D625C] text-right">{count}</span>
     </div>
   );
 }
@@ -379,7 +381,20 @@ export default function ProductReviewSection({ product, user }) {
   const [hasMore, setHasMore]     = useState(false);
   const [lightbox, setLightbox]   = useState(null); // { images, index }
   const [reviewSlide, setReviewSlide] = useState(0);
+  const statsBoxRef = useRef(null);
+  const galleryRef = useRef(null);
   const LIMIT = 5;
+
+  useEffect(() => {
+    const syncHeight = () => {
+      if (statsBoxRef.current && galleryRef.current) {
+        statsBoxRef.current.style.minHeight = `${galleryRef.current.offsetHeight}px`;
+      }
+    };
+    syncHeight();
+    window.addEventListener('resize', syncHeight);
+    return () => window.removeEventListener('resize', syncHeight);
+  }, [gallery]);
 
   const productId = product?._id;
 
@@ -459,36 +474,41 @@ export default function ProductReviewSection({ product, user }) {
 
   /* ── stats ──────────────────────── */
   const allImages = reviews.flatMap(r => r.images || []);
-  const hasReviewSlider = reviews.length > 1;
-  const prevReview = () => setReviewSlide(prev => (prev - 1 + reviews.length) % reviews.length);
-  const nextReview = () => setReviewSlide(prev => (prev + 1) % reviews.length);
+  const reviewPages = [];
+  for (let i = 0; i < reviews.length; i += 3) {
+    reviewPages.push(reviews.slice(i, i + 3));
+  }
+  const hasReviewSlider = reviewPages.length > 1;
+  const prevReview = () => setReviewSlide(prev => (prev - 1 + reviewPages.length) % reviewPages.length);
+  const nextReview = () => setReviewSlide(prev => (prev + 1) % reviewPages.length);
 
   /* ──────────────────────────────────
      RENDER
   ────────────────────────────────── */
   return (
     <div className="py-12 px-4">
-      <div className="max-w-5xl mx-auto space-y-10">
+      <div className="max-w-7xl mx-auto space-y-10">
+        <div className="grid items-stretch gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
 
         {/* ── RATING SUMMARY ── */}
         {stats?.total > 0 && (
-          <div className="bg-white rounded-3xl border border-[#E9DED3] shadow-sm overflow-hidden">
+          <div ref={statsBoxRef} className="bg-white rounded-3xl border border-[#E9DED3] shadow-sm overflow-hidden xl:sticky xl:top-28 h-full">
             <div className="p-5 border-b border-[#F2EBE4]">
               <h2 className="text-xl font-bold text-[#141225] flex items-center gap-2">
                 <Star size={18} className="text-amber-400" fill="currentColor" />
                 Customer Ratings &amp; Reviews
               </h2>
             </div>
-            <div className="flex flex-col sm:flex-row gap-0">
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)]">
               {/* Left: Big score box */}
-              <div className="sm:w-48 shrink-0 flex flex-col items-center justify-center p-8 gap-1">
+              <div className="shrink-0 flex flex-col items-center justify-center p-8 gap-1 border-b border-[#E9DED3] lg:border-b-0 lg:border-r lg:border-[#E9DED3]">
                 <span className="text-6xl font-black text-[#141225] leading-none">{fmt(stats.avg)}</span>
                 <Star size={28} className="text-amber-400 mt-1" fill="currentColor" />
                 <span className="text-sm font-semibold text-[#6D625C] mt-2">{stats.total} ratings</span>
               </div>
 
               {/* Right: Labeled bars */}
-              <div className="flex-1 p-6 sm:border-l border-[#E9DED3] space-y-3">
+              <div className="p-6 space-y-3">
                 {(stats.dist || []).map(d => (
                   <RatingBar key={d.star} star={d.star} pct={d.pct} count={d.count} />
                 ))}
@@ -500,7 +520,7 @@ export default function ProductReviewSection({ product, user }) {
 
 
         {/* ── CUSTOMER REVIEWS ── */}
-        <div>
+        <div className="flex h-full flex-col">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <h2 className="text-xl font-bold text-[#141225] flex items-center gap-2">
               <MessageSquare size={18} className="text-[#9A6031]" /> Customer Reviews
@@ -552,20 +572,25 @@ export default function ProductReviewSection({ product, user }) {
               <p className="text-sm text-[#8A817C] mt-1">Be the first customer to review this product.</p>
             </div>
           ) : (
-            <div className="space-y-5">
-              <div className="overflow-hidden">
+            <div className="flex flex-1 flex-col space-y-5">
+              <div className="flex-1 overflow-hidden">
                 <div
-                  className="flex transition-transform duration-500 ease-in-out"
+                  className="flex h-full transition-transform duration-500 ease-in-out"
                   style={{ transform: `translateX(-${reviewSlide * 100}%)` }}
                 >
-                  {reviews.map(r => (
-                    <div key={r._id} className="w-full shrink-0 px-0.5">
-                      <ReviewCard
-                        review={r}
-                        user={user}
-                        onVote={handleVote}
-                        onOpenImage={(imgs, i) => setLightbox({ images: imgs, index: i })}
-                      />
+                  {reviewPages.map((pageReviews, pageIndex) => (
+                    <div key={pageReviews.map(r => r._id).join('-') || pageIndex} className="w-full shrink-0 px-0.5">
+                      <div className="grid h-full gap-5 md:grid-cols-3">
+                        {pageReviews.map(r => (
+                          <ReviewCard
+                            key={r._id}
+                            review={r}
+                            user={user}
+                            onVote={handleVote}
+                            onOpenImage={(imgs, i) => setLightbox({ images: imgs, index: i })}
+                          />
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -573,13 +598,13 @@ export default function ProductReviewSection({ product, user }) {
 
               {hasReviewSlider && (
                 <div className="flex items-center justify-center gap-2">
-                  {reviews.map((r, index) => (
+                  {reviewPages.map((pageReviews, index) => (
                     <button
-                      key={r._id}
+                      key={pageReviews.map(r => r._id).join('-') || index}
                       type="button"
                       onClick={() => setReviewSlide(index)}
                       className={`h-2 rounded-full transition-all ${index === reviewSlide ? 'w-7 bg-[#9A6031]' : 'w-2 bg-[#D8C9BC]'}`}
-                      aria-label={`Go to customer review ${index + 1}`}
+                      aria-label={`Go to customer review page ${index + 1}`}
                     />
                   ))}
                 </div>
@@ -598,12 +623,14 @@ export default function ProductReviewSection({ product, user }) {
         </div>
 
         {/* ── PHOTO GALLERY ── */}
+        </div>
+
         {gallery.length > 0 && (
           <div>
             <h2 className="text-xl font-bold text-[#141225] mb-4 flex items-center gap-2">
               <Camera size={18} className="text-[#9A6031]" /> Customer Photo Gallery
             </h2>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+            <div ref={galleryRef} className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 animate-fade-in">
               {gallery.map((g, i) => (
                 <div key={i} onClick={() => setLightbox({ images: gallery.map(x => x.url), index: i })}
                   className="relative group cursor-pointer aspect-square overflow-hidden rounded-xl border border-[#E9DED3]">

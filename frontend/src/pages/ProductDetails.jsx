@@ -290,8 +290,10 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
     }
 
     let active = true;
-    const loadProductData = async () => {
-      setLoadingProduct(true);
+    const loadProductData = async ({ showLoader = false } = {}) => {
+      if (showLoader) {
+        setLoadingProduct(true);
+      }
 
       try {
         const [productResponse, recommendationsResponse] = await Promise.all([
@@ -327,11 +329,11 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
       } catch (err) {
         console.error('Failed to load product details', err);
       } finally {
-        if (active) setLoadingProduct(false);
+        if (active && showLoader) setLoadingProduct(false);
       }
     };
 
-    loadProductData();
+    loadProductData({ showLoader: true });
 
     const intervalId = window.setInterval(() => {
       loadProductData();

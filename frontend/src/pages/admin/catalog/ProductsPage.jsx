@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Globe, Sparkles, Layers, ListFilter } from 'lucide-react';
+import { Plus, Edit2, Trash2, Globe, Sparkles, Layers, ListFilter, Download } from 'lucide-react';
 import { productV2API, categoryV2API, subCategoryV2API } from '../../../api/catalogV2Service';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 import { SearchBar, Button, Badge, Card } from '../../../components/admin/CommonComponents';
 import ConfirmDialog from '../../../components/admin/ConfirmDialog';
 import BulkActions from '../../../components/admin/BulkActions';
@@ -173,6 +174,21 @@ export const ProductsPage = () => {
         } catch (err) {
             console.error(err);
         }
+    };
+
+    const exportProductsExcel = () => {
+        const header = ['Name', 'SKU', 'Category', 'Sub-Category', 'Price', 'Compare At Price', 'Status', 'Low Stock Alert'];
+        const rows = products.map((product) => [
+            product.name || '',
+            product.sku || '',
+            product.category?.name || '',
+            product.subCategory?.name || product.subCategory || '',
+            product.price ?? 0,
+            product.compareAtPrice ?? 0,
+            product.isActive ? 'Active' : 'Inactive',
+            product.lowStockAlert ?? '',
+        ]);
+        downloadExcelFile('products', header, rows);
     };
 
     const handleSelectRow = (id, checked) => {
@@ -439,10 +455,15 @@ export const ProductsPage = () => {
                     <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Products</h1>
                     <p className="text-gray-500 mt-1">Manage catalog inventory, customizable variables, and attributes.</p>
                 </div>
-                <Button onClick={() => handleOpenForm()} className="shadow-lg hover:shadow-xl transition-all">
-                    <Plus size={20} />
-                    Add Product
-                </Button>
+                <div className="flex items-center gap-3">
+                    <button onClick={exportProductsExcel} className="admin-export-btn">
+                        <Download size={16} /> Export Excel
+                    </button>
+                    <Button onClick={() => handleOpenForm()} className="shadow-lg hover:shadow-xl transition-all">
+                        <Plus size={20} />
+                        Add Product
+                    </Button>
+                </div>
             </div>
 
             {/* Filter Panel */}

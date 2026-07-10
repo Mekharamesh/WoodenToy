@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { orderService, ORDER_STATUS_OPTIONS } from '../../api/orderService';
-import { Package, Search, Calendar, MapPin, Eye, Trash2, X, Edit, Save } from 'lucide-react';
+import { Package, Search, Calendar, MapPin, Eye, Trash2, X, Edit, Save, Download } from 'lucide-react';
+import { downloadExcelFile } from '../../utils/exportUtils';
 import toast from 'react-hot-toast';
 
 export default function OrdersPage() {
@@ -95,6 +96,20 @@ export default function OrdersPage() {
     setShowViewModal(true);
   };
 
+  const exportOrdersExcel = () => {
+    const header = ['Order ID', 'Customer', 'Status', 'Payment Method', 'Total', 'Shipping Name', 'Created At'];
+    const rows = orders.map(order => ({
+      'Order ID': order._id,
+      'Customer': order.user?.name || order.shippingAddress?.fullName || '',
+      'Status': order.status || '',
+      'Payment Method': order.paymentMethod || '',
+      'Total': order.totalPrice != null ? order.totalPrice : '',
+      'Shipping Name': order.shippingAddress?.fullName || '',
+      'Created At': order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : '',
+    }));
+    downloadExcelFile('orders', header, rows);
+  };
+
   const closeViewModal = () => {
     setShowViewModal(false);
     setSelectedOrder(null);
@@ -183,15 +198,20 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Orders Management</h1>
           <p className="text-sm text-gray-500">View and manage customer orders</p>
         </div>
-        <div className="relative">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Search by Order ID or Name"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-[#E6DFD4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 w-full sm:w-64"
-          />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Search by Order ID or Name"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-[#E6DFD4] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 w-full"
+            />
+          </div>
+          <button onClick={exportOrdersExcel} className="admin-export-btn self-start sm:self-auto">
+            <Download size={16} /> Export Excel
+          </button>
         </div>
       </div>
 

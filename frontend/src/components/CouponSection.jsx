@@ -7,6 +7,7 @@ export default function CouponSection({ subtotal, items = [], onApplyCoupon }) {
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCoupon, setSelectedCoupon] = useState('');
+  const [manualCode, setManualCode] = useState('');
   const [applying, setApplying] = useState(false);
 
   useEffect(() => {
@@ -49,6 +50,20 @@ export default function CouponSection({ subtotal, items = [], onApplyCoupon }) {
     }
   };
 
+  const handleApplyManual = async () => {
+    if (!manualCode || !manualCode.trim()) return;
+    setApplying(true);
+    try {
+      const result = await adminService.applyCoupon(manualCode.trim().toUpperCase(), subtotal, items);
+      onApplyCoupon?.(result);
+      toast.success('Coupon applied successfully');
+    } catch (err) {
+      toast.error(err.message || 'Coupon could not be applied');
+    } finally {
+      setApplying(false);
+    }
+  };
+
   return (
     <div className="rounded-3xl border border-[#E6DFD4] bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
@@ -58,9 +73,19 @@ export default function CouponSection({ subtotal, items = [], onApplyCoupon }) {
       {loading ? (
         <div className="text-sm text-gray-500">Loading coupons…</div>
       ) : coupons.length === 0 ? (
-        <p className="text-sm text-gray-500">No eligible coupons available for this order.</p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input value={manualCode} onChange={(e) => setManualCode(e.target.value)} placeholder="Enter coupon code" className="w-full rounded-xl border border-[#E6DFD4] px-3 py-2.5 text-sm outline-none focus:border-[#8B5E3C]" />
+            <button onClick={handleApplyManual} disabled={applying || !manualCode.trim()} className="inline-flex items-center gap-2 rounded-xl bg-[#8B5E3C] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">Apply</button>
+          </div>
+          <p className="text-sm text-gray-500">No eligible coupons available for this order.</p>
+        </div>
       ) : (
         <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input value={manualCode} onChange={(e) => setManualCode(e.target.value)} placeholder="Enter coupon code" className="w-full rounded-xl border border-[#E6DFD4] px-3 py-2.5 text-sm outline-none focus:border-[#8B5E3C]" />
+            <button onClick={handleApplyManual} disabled={applying || !manualCode.trim()} className="inline-flex items-center gap-2 rounded-xl bg-[#8B5E3C] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">Apply</button>
+          </div>
           {coupons.map((coupon) => (
             <label key={coupon._id} className="flex items-start gap-3 rounded-2xl border border-[#E6DFD4] p-3">
               <input type="radio" name="coupon" value={coupon.couponCode} checked={selectedCoupon === coupon.couponCode} onChange={() => setSelectedCoupon(coupon.couponCode)} className="mt-1 h-4 w-4" />

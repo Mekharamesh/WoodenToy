@@ -7,6 +7,7 @@ import {
   TrendingUp, BarChart2, Download, Calendar, Shield, User, Package,
   CheckCircle, XCircle, Award, Zap, ArrowUpRight, RotateCcw,
 } from "lucide-react";
+import { downloadExcelFile } from '../../../utils/exportUtils';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar,
@@ -241,6 +242,21 @@ export default function ReviewManagementPage() {
     } catch (err) { toast.error(err.response?.data?.message || "Action failed"); }
   };
 
+  const exportReviewsExcel = () => {
+    const header = ['Review ID', 'Product', 'Customer', 'Rating', 'Status', 'Title', 'Comment', 'Created At'];
+    const rows = reviews.map((review) => ({
+      'Review ID': review._id,
+      'Product': review.product?.name || '',
+      'Customer': review.user?.name || review.user?.email || '',
+      'Rating': review.rating || '',
+      'Status': review.status || '',
+      'Title': review.title || '',
+      'Comment': review.description || '',
+      'Created At': review.createdAt ? new Date(review.createdAt).toLocaleString('en-IN') : '',
+    }));
+    downloadExcelFile('reviews', header, rows);
+  };
+
   const handleDelete = async (id) => {
     try {
       await axios.delete(`${API}/reviews/${id}`, { headers: authHeader() });
@@ -290,8 +306,8 @@ export default function ReviewManagementPage() {
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 shadow-sm transition">
               <RefreshCw size={14} /> Refresh
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-sm transition">
-              <Download size={14} /> Export CSV
+            <button onClick={exportReviewsExcel} className="admin-export-btn">
+              <Download size={14} /> Export Excel
             </button>
           </div>
         </div>

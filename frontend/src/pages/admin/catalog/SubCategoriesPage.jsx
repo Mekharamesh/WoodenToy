@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Settings, ToggleLeft, ToggleRight, List, Columns, ShieldAlert } from 'lucide-react';
+import { Plus, Edit2, Trash2, Settings, ToggleLeft, ToggleRight, List, Columns, ShieldAlert, Download } from 'lucide-react';
 import { subCategoryV2API, categoryV2API, attributeV2API } from '../../../api/catalogV2Service';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 import { SearchBar, Button, Badge, Card } from '../../../components/admin/CommonComponents';
 import ConfirmDialog from '../../../components/admin/ConfirmDialog';
 import BulkActions from '../../../components/admin/BulkActions';
@@ -202,6 +203,18 @@ export const SubCategoriesPage = () => {
         }
     };
 
+    const exportSubCategoriesExcel = () => {
+        const header = ['Sub-Category Name', 'Parent Category', 'Slug', 'Status', 'Display Order'];
+        const rows = subCategories.map((sub) => [
+            sub.name || '',
+            sub.category?.name || '',
+            sub.slug || '',
+            sub.isActive ? 'Active' : 'Inactive',
+            sub.displayOrder ?? '',
+        ]);
+        downloadExcelFile('sub_categories', header, rows);
+    };
+
     const handleToggleStatus = async (subCategory) => {
         try {
             await subCategoryV2API.update(subCategory._id, { isActive: !subCategory.isActive });
@@ -285,10 +298,15 @@ export const SubCategoriesPage = () => {
                     <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Sub-Categories</h1>
                     <p className="text-gray-500 mt-1">Manage subcategories and map fields or specifications to them.</p>
                 </div>
-                <Button onClick={() => handleOpenForm()} className="shadow-lg hover:shadow-xl transition-all">
-                    <Plus size={20} />
-                    Add Sub-Category
-                </Button>
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <button onClick={exportSubCategoriesExcel} className="admin-export-btn flex items-center gap-2">
+                        <Download size={16} /> Export Excel
+                    </button>
+                    <Button onClick={() => handleOpenForm()} className="shadow-lg hover:shadow-xl transition-all">
+                        <Plus size={20} />
+                        Add Sub-Category
+                    </Button>
+                </div>
             </div>
 
             {/* Filter Panel */}

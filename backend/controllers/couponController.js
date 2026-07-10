@@ -2,6 +2,7 @@ const Coupon = require('../models/Coupon');
 const Category = require('../models/Category');
 const SubCategory = require('../models/SubCategory');
 const Product = require('../models/Product');
+const Order = require('../models/Order');
 
 const normalizeCouponCode = (value) => String(value || '').trim().toUpperCase();
 
@@ -83,6 +84,9 @@ const validateCouponPayload = (body) => {
     errors.push('Discount value is required');
   }
   if (Number(body.minOrderValue) < 0) errors.push('Minimum order cannot be negative');
+  if (body.offerType === 'Cart Offer' && (body.minOrderValue === undefined || body.minOrderValue === null || Number(body.minOrderValue) <= 0)) {
+    errors.push('Minimum order value is required for cart offers');
+  }
   if (Number(body.usageLimit) < 0) errors.push('Usage limit cannot be negative');
   if (body.discountType === 'Percentage' && Number(body.discountValue) > 100) errors.push('Discount percentage cannot exceed 100%');
   if (body.startDate && body.endDate && new Date(body.startDate) > new Date(body.endDate)) {
@@ -289,10 +293,19 @@ exports.applyCoupon = async (req, res) => {
 
     if (coupon.deleted) return res.status(400).json({ message: 'Coupon is no longer available' });
     if (coupon.status !== 'active') return res.status(400).json({ message: 'Coupon is not active' });
-    if (!coupon.visible) return res.status(400).json({ message: 'Coupon is not visible' });
+    // Allow applying coupons even if they are not marked `visible` in admin
+    // This enables manual application from checkout even when admin visibility is toggled.
     if (coupon.startDate && new Date(coupon.startDate) > new Date()) return res.status(400).json({ message: 'Coupon has not started yet' });
     if (coupon.endDate && new Date(coupon.endDate) < new Date()) return res.status(400).json({ message: 'Coupon has expired' });
-    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return res.status(400).json({ message: 'Coupon usage limit reached' });
+    let effectiveUsageCount = Number(coupon.usageCount || 0);
+    if (coupon.usageLimit) {
+      const orderUsage = await Order.countDocuments({
+        couponCode: coupon.couponCode,
+        isPaid: true,
+      });
+      effectiveUsageCount = Math.max(effectiveUsageCount, orderUsage);
+    }
+    if (coupon.usageLimit && effectiveUsageCount >= coupon.usageLimit) return res.status(400).json({ message: 'Coupon usage limit reached' });
     if (Number(subtotal) < Number(coupon.minOrderValue || 0)) return res.status(400).json({ message: 'Minimum order value not met' });
     if (!isCouponApplicableToCart(coupon, cartItems)) return res.status(400).json({ message: 'Coupon is not applicable to the items in your cart' });
 
@@ -303,8 +316,7 @@ exports.applyCoupon = async (req, res) => {
       discountAmount = Math.min(Number(coupon.discountValue), Number(coupon.maxDiscount || Number(coupon.discountValue)));
     }
 
-    coupon.usageCount += 1;
-    await coupon.save();
+    // Note: usageCount is not incremented here. Coupon consumption is performed when an order completes payment.
 
     res.json({
       message: 'Coupon applied successfully',

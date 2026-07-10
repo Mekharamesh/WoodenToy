@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { adminService } from '../../../api/adminService';
 import { catalogService } from '../../../api/catalogService';
 import { Plus, Search, FileDown, Eye, Pencil, Trash2, CheckCircle2, XCircle, Loader2, BadgeCheck, BadgeX, ChevronLeft, ChevronRight, Ticket } from 'lucide-react';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 
 const emptyForm = {
   couponCode: '',
@@ -215,6 +216,12 @@ export default function CouponManagementPage() {
       return;
     }
 
+    // Cart Offer requires a minimum order value
+    if (form.offerType === 'Cart Offer' && (form.minOrderValue === '' || Number(form.minOrderValue) <= 0)) {
+      setError('Minimum order value is required for cart offers');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -284,7 +291,7 @@ export default function CouponManagementPage() {
     }
   };
 
-  const exportCsv = () => {
+  const exportExcel = () => {
     const rows = sortedCoupons.map((coupon) => ({
       'Coupon Code': coupon.couponCode,
       'Offer Type': coupon.offerType,
@@ -296,14 +303,7 @@ export default function CouponManagementPage() {
       'Usage': `${coupon.usageCount || 0}/${coupon.usageLimit || 0}`,
     }));
     const header = ['Coupon Code', 'Offer Type', 'Discount Type', 'Discount Value', 'Validity', 'Status', 'Visibility', 'Usage'];
-    const csv = [header.join(','), ...rows.map((row) => header.map((h) => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'coupons.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadExcelFile('coupons', header, rows);
   };
 
   return (
@@ -314,8 +314,8 @@ export default function CouponManagementPage() {
           <p className="text-sm text-gray-600 mt-1">Manage promotional offers, discount rules, and visibility.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={exportCsv} className="inline-flex items-center gap-2 bg-white border border-[#E6DFD4] px-4 py-2.5 rounded-xl font-semibold text-sm text-[#6B4F37] hover:bg-[#FCF8F2]">
-            <FileDown size={16} /> Export CSV
+          <button onClick={exportExcel} className="admin-export-btn">
+            <FileDown size={16} /> Export Excel
           </button>
           <button onClick={openAdd} className="inline-flex items-center gap-2 bg-[#8B5E3C] text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#7A4E31]">
             <Plus size={16} /> Add Coupon
@@ -343,6 +343,7 @@ export default function CouponManagementPage() {
               <select value={offerFilter} onChange={(e) => { setOfferFilter(e.target.value); setPage(1); }} className="w-full rounded-xl border border-[#E6DFD4] px-3 py-2.5 text-sm outline-none focus:border-[#8B5E3C]">
                 <option value="all">All Offer Types</option>
                 <option value="General Offer">General Offer</option>
+                <option value="Cart Offer">Cart Offer</option>
                 <option value="Product Offer">Product Offer</option>
                 <option value="Category Offer">Category Offer</option>
               </select>
@@ -439,9 +440,13 @@ export default function CouponManagementPage() {
                 <span className="mb-1 block font-semibold text-[#2F241D]">Offer Type *</span>
                 <select value={form.offerType} onChange={(e) => setForm({ ...form, offerType: e.target.value })} className="w-full rounded-xl border border-[#E6DFD4] px-3 py-2.5 outline-none focus:border-[#8B5E3C]">
                   <option>General Offer</option>
+                  <option>Cart Offer</option>
                   <option>Product Offer</option>
                   <option>Category Offer</option>
                 </select>
+                {form.offerType === 'Cart Offer' && (
+                  <p className="mt-2 text-xs text-gray-500">Cart Offer discounts are applied at checkout when the cart meets the minimum order value and eligibility rules.</p>
+                )}
               </label>
             </div>
 
@@ -459,10 +464,10 @@ export default function CouponManagementPage() {
               </label>
             </div>
 
-            {(form.offerType === 'General Offer' || form.offerType === 'Category Offer') && (
+            {(form.offerType === 'General Offer' || form.offerType === 'Category Offer' || form.offerType === 'Cart Offer') && (
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="text-sm">
-                  <span className="mb-1 block font-semibold text-[#2F241D]">Minimum Order Value</span>
+                  <span className="mb-1 block font-semibold text-[#2F241D]">Minimum Order Value{form.offerType === 'Cart Offer' ? ' *' : ''}</span>
                   <input type="number" min="0" value={form.minOrderValue} onChange={(e) => setForm({ ...form, minOrderValue: e.target.value })} className="w-full rounded-xl border border-[#E6DFD4] px-3 py-2.5 outline-none focus:border-[#8B5E3C]" />
                 </label>
                 {form.discountType === 'Percentage' && (

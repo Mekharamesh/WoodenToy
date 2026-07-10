@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Pencil, Trash2, Download, Plus, Search, ChevronDown, Check, X, Lock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 
 import { adminService } from '../../../api/adminService';
 
@@ -121,6 +122,19 @@ export default function CancellationManagementPage() {
 
   const filteredRules = rules.filter(r => r.paymentMethod === activeTab);
 
+  const exportRulesExcel = () => {
+    const header = ['Payment Method', 'Order Status', 'Cancellation Fee', 'Refund Percentage', 'Time Limit', 'Allowed'];
+    const rows = filteredRules.map((rule) => ({
+      'Payment Method': rule.paymentMethod || '',
+      'Order Status': rule.orderStatus || '',
+      'Cancellation Fee': rule.cancellationFee ?? '',
+      'Refund Percentage': rule.refundPercentage ?? '',
+      'Time Limit': rule.timeLimit || '',
+      'Allowed': rule.isAllowed ? 'Yes' : 'No',
+    }));
+    downloadExcelFile('cancellation_rules', header, rows);
+  };
+
   const totalRules = filteredRules.length;
   const allowedRules = filteredRules.filter(r => r.isAllowed).length;
   const restrictedRules = filteredRules.filter(r => !r.isAllowed).length;
@@ -163,9 +177,9 @@ export default function CancellationManagementPage() {
           </div>
           
           <div className="flex items-center gap-3 pb-4">
-            <button onClick={handleSeed} className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E9DED3] text-[#6D625C] rounded-lg text-sm font-bold hover:bg-gray-50 shadow-sm">
+            <button onClick={exportRulesExcel} className="admin-export-btn">
               <Download size={16} />
-              Export
+              Export Excel
             </button>
             <button 
               onClick={() => {

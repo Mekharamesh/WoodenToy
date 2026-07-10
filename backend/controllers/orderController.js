@@ -97,8 +97,25 @@ const addOrderItems = async (req, res) => {
         codAdvance: feeSummary.codAdvance,
         balanceAmount: calculatedBalanceAmount,
         orderNotes,
-        fees: feeSummary.appliedFees.length > 0 ? feeSummary.appliedFees : (Array.isArray(fees) ? fees : [])
+        fees: feeSummary.appliedFees.length > 0 ? feeSummary.appliedFees : (Array.isArray(fees) ? fees : []),
+        couponCode: req.body.couponCode || null,
+        discountAmount: Number(req.body.discountAmount || 0),
+        coupon: null,
       });
+
+      // If a couponCode was provided, attempt to link the coupon ObjectId for stronger referential integrity
+      if (order.couponCode) {
+        try {
+          const Coupon = require('../models/Coupon');
+          const normalized = String(order.couponCode || '').trim().toUpperCase();
+          const found = await Coupon.findOne({ couponCode: normalized, deleted: false });
+          if (found) {
+            order.coupon = found._id;
+          }
+        } catch (err) {
+          console.error('Failed to link coupon to order:', err.message || err);
+        }
+      }
 
       const createdOrder = await order.save();
 
@@ -173,6 +190,19 @@ const updateOrderToPaid = async (req, res) => {
       order.status = 'Packed';
 
       const updatedOrder = await order.save();
+      // If order had a coupon applied, consume it now (increment usageCount)
+      try {
+        if (updatedOrder.couponCode) {
+          const Coupon = require('../models/Coupon');
+          const c = await Coupon.findOne({ couponCode: String(updatedOrder.couponCode).trim().toUpperCase(), deleted: false });
+          if (c) {
+            c.usageCount = (Number(c.usageCount) || 0) + 1;
+            await c.save();
+          }
+        }
+      } catch (err) {
+        console.error('Failed to consume coupon on payment completion', err);
+      }
       res.json(updatedOrder);
     } else {
       res.status(404).json({ message: 'Order not found' });

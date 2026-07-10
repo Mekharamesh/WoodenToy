@@ -84,6 +84,20 @@ const orderSchema = new mongoose.Schema(
       amount: { type: Number, required: true },
       isWeightFee: { type: Boolean, default: false }
     }],
+    couponCode: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    coupon: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Coupon',
+      default: null,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
     codAdvance: {
       type: Number,
       default: 0.0,

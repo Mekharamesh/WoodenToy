@@ -4,6 +4,7 @@ import './InventoryManagement.css';
 import { catalogService } from '../../../api/catalogService';
 import { variantAPI } from '../../../api/catalogAdminService';
 import toast from 'react-hot-toast';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 
 const API_ORIGIN = 'http://localhost:5000';
 
@@ -194,6 +195,32 @@ export default function InventoryManagement() {
     return productVariants.find((variant) => variant?.sku)?.sku || 'N/A';
   };
 
+  const exportInventoryExcel = () => {
+    const header = ['Product Name', 'SKU', 'Total Stock', 'Reserved Stock', 'Current Stock', 'Status', 'Product ID'];
+    const rows = products.map((product) => {
+      const productVariants = getProductVariants(product);
+      const totalStock = productVariants.length > 0
+        ? productVariants.reduce((acc, v) => acc + (v.inventory || 0), 0)
+        : (product.inventory?.stockQuantity || 0);
+      const reservedStock = productVariants.length > 0
+        ? productVariants.reduce((acc, v) => acc + (v.reserveStock || 0), 0)
+        : (product.inventory?.reserveStock || 0);
+      const currentStock = productVariants.length > 0
+        ? productVariants.reduce((acc, v) => acc + Math.max(0, (v.inventory || 0) - (v.reserveStock || 0)), 0)
+        : (product.inventory?.stockQuantity || 0);
+      return {
+        'Product Name': product.name || 'Unnamed Product',
+        SKU: getInventorySku(product, productVariants),
+        'Total Stock': totalStock,
+        'Reserved Stock': reservedStock,
+        'Current Stock': currentStock,
+        Status: getStatus(currentStock).label,
+        'Product ID': product._id,
+      };
+    });
+    downloadExcelFile('inventory', header, rows);
+  };
+
   const openEditModal = (item, type) => {
     setEditItem({ type, data: item });
     if (type === 'product') {
@@ -274,7 +301,7 @@ export default function InventoryManagement() {
               className="search-input"
             />
           </div>
-          <button className="secondary-btn">
+          <button className="admin-export-btn" onClick={exportInventoryExcel}>
             <Download size={16} /> Export Excel
           </button>
         </div>

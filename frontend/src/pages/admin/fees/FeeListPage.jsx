@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Edit3, Trash2 } from 'lucide-react';
+import { Edit3, Trash2, Download } from 'lucide-react';
 import { feeAPI } from '../../../api/feeService';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 
 export default function FeeListPage({ onNavigate, onEditFee }) {
   const [fees, setFees] = useState([]);
@@ -33,6 +34,22 @@ export default function FeeListPage({ onNavigate, onEditFee }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const exportFeesExcel = () => {
+    const header = ['Fee Name', 'Category', 'Fee Type', 'Payment Method', 'State(s)', 'Weight/Amount', 'Status'];
+    const rows = fees.map((fee) => [
+      fee.feeName || '',
+      fee.feeCategory?.name || '',
+      fee.feeType || '',
+      fee.paymentMethod || 'Both (COD & CashFree)',
+      Array.isArray(fee.applicationState) ? fee.applicationState.join(', ') : fee.applicationState || '',
+      fee.weightSlabs && fee.weightSlabs.length > 0
+        ? fee.weightSlabs.map((slab) => `${slab.minWeight}-${slab.maxWeight}kg: ${fee.feeType === 'Percentage' ? `${slab.feeValue}%` : `₹${slab.feeValue}`}`).join('; ')
+        : `${fee.feeType === 'Fixed Amount' ? '₹' : ''}${fee.flatFeeValue ?? ''}${fee.feeType === 'Percentage' ? '%' : ''}`,
+      fee.active ? 'Active' : 'Inactive',
+    ]);
+    downloadExcelFile('fees', header, rows);
   };
 
   const handleDelete = async (id) => {
@@ -81,6 +98,22 @@ export default function FeeListPage({ onNavigate, onEditFee }) {
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
           Add New Fee
+        </button>
+      </div>
+
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => {
+            if (!fees || fees.length === 0) {
+              alert('No fee data available to export');
+              return;
+            }
+            exportFeesExcel();
+          }}
+          disabled={!fees || fees.length === 0}
+          className={`admin-export-btn flex items-center gap-2 ${(!fees || fees.length === 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <Download size={16} /> Export Excel
         </button>
       </div>
 

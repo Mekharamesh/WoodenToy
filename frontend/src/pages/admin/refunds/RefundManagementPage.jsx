@@ -3,6 +3,7 @@ import { Download, Search, ChevronDown, ChevronLeft, ChevronRight, Eye, X, Check
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 import { adminService } from '../../../api/adminService';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 
 export default function RefundManagementPage() {
   const [refunds, setRefunds] = useState([]);
@@ -141,6 +142,20 @@ export default function RefundManagementPage() {
     }
   };
 
+  const exportRefundsExcel = () => {
+    const header = ['Refund ID', 'Order ID', 'Customer', 'Payment Type', 'Status', 'Amount', 'Requested At'];
+    const rows = filteredRefunds.map((refund) => ({
+      'Refund ID': refund._id,
+      'Order ID': refund.orderId || '',
+      'Customer': refund.customerName || refund.customerEmail || '',
+      'Payment Type': refund.paymentType || '',
+      'Status': refund.status || '',
+      'Amount': refund.amount || 0,
+      'Requested At': refund.createdAt ? new Date(refund.createdAt).toLocaleString('en-IN') : '',
+    }));
+    downloadExcelFile('refunds', header, rows);
+  };
+
   return (
     <div className="bg-[#FAF8F5] min-h-screen">
       <div className="max-w-7xl mx-auto px-8 py-10">
@@ -156,9 +171,9 @@ export default function RefundManagementPage() {
               Last 30 Days
               <ChevronDown size={14} />
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#8B5E3C] text-white rounded-lg text-sm font-bold shadow-sm hover:bg-[#70482B] transition-colors">
+            <button onClick={exportRefundsExcel} className="admin-export-btn">
               <Download size={16} />
-              Export CSV
+              Export Excel
             </button>
           </div>
         </div>

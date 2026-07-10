@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Tag, ChevronDown, Check, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Tag, ChevronDown, Check, X, Download } from 'lucide-react';
 import { attributeV2API, categoryV2API, subCategoryV2API } from '../../../api/catalogV2Service';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 import { SearchBar, Button, Badge, Card } from '../../../components/admin/CommonComponents';
 import ConfirmDialog from '../../../components/admin/ConfirmDialog';
 
@@ -161,6 +162,24 @@ export const AttributesPage = () => {
         } finally {
             setFormLoading(false);
         }
+    };
+
+    const exportAttributesExcel = () => {
+        const header = ['Attribute ID', 'Name', 'Code', 'Category', 'SubCategory', 'Type', 'Required', 'Searchable', 'Filterable', 'Active', 'Created At'];
+        const rows = attributes.map(attr => ({
+            'Attribute ID': attr._id,
+            'Name': attr.name || '',
+            'Code': attr.code || '',
+            'Category': attr.category?.name || attr.category || '',
+            'SubCategory': attr.subCategory?.name || attr.subCategory || '',
+            'Type': attr.type || '',
+            'Required': attr.isRequired ? 'Yes' : 'No',
+            'Searchable': attr.isSearchable ? 'Yes' : 'No',
+            'Filterable': attr.isFilterable ? 'Yes' : 'No',
+            'Active': attr.isActive ? 'Yes' : 'No',
+            'Created At': attr.createdAt ? new Date(attr.createdAt).toLocaleString('en-IN') : '',
+        }));
+        downloadExcelFile('attributes', header, rows);
     };
 
     const handleDeleteClick = (id) => {

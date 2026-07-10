@@ -12,7 +12,7 @@ const couponSchema = new mongoose.Schema({
   offerType: {
     type: String,
     required: true,
-    enum: ['General Offer', 'Product Offer', 'Category Offer'],
+    enum: ['General Offer', 'Cart Offer', 'Product Offer', 'Category Offer'],
     default: 'General Offer',
   },
   discountType: {

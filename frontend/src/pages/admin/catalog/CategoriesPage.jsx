@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { categoryV2API } from '../../../api/catalogV2Service';
+import { Download } from 'lucide-react';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 
 // ─── Reusable Badge ───────────────────────────────────────────────────────────
 const StatusBadge = ({ active }) => (
@@ -152,6 +154,19 @@ export const CategoriesPage = () => {
     } catch (err) { alert(err.message); }
   };
 
+  const exportCategoriesExcel = () => {
+    const header = ['Category ID', 'Name', 'Slug', 'Active', 'Display Order', 'Created At'];
+    const rows = categories.map(cat => ({
+      'Category ID': cat._id,
+      'Name': cat.name || '',
+      'Slug': cat.slug || '',
+      'Active': cat.isActive ? 'Yes' : 'No',
+      'Display Order': cat.displayOrder ?? '',
+      'Created At': cat.createdAt ? new Date(cat.createdAt).toLocaleString('en-IN') : '',
+    }));
+    downloadExcelFile('categories', header, rows);
+  };
+
   const toggleSelectAll = (checked) =>
     setSelectedIds(checked ? categories.map(c => c._id) : []);
 
@@ -173,13 +188,18 @@ export const CategoriesPage = () => {
           <h1 className="text-2xl font-bold text-gray-800">Categories</h1>
           <p className="text-sm text-gray-400 mt-0.5">Manage product categories, SEO settings, and wood preferences.</p>
         </div>
-        <button
-          onClick={() => openForm()}
-          className="flex items-center gap-2 bg-[#8B5E3C] hover:bg-[#7a5234] text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          Add Category
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={exportCategoriesExcel} className="admin-export-btn">
+            <Download size={16} /> Export Excel
+          </button>
+          <button
+            onClick={() => openForm()}
+            className="flex items-center gap-2 bg-[#8B5E3C] hover:bg-[#7a5234] text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Add Category
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

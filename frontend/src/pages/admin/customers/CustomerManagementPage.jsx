@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { adminService } from '../../../api/adminService';
+import { downloadExcelFile } from '../../../utils/exportUtils';
 import toast from 'react-hot-toast';
 import {
-  Users, ShoppingBag, TrendingUp, IndianRupee, Search,
+  Users, ShoppingBag, TrendingUp, IndianRupee, Search, Download,
   ChevronDown, ChevronUp, Eye, Package, RefreshCw, Calendar, Phone, Mail,
   ArrowUpDown, ArrowLeft, Star
 } from 'lucide-react';
@@ -269,6 +270,20 @@ export default function CustomerManagementPage() {
     else { setSortKey(key); setSortDir('desc'); }
   };
 
+  const exportCustomersExcel = () => {
+    const header = ['Name', 'Email', 'Phone', 'Total Orders', 'Delivered Spend', 'Joined Date', 'Loyalty Tier'];
+    const rows = customers.map((c) => [
+      c.name || '',
+      c.email || '',
+      c.phone || '',
+      c.totalOrders ?? 0,
+      c.totalSpend ?? 0,
+      fmtDate(c.createdAt),
+      c.loyalty?.tier || '',
+    ]);
+    downloadExcelFile('customers', header, rows);
+  };
+
   const SortIcon = ({ col }) =>
     sortKey === col
       ? (sortDir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />)
@@ -295,12 +310,20 @@ export default function CustomerManagementPage() {
             <h1 className="text-3xl font-bold text-[#141225] font-serif">Customer Management</h1>
             <p className="text-[#6D625C] mt-1 text-sm">View customer details, order history, and purchase analytics.</p>
           </div>
-          <button
-            onClick={load}
-            className="flex items-center gap-2 px-4 py-2 bg-[#9A6031] text-white rounded-xl text-sm font-bold hover:bg-[#7E4B25] shadow-sm transition"
-          >
-            <RefreshCw size={14} /> Refresh
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={load}
+              className="flex items-center gap-2 px-4 py-2 bg-[#9A6031] text-white rounded-xl text-sm font-bold hover:bg-[#7E4B25] shadow-sm transition"
+            >
+              <RefreshCw size={14} /> Refresh
+            </button>
+            <button
+              onClick={exportCustomersExcel}
+              className="admin-export-btn flex items-center gap-2"
+            >
+              <Download size={16} /> Export Excel
+            </button>
+          </div>
         </div>
 
         {/* Stat Cards */}
