@@ -33,7 +33,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   const [loading, setLoading] = useState(true);
 
   // Form State
-  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('both');
   const [feeName, setFeeName] = useState('');
   const [feeCategory, setFeeCategory] = useState('');
   const [feeType, setFeeType] = useState('Fixed Amount');
@@ -55,7 +55,18 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   useEffect(() => {
     loadDropdownData();
     if (editingFee) {
-      setPaymentMethod(editingFee.paymentMethod?._id || editingFee.paymentMethod || '');
+      // Map old payment method values to new ones
+      let pmValue = 'both'; // default
+      if (editingFee.paymentMethod) {
+        const pmName = editingFee.paymentMethod?.name || editingFee.paymentMethod;
+        if (pmName && typeof pmName === 'string') {
+          const normalized = pmName.toLowerCase();
+          if (normalized.includes('cod')) pmValue = 'cod';
+          else if (normalized.includes('cashfree')) pmValue = 'cashfree';
+          else if (normalized.includes('both')) pmValue = 'both';
+        }
+      }
+      setPaymentMethod(pmValue);
       setFeeName(editingFee.feeName || '');
       setFeeCategory(editingFee.feeCategory?._id || editingFee.feeCategory || '');
       setFeeType(editingFee.feeType || 'Fixed Amount');
@@ -159,8 +170,15 @@ export default function AddFeePage({ onNavigate, editingFee }) {
   const handleSave = async () => {
     if (!validateForm()) return;
 
+    // Map payment method values to display names
+    const paymentMethodMap = {
+      'cod': 'COD',
+      'cashfree': 'CashFree',
+      'both': 'Both (COD & CashFree)'
+    };
+
     const payload = {
-      paymentMethod: paymentMethod || null,
+      paymentMethod: paymentMethodMap[paymentMethod] || 'Both (COD & CashFree)',
       feeName,
       feeCategory,
       feeType,
@@ -185,7 +203,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
         await feeAPI.createFee(payload);
         alert('Fee created successfully');
       }
-      onNavigate('list');
+      onNavigate('/admin/fees');
     } catch (error) {
       alert(`Failed to save fee: ${error.message || 'Unknown error'}`);
       console.error(error);
@@ -264,7 +282,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
           <p className="text-sm text-brand-medium">Configure fee parameters and rules</p>
         </div>
         <button
-          onClick={() => onNavigate('list')}
+          onClick={() => onNavigate('/admin/fees')}
           className="bg-white border border-[#E6DFD4] text-brand-dark hover:bg-gray-50 text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl transition-colors shadow-sm"
         >
           Back to List
@@ -379,8 +397,9 @@ export default function AddFeePage({ onNavigate, editingFee }) {
               onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full border border-[#E6DFD4] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-brand-medium"
             >
-              <option value="">Both (COD & CashFree)</option>
-              {paymentMethods.map(pm => <option key={pm._id} value={pm._id}>{pm.name}</option>)}
+              <option value="both">Both (COD & CashFree)</option>
+              <option value="cod">COD</option>
+              <option value="cashfree">CashFree</option>
             </select>
             {errors.paymentMethod && <p className="text-red-500 text-xs mt-1">{errors.paymentMethod}</p>}
           </div>
@@ -487,7 +506,7 @@ export default function AddFeePage({ onNavigate, editingFee }) {
         )}
 
         <div className="flex justify-end gap-3 pt-6">
-          <button onClick={() => onNavigate('list')} className="px-6 py-3 border border-[#E6DFD4] rounded-xl text-sm font-bold text-brand-dark hover:bg-gray-50">Cancel</button>
+          <button onClick={() => onNavigate('/admin/fees')} className="px-6 py-3 border border-[#E6DFD4] rounded-xl text-sm font-bold text-brand-dark hover:bg-gray-50">Cancel</button>
           <button onClick={handleSave} className="px-6 py-3 bg-brand-dark text-white rounded-xl text-sm font-bold hover:bg-black shadow-md">Save Fee Configuration</button>
         </div>
 

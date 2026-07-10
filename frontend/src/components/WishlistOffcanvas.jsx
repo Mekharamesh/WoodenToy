@@ -14,12 +14,21 @@ export default function WishlistOffcanvas({ isOpen, onClose, wishlistItems, onRe
   // Helper function to get the effective images (variant images or product images)
   const getEffectiveImages = (item) => {
     if (item.selectedVariant?.images && Array.isArray(item.selectedVariant.images) && item.selectedVariant.images.length > 0) {
-      return item.selectedVariant.images;
+      return item.selectedVariant.images.filter(img => {
+        if (typeof img === 'string') return img.trim() !== '';
+        return img?.url && img.url.trim() !== '';
+      });
     }
     if (Array.isArray(item.images) && item.images.length > 0) {
-      return item.images;
+      return item.images.filter(img => {
+        if (typeof img === 'string') return img.trim() !== '';
+        return img?.url && img.url.trim() !== '';
+      });
     }
-    return [item.image];
+    if (item.image && (typeof item.image !== 'string' || item.image.trim() !== '')) {
+      return [item.image];
+    }
+    return ['/wood-placeholder.png'];
   };
 
   // Helper function to get variant details text
@@ -66,9 +75,18 @@ export default function WishlistOffcanvas({ isOpen, onClose, wishlistItems, onRe
               const effectivePrice = getEffectivePrice(item);
               const effectiveImages = getEffectiveImages(item);
               const variantText = getVariantText(item);
-              const firstImage = typeof effectiveImages[0] === 'string' 
-                ? effectiveImages[0] 
-                : effectiveImages[0]?.url || '/wood-placeholder.png';
+              let firstImage = '/wood-placeholder.png';
+              
+              if (effectiveImages && effectiveImages.length > 0) {
+                const img = effectiveImages[0];
+                if (typeof img === 'string') {
+                  if (img.trim() !== '') {
+                    firstImage = img;
+                  }
+                } else if (img?.url && img.url.trim() !== '') {
+                  firstImage = img.url;
+                }
+              }
               
               return (
                 <div key={index} className="flex gap-4 p-3 bg-brand-beige/30 rounded-2xl border border-brand-medium/10">
@@ -77,7 +95,7 @@ export default function WishlistOffcanvas({ isOpen, onClose, wishlistItems, onRe
                       src={firstImage} 
                       alt={item.name} 
                       className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display='none'; }}
+                      onError={(e) => { e.target.src = '/wood-placeholder.png'; }}
                     />
                   </div>
                   <div className="flex-1 flex flex-col justify-between">

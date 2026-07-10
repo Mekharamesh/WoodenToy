@@ -15,7 +15,7 @@ export default function ReviewOrderPage({ onNavigate }) {
         <div className="text-center bg-white p-8 rounded-3xl shadow-sm border border-[#E6DFD4] max-w-md w-full">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Cart is empty</h2>
           <p className="text-gray-500 mb-6">You have no items to review.</p>
-          <button onClick={() => onNavigate('home')} className="bg-[#8B5E3C] text-white px-6 py-3 rounded-xl font-semibold">Go back</button>
+          <button onClick={() => onNavigate('/')} className="bg-[#8B5E3C] text-white px-6 py-3 rounded-xl font-semibold">Go back</button>
         </div>
       </div>
     );
@@ -44,7 +44,7 @@ export default function ReviewOrderPage({ onNavigate }) {
         </div>
 
         <div className="flex items-center gap-3 mb-8">
-          <button onClick={() => onNavigate('cart')} className="p-2 bg-white rounded-full text-gray-500 hover:text-[#8B5E3C] shadow-sm transition-colors">
+          <button onClick={() => onNavigate('/cart')} className="p-2 bg-white rounded-full text-gray-500 hover:text-[#8B5E3C] shadow-sm transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Review Your Order</h1>
@@ -104,7 +104,7 @@ export default function ReviewOrderPage({ onNavigate }) {
               </div>
 
               <button
-                onClick={() => onNavigate('complete-order')}
+                onClick={() => onNavigate('/complete-order')}
                 className="w-full flex items-center justify-center gap-2 bg-[#8B5E3C] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#7a5234] transition-colors shadow-md shadow-[#8B5E3C]/20"
               >
                 Confirm Buy

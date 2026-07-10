@@ -22,7 +22,7 @@ export default function CartPage({ onNavigate }) {
           <h2 className="text-2xl font-bold text-gray-800 mb-3">Your Cart is Empty</h2>
           <p className="text-gray-500 mb-8">Looks like you haven't added any wooden toys to your cart yet.</p>
           <button
-            onClick={() => onNavigate('home')}
+            onClick={() => onNavigate('/')}
             className="w-full bg-[#8B5E3C] text-white py-3.5 rounded-xl font-semibold hover:bg-[#7a5234] transition-colors"
           >
             Continue Shopping
@@ -36,7 +36,7 @@ export default function CartPage({ onNavigate }) {
     <div className="min-h-screen bg-[#F8F4EC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
-          <button onClick={() => onNavigate('home')} className="p-2 bg-white rounded-full text-gray-500 hover:text-[#8B5E3C] shadow-sm transition-colors">
+          <button onClick={() => onNavigate('/')} className="p-2 bg-white rounded-full text-gray-500 hover:text-[#8B5E3C] shadow-sm transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
@@ -117,7 +117,7 @@ export default function CartPage({ onNavigate }) {
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <button
-            onClick={() => onNavigate('home')}
+            onClick={() => onNavigate('/')}
             className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-gray-600 bg-white border border-[#E6DFD4] hover:bg-gray-50 transition-colors text-center"
           >
             Continue Shopping
@@ -127,7 +127,7 @@ export default function CartPage({ onNavigate }) {
             <span className="font-bold text-2xl text-gray-900">₹{getSubtotal().toLocaleString()}</span>
           </div>
           <button 
-            onClick={() => onNavigate('review-order')}
+            onClick={() => onNavigate('/review-order')}
             className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-white bg-[#8B5E3C] hover:bg-[#7a5234] shadow-sm transition-colors text-center"
           >
             Buy Now

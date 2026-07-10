@@ -101,7 +101,7 @@ const addOrderItems = async (req, res) => {
       });
 
       const createdOrder = await order.save();
-      
+
       // Reserve stock when order is placed
       for (const item of createdOrder.orderItems) {
         if (item.variant) {
@@ -114,7 +114,7 @@ const addOrderItems = async (req, res) => {
               productToUpdate.inventory.stockQuantity = Math.max(0, (productToUpdate.inventory.stockQuantity || 0) - item.qty);
               await productToUpdate.save();
             }
-          } catch(err) {
+          } catch (err) {
             console.error('Failed to update product stock', err);
           }
         }
@@ -143,7 +143,7 @@ const getOrderById = async (req, res) => {
         userRole !== 'manager' &&
         !req.user.isStaff
       ) {
-         return res.status(403).json({ message: 'Not authorized to view this order' });
+        return res.status(403).json({ message: 'Not authorized to view this order' });
       }
       res.json(order);
     } else {
@@ -255,7 +255,7 @@ const updateOrderStatus = async (req, res) => {
               productToUpdate.inventory.stockQuantity = Math.max(0, (productToUpdate.inventory.stockQuantity || 0) - item.qty);
               await productToUpdate.save();
             }
-          } catch(err) {
+          } catch (err) {
             console.error('Failed to update product stock on deliver', err);
           }
         }
@@ -274,7 +274,7 @@ const updateOrderStatus = async (req, res) => {
               productToUpdate.inventory.stockQuantity = (productToUpdate.inventory.stockQuantity || 0) + item.qty;
               await productToUpdate.save();
             }
-          } catch(err) {
+          } catch (err) {
             console.error('Failed to update product stock on cancel', err);
           }
         }
@@ -362,7 +362,7 @@ const updateOrderDetails = async (req, res) => {
     if (shippingAddress) {
       order.shippingAddress = shippingAddress;
     }
-    
+
     if (trackingId !== undefined) {
       order.trackingId = trackingId;
     }
@@ -375,24 +375,24 @@ const updateOrderDetails = async (req, res) => {
         'Pending': 0, 'Placed': 1, 'Packed': 2, 'Shipping': 3,
         'Shipped': 4, 'Out for delivery': 5, 'Delivered': 6, 'Cancelled': 99
       };
-      
+
       const currentWeight = STATUS_WEIGHTS[order.status] || 0;
       const newWeight = STATUS_WEIGHTS[status] || 0;
-      
+
       if (status !== 'Cancelled' && newWeight < currentWeight) {
         return res.status(400).json({ message: 'Cannot move order status backwards' });
       }
       if (order.status === 'Delivered' && status === 'Cancelled') {
         return res.status(400).json({ message: 'Cannot cancel a delivered order' });
       }
-      
+
       order.status = status;
       if (status === 'Delivered' && !order.isDelivered) {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
       }
     }
-    
+
     if (isPaid !== undefined) {
       order.isPaid = isPaid;
       if (isPaid && !order.paidAt) {
@@ -515,11 +515,11 @@ const cancelOrder = async (req, res) => {
       status: 'Approval Pending',
       refundActionStatus: 'Refund'
     });
-    
+
     // Update order status to Cancelled
     order.status = 'Cancelled';
     const updatedOrder = await order.save();
-    
+
     await newRefund.save();
 
     // Release stock based on whether it was delivered or just reserved
@@ -539,7 +539,7 @@ const cancelOrder = async (req, res) => {
             productToUpdate.inventory.stockQuantity = (productToUpdate.inventory.stockQuantity || 0) + item.qty;
             await productToUpdate.save();
           }
-        } catch(err) {
+        } catch (err) {
           console.error('Failed to update product stock on cancellation', err);
         }
       }
@@ -559,7 +559,7 @@ const getDashboardStats = async (req, res) => {
     const totalOrders = await Order.countDocuments();
     const totalCustomers = await User.countDocuments({ role: 'user' });
     const totalProducts = await Product.countDocuments();
-    
+
     // Revenue logic: sum of all paid orders
     const orders = await Order.find({ isPaid: true });
     const totalRevenue = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
@@ -568,10 +568,10 @@ const getDashboardStats = async (req, res) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
-    
-    const recentOrders = await Order.find({ 
-      isPaid: true, 
-      createdAt: { $gte: thirtyDaysAgo } 
+
+    const recentOrders = await Order.find({
+      isPaid: true,
+      createdAt: { $gte: thirtyDaysAgo }
     });
 
     const revenueByDate = {};
@@ -602,7 +602,7 @@ const getDashboardStats = async (req, res) => {
       const day = new Date(order.createdAt).getDay();
       orderVolumeArray[day] += 1;
     });
-    
+
     const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const orderVolume = daysOfWeek.map((day, idx) => ({
       name: day,

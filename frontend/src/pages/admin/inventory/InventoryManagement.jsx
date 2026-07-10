@@ -5,6 +5,25 @@ import { catalogService } from '../../../api/catalogService';
 import { variantAPI } from '../../../api/catalogAdminService';
 import toast from 'react-hot-toast';
 
+const API_ORIGIN = 'http://localhost:5000';
+
+function ProductThumbnail({ src, alt, className = 'product-thumb' }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!src || hasError) {
+    return <div className={`${className} image-placeholder`}>No Img</div>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 export default function InventoryManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState([]);
@@ -130,22 +149,49 @@ export default function InventoryManagement() {
     return { label: 'In Stock', class: 'status-in-stock' };
   };
 
+  const normalizeMediaUrl = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    if (/^(https?:)?\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+      return trimmed;
+    }
+    const normalizedPath = trimmed.replace(/\\/g, '/');
+    if (normalizedPath.startsWith('/uploads') || normalizedPath.startsWith('uploads/')) {
+      return `${API_ORIGIN}${normalizedPath.startsWith('/') ? '' : '/'}${normalizedPath}`;
+    }
+    if (normalizedPath.startsWith('/')) return normalizedPath;
+    return `${API_ORIGIN}/uploads/${normalizedPath}`;
+  };
+
   const getProductImage = (item) => {
-    let img = null;
-    if (item.images && Array.isArray(item.images) && item.images.length > 0) {
-      const firstImg = item.images[0];
-      if (typeof firstImg === 'string') img = firstImg;
-      else if (firstImg && typeof firstImg === 'object' && firstImg.url) img = firstImg.url;
-    }
-    if (!img && item.image && typeof item.image === 'string') {
-      img = item.image;
-    }
-    if (!img) return null;
-    if (img.startsWith('http') || img.startsWith('data:')) return img;
-    if (img.startsWith('/uploads') || img.startsWith('uploads/')) {
-      return `http://localhost:5000${img.startsWith('/') ? '' : '/'}${img}`;
-    }
-    return img;
+    const images = Array.isArray(item?.images) ? item.images : [];
+    const thumbnail = images.find((image) => image?.isThumbnail);
+    const firstImage = thumbnail || images.find(Boolean);
+
+    if (typeof firstImage === 'string') return normalizeMediaUrl(firstImage);
+    if (firstImage?.url) return normalizeMediaUrl(firstImage.url);
+    if (typeof item?.image === 'string') return normalizeMediaUrl(item.image);
+    if (item?.image?.url) return normalizeMediaUrl(item.image.url);
+    return null;
+  };
+
+  const getProductSku = (item) => {
+    return item?.inventory?.sku || item?.sku || item?.productSku || 'N/A';
+  };
+
+  const getProductVariants = (product) => {
+    return variants.filter(v => v.product === product?._id || v.productName === product?.name);
+  };
+
+  const getInventoryImage = (product, productVariants = []) => {
+    return getProductImage(product) || productVariants.map(getProductImage).find(Boolean) || null;
+  };
+
+  const getInventorySku = (product, productVariants = []) => {
+    const productSku = getProductSku(product);
+    if (productSku !== 'N/A') return productSku;
+    return productVariants.find((variant) => variant?.sku)?.sku || 'N/A';
   };
 
   const openEditModal = (item, type) => {
@@ -179,7 +225,11 @@ export default function InventoryManagement() {
     setViewProduct(null);
   };
 
-  const filteredProducts = products.filter(p => p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.inventory?.sku?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredProducts = products.filter((p) => {
+    const query = searchTerm.toLowerCase();
+    const productVariants = getProductVariants(p);
+    return p.name?.toLowerCase().includes(query) || getInventorySku(p, productVariants).toLowerCase().includes(query);
+  });
 
   // Calculate summary stats dynamically
   let totalProducts = products.length;
@@ -277,11 +327,11 @@ export default function InventoryManagement() {
           </button>
           
           <div className="flex flex-col md:flex-row gap-8 items-start">
-            {getProductImage(viewProduct) ? (
-              <img src={getProductImage(viewProduct)} alt={viewProduct?.name} className="w-full md:w-64 h-64 object-cover rounded-xl border border-gray-200 shadow-sm" />
-            ) : (
-              <div className="w-full md:w-64 h-64 bg-gray-100 rounded-xl flex items-center justify-center text-sm text-gray-500 border border-gray-200">No Image</div>
-            )}
+            <ProductThumbnail
+              src={getInventoryImage(viewProduct, getProductVariants(viewProduct))}
+              alt={viewProduct?.name}
+              className="w-full md:w-64 h-64 object-cover rounded-xl border border-gray-200 shadow-sm bg-gray-100 flex items-center justify-center text-sm text-gray-500"
+            />
             <div className="flex-1 w-full">
               <h2 className="text-3xl font-bold font-serif mb-2 text-gray-900">{viewProduct?.name}</h2>
               <p className="text-sm text-gray-600 mb-6">{viewProduct?.description}</p>
@@ -299,7 +349,7 @@ export default function InventoryManagement() {
                   <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Current Stock</p>
                   <p className="text-base font-medium text-gray-800">
                     {(() => {
-                      const productVariants = variants.filter(v => v.product === viewProduct?._id || v.productName === viewProduct?.name);
+                      const productVariants = getProductVariants(viewProduct);
                       return productVariants.length > 0 
                         ? productVariants.reduce((acc, v) => acc + Math.max(0, (v.inventory || 0) - (v.reserveStock || 0)), 0)
                         : (viewProduct?.inventory?.stockQuantity || 0);
@@ -308,18 +358,18 @@ export default function InventoryManagement() {
                 </div>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">SKU</p>
-                  <p className="text-base font-mono text-gray-800 bg-white px-2 py-1 rounded inline-block border border-gray-200">{viewProduct?.inventory?.sku || 'N/A'}</p>
+                  <p className="text-base font-mono text-gray-800 bg-white px-2 py-1 rounded inline-block border border-gray-200">{getInventorySku(viewProduct, getProductVariants(viewProduct))}</p>
                 </div>
               </div>
             </div>
           </div>
           
           {/* VARIANTS LIST IN DETAIL VIEW */}
-          {viewProduct && variants.filter(v => v.product === viewProduct._id || v.productName === viewProduct.name).length > 0 && (
+          {viewProduct && getProductVariants(viewProduct).length > 0 && (
             <div className="mt-12">
               <h3 className="text-lg font-bold text-gray-800 uppercase tracking-widest mb-6 pb-2 border-b border-gray-200">Product Variants</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {variants.filter(v => v.product === viewProduct._id || v.productName === viewProduct.name).map(v => {
+                {getProductVariants(viewProduct).map(v => {
                   const vStock = v.inventory || 0;
                   const vStatus = getStatus(vStock, 5);
                   return (
@@ -397,7 +447,7 @@ export default function InventoryManagement() {
                     </thead>
                     <tbody>
                       {filteredProducts.map((item) => {
-                        const productVariants = variants.filter(v => v.product === item._id || v.productName === item.name);
+                        const productVariants = getProductVariants(item);
                         const currentStock = productVariants.length > 0
                           ? productVariants.reduce((acc, v) => acc + Math.max(0, (v.inventory || 0) - (v.reserveStock || 0)), 0)
                           : (item.inventory?.stockQuantity || 0);
@@ -408,16 +458,12 @@ export default function InventoryManagement() {
                             <tr className={productVariants.length > 0 ? "border-b-0" : ""}>
                               <td>
                                 <div className="product-cell">
-                                  {getProductImage(item) ? (
-                                    <img src={getProductImage(item)} alt={item.name} className="product-thumb" />
-                                  ) : (
-                                    <div className="product-thumb bg-gray-200 flex items-center justify-center text-xs">No Img</div>
-                                  )}
+                                  <ProductThumbnail src={getInventoryImage(item, productVariants)} alt={item.name} />
                                   <span className="product-name">{item.name}</span>
                                 </div>
                               </td>
                               <td className="capitalize">{item.category?.name || 'General'}</td>
-                              <td><code className="sku-code">{item.inventory?.sku || 'N/A'}</code></td>
+                              <td><code className="sku-code">{getInventorySku(item, productVariants)}</code></td>
                               <td className="text-right font-semibold">{currentStock}</td>
                               <td>
                                 <span className={`status-badge ${status.class}`}>
@@ -460,7 +506,7 @@ export default function InventoryManagement() {
                 <div key={p._id} className={`alert-item ${p.inventory?.stockQuantity === 0 ? 'danger' : 'warning'}`}>
                   <div className="alert-item-info">
                     <p className="alert-item-name">{p.name}</p>
-                    <p className="alert-item-variant">SKU: {p.inventory?.sku || 'N/A'}</p>
+                    <p className="alert-item-variant">SKU: {getInventorySku(p, getProductVariants(p))}</p>
                   </div>
                   <div className="alert-item-stock">
                     <span className="label">Remaining</span>

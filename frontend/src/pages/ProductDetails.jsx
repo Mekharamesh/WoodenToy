@@ -347,10 +347,10 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
     if (!product || typeof product !== 'object') return [];
     const imgs = [];
     const pushImage = (img) => {
-      if (!img) return;
+      if (!img || (typeof img === 'string' && img.trim() === '')) return;
       if (typeof img === 'string') {
         imgs.push(img);
-      } else if (typeof img === 'object' && img.url) {
+      } else if (typeof img === 'object' && img.url && img.url.trim() !== '') {
         imgs.push(img.url);
       }
     };
@@ -503,7 +503,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
   const handleAction = (type) => {
     if (!user) {
       alert(`Please sign in to add to ${type.toLowerCase()}.`);
-      onNavigate('login');
+      onNavigate('/login');
       return;
     }
 
@@ -532,7 +532,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
   useEffect(() => {
     // If the component mounted but there's no product at all, and it's not currently loading one, redirect to home.
     if (!product && !initialProduct && !productId && !loadingProduct) {
-      onNavigate('home');
+      onNavigate('/');
     }
   }, [product, initialProduct, productId, loadingProduct, onNavigate]);
 
@@ -548,7 +548,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
           <p className="mt-4 text-slate-600">The product you requested is no longer available in the catalog.</p>
           <button
             type="button"
-            onClick={() => onNavigate('home')}
+            onClick={() => onNavigate('/')}
             className="mt-8 inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-slate-800"
           >
             Back to Home
@@ -568,7 +568,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
             <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">{product.name}</h1>
           </div>
           <button
-            onClick={() => onNavigate('home')}
+            onClick={() => onNavigate('/')}
             className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 shadow-sm hover:bg-slate-50"
           >
             Back to Shop
@@ -578,12 +578,12 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
         <div className="grid gap-10 lg:grid-cols-[1.35fr_0.85fr]">
           <div className="space-y-8">
             <div className="overflow-hidden rounded-[2rem] bg-white shadow-xl border border-slate-200">
-              {selectedImage ? (
+              {selectedImage && selectedImage.trim() !== '' ? (
                 <img
                   src={selectedImage}
                   alt={product.name}
                   className="w-full h-[540px] object-cover"
-                  onError={(e) => { e.target.style.display = 'none'; }}
+                  onError={(e) => { e.target.src = '/wood-placeholder.png'; }}
                 />
               ) : (
                 <div className="h-[540px] flex items-center justify-center bg-[#F8F8F8] text-slate-500">No image available</div>
@@ -602,7 +602,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                     src={src}
                     alt={`${product.name} view ${index + 1}`}
                     className="h-24 w-full object-cover rounded-2xl"
-                    onError={(e) => { e.target.style.display = 'none'; }}
+                    onError={(e) => { e.target.src = '/wood-placeholder.png'; }}
                   />
                 </button>
               ))}
@@ -631,17 +631,30 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                     return null;
                   })()}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSharePopup(true)}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 shrink-0 mt-1"
-                  aria-label="Share Product"
-                  title="Share"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                  </svg>
-                </button>
+                <div className="flex gap-2 shrink-0 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleAction('Wishlist')}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                    aria-label="Add to Wishlist"
+                    title="Add to Wishlist"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSharePopup(true)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+                    aria-label="Share Product"
+                    title="Share"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
 
@@ -917,13 +930,13 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
           <h2 className="text-2xl font-bold text-slate-900 mb-8 text-center font-serif">You May Also Like</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {recommendedProducts.map(p => (
-              <div key={p._id} className="group cursor-pointer" onClick={() => onNavigate('product-detail', p)}>
+              <div key={p._id} className="group cursor-pointer" onClick={() => onNavigate(`/product/${p._id}`)}>
                 <div className="aspect-square bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200">
                   <img
-                    src={p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || p.image || '/wood-placeholder.png'}
+                    src={p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || (p.image && p.image.trim() !== '' ? p.image : '/wood-placeholder.png') || '/wood-placeholder.png'}
                     alt={p.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    onError={(e) => { e.target.style.display='none'; }}
+                    onError={(e) => { e.target.src = '/wood-placeholder.png'; }}
                   />
                 </div>
                 <h3 className="font-semibold text-slate-900 text-sm mb-1 truncate">{p.name}</h3>

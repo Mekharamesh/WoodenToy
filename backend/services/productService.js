@@ -5,6 +5,7 @@ const Attribute = require('../models/Attribute');
 const ProductAttributeValue = require('../models/ProductAttributeValue');
 const ProductVariant = require('../models/ProductVariant');
 const ProductVariantOption = require('../models/ProductVariantOption');
+const Inventory = require('../models/Inventory');
 const ProductImage = require('../models/catalog/ProductImage');
 const CategoryAttributeMapping = require('../models/catalog/CategoryAttributeMapping');
 const auditService = require('./auditService');
@@ -63,6 +64,19 @@ const validateAndNormalizeAttributeValues = async ({ category, subCategory, attr
 };
 
 const slugify = (value = '') => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+const toFiniteNumber = (value, fallback = 0) => {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) ? normalized : fallback;
+};
+
+const getPrimaryVariantPrice = (variants = []) => {
+    if (!Array.isArray(variants) || variants.length === 0) return null;
+
+    const primary = variants.find(v => v.isPrimary) || variants[0];
+    const normalized = Number(primary?.basePrice);
+    return Number.isFinite(normalized) ? normalized : null;
+};
 
 const ensureUniqueProductSku = async (requestedSku, fallbackBase) => {
     const baseSku = String(requestedSku || fallbackBase || 'SKU').trim().toUpperCase().replace(/\s+/g, '-');
@@ -193,10 +207,11 @@ const getProducts = async (query = {}) => {
     for (const prod of products) {
         const variants = await ProductVariant.find({ product: prod._id });
         const images = await ProductImage.find({ product: prod._id }).sort({ displayOrder: 1 });
-        // Always use the product's own price field from MongoDB as authoritative
+        let effectivePrice = prod.price;
         let effectiveImages = images.map(img => img.toObject());
         if (variants.length > 0) {
             const primary = variants.find(v => v.isPrimary) || variants[0];
+            effectivePrice = primary.basePrice || primary.price || prod.price;
             if (effectiveImages.length === 0 && primary.images && primary.images.length > 0) {
                 effectiveImages = primary.images.map((url, idx) => ({ url, displayOrder: idx + 1 }));
             }
@@ -204,8 +219,7 @@ const getProducts = async (query = {}) => {
 
         result.push({
             ...prod.toObject(),
-            basePrice: prod.price, // The authoritative MongoDB price
-            price: prod.price,     // Always reflect the stored product price
+            effectivePrice,
             variantsCount: variants.length,
             totalStock: variants.reduce((sum, v) => sum + (v.inventory || 0), 0),
             images: effectiveImages,
@@ -259,10 +273,11 @@ const getProductById = async (id) => {
         return vObj;
     });
 
-    // Always use the product's own price field from MongoDB as authoritative
+    let effectivePrice = product.price;
     let effectiveImages = images.map(img => img.toObject());
     if (variants.length > 0) {
         const primary = variants.find(v => v.isPrimary) || variants[0];
+        effectivePrice = primary.basePrice || primary.price || product.price;
         if (effectiveImages.length === 0 && primary.images && primary.images.length > 0) {
             effectiveImages = primary.images.map((url, idx) => ({ url, displayOrder: idx + 1 }));
         }
@@ -270,8 +285,7 @@ const getProductById = async (id) => {
 
     return {
         ...product.toObject(),
-        basePrice: product.price, // The authoritative MongoDB price
-        price: product.price,     // Always reflect the stored product price
+        effectivePrice,
         variants: mappedVariants,
         images: effectiveImages,
         attributeValues: attributeValues.map(av => av.toObject()),
@@ -316,32 +330,20 @@ const createProduct = async (data, auditContext) => {
         attributeValues,
     });
 
-    const normalizedPrice = Number(price);
+    const primaryVariantPrice = getPrimaryVariantPrice(variants);
+    const normalizedPrice = Number(primaryVariantPrice !== null ? primaryVariantPrice : price);
     const normalizedCompareAtPrice = Number(compareAtPrice);
     const uniqueSku = await ensureUniqueProductSku(sku, generatedSlug);
 
     // Create Base Product
-    let effectivePrice = Number(price) || 0;
-    let effectiveCompare = Number(compareAtPrice) || 0;
-    
-    if (variants && Array.isArray(variants) && variants.length > 0) {
-        const primary = variants.find(v => v.isPrimary) || variants[0];
-        if (primary.basePrice !== undefined && primary.basePrice !== '') {
-            effectivePrice = Number(primary.basePrice);
-        }
-        if (primary.discountPrice !== undefined && primary.discountPrice !== '') {
-            effectiveCompare = Number(primary.discountPrice);
-        }
-    }
-
     const product = await Product.create({
         name,
         description,
         slug,
         category,
         subCategory,
-        price: effectivePrice,
-        compareAtPrice: effectiveCompare,
+        price: Number.isFinite(normalizedPrice) ? normalizedPrice : 0,
+        compareAtPrice: Number.isFinite(normalizedCompareAtPrice) ? normalizedCompareAtPrice : 0,
         sku: uniqueSku,
         barcode,
         shortDescription,
@@ -413,16 +415,16 @@ const createProduct = async (data, auditContext) => {
                 product: product._id,
                 sku: variantSku,
                 barcode: v.barcode,
-                basePrice: v.basePrice || price,
-                discountPrice: v.discountPrice,
-                costPrice: v.costPrice,
-                inventory: v.inventory || 0,
-                reserveStock: v.reserveStock || 0,
-                currentStock: Math.max(0, (v.inventory || 0) - (v.reserveStock || 0)),
-                weight: v.weight,
-                length: v.length,
-                width: v.width,
-                height: v.height,
+                basePrice: toFiniteNumber(v.basePrice, product.price),
+                discountPrice: v.discountPrice === '' || v.discountPrice === undefined ? undefined : toFiniteNumber(v.discountPrice),
+                costPrice: v.costPrice === '' || v.costPrice === undefined ? undefined : toFiniteNumber(v.costPrice),
+                inventory: toFiniteNumber(v.inventory, 0),
+                reserveStock: toFiniteNumber(v.reserveStock, 0),
+                currentStock: Math.max(0, toFiniteNumber(v.inventory, 0) - toFiniteNumber(v.reserveStock, 0)),
+                weight: v.weight === '' || v.weight === undefined ? undefined : toFiniteNumber(v.weight),
+                length: v.length === '' || v.length === undefined ? undefined : toFiniteNumber(v.length),
+                width: v.width === '' || v.width === undefined ? undefined : toFiniteNumber(v.width),
+                height: v.height === '' || v.height === undefined ? undefined : toFiniteNumber(v.height),
                 images: v.images ? v.images.map(img => img.url || img) : [],
                 isActive: v.isActive !== undefined ? v.isActive : true,
                 isPrimary: v.isPrimary || false,
@@ -480,19 +482,17 @@ const updateProduct = async (id, data, auditContext) => {
     fields.forEach(field => {
         if (data[field] !== undefined) {
             if (field === 'price' || field === 'compareAtPrice') {
-                const normalizedValue = Number(data[field]);
-                if (Number.isFinite(normalizedValue)) {
-                    product[field] = normalizedValue;
-                }
+                product[field] = toFiniteNumber(data[field], product[field]);
             } else {
                 product[field] = data[field];
             }
         }
     });
 
-    // Note: product.price is the authoritative source.
-    // If variants are provided, sync their basePrice FROM product.price to keep them consistent.
-    // This ensures MongoDB price changes always reflect correctly in both directions.
+    const primaryVariantPrice = getPrimaryVariantPrice(data.variants);
+    if (primaryVariantPrice !== null) {
+        product.price = primaryVariantPrice;
+    }
 
     product.updatedBy = auditContext.userId;
     const nextCategory = data.category || product.category;
@@ -542,55 +542,32 @@ const updateProduct = async (id, data, auditContext) => {
 
     // 3. Sync Variants
     if (data.variants && Array.isArray(data.variants)) {
-        const incomingVariantIds = data.variants.map(v => v._id).filter(id => id);
         const oldVariants = await ProductVariant.find({ product: id });
-        
-        // Delete variants that are no longer present
-        const variantsToDelete = oldVariants.filter(v => !incomingVariantIds.includes(v._id.toString()));
-        if (variantsToDelete.length > 0) {
-            const deleteIds = variantsToDelete.map(v => v._id);
-            await ProductVariantOption.deleteMany({ variant: { $in: deleteIds } });
-            await ProductVariant.deleteMany({ _id: { $in: deleteIds } });
-        }
+        await ProductVariantOption.deleteMany({ variant: { $in: oldVariants.map(v => v._id) } });
+        await ProductVariant.deleteMany({ product: id });
         
         for (let idx = 0; idx < data.variants.length; idx++) {
             const v = data.variants[idx];
-            
-            // Use product.price as authoritative - sync variant basePrice from product price
-            // This ensures MongoDB price changes propagate to variants automatically
-            const variantBasePrice = (v.basePrice !== undefined && v.basePrice !== '' && Number.isFinite(Number(v.basePrice)))
-                ? Number(v.basePrice)
-                : product.price; // Fall back to authoritative product price
-
-            const variantData = {
+            const variantDoc = await ProductVariant.create({
                 product: id,
                 sku: v.sku ? v.sku.toUpperCase() : `${product.sku}-V${idx + 1}`.toUpperCase(),
                 barcode: v.barcode,
-                basePrice: variantBasePrice,
-                discountPrice: v.discountPrice,
-                costPrice: v.costPrice,
-                inventory: v.inventory || 0,
-                reserveStock: v.reserveStock || 0,
-                currentStock: Math.max(0, (v.inventory || 0) - (v.reserveStock || 0)),
-                weight: v.weight,
-                length: v.length,
-                width: v.width,
-                height: v.height,
+                basePrice: toFiniteNumber(v.basePrice, product.price),
+                discountPrice: v.discountPrice === '' || v.discountPrice === undefined ? undefined : toFiniteNumber(v.discountPrice),
+                costPrice: v.costPrice === '' || v.costPrice === undefined ? undefined : toFiniteNumber(v.costPrice),
+                inventory: toFiniteNumber(v.inventory, 0),
+                reserveStock: toFiniteNumber(v.reserveStock, 0),
+                currentStock: Math.max(0, toFiniteNumber(v.inventory, 0) - toFiniteNumber(v.reserveStock, 0)),
+                weight: v.weight === '' || v.weight === undefined ? undefined : toFiniteNumber(v.weight),
+                length: v.length === '' || v.length === undefined ? undefined : toFiniteNumber(v.length),
+                width: v.width === '' || v.width === undefined ? undefined : toFiniteNumber(v.width),
+                height: v.height === '' || v.height === undefined ? undefined : toFiniteNumber(v.height),
                 images: v.images ? v.images.map(img => img.url || img) : [],
                 isActive: v.isActive !== undefined ? v.isActive : true,
                 isPrimary: v.isPrimary || false,
                 variantCombination: v.variantCombination,
-                updatedBy: auditContext.userId,
-            };
-
-            let variantDoc;
-            if (v._id) {
-                variantDoc = await ProductVariant.findByIdAndUpdate(v._id, variantData, { new: true });
-                await ProductVariantOption.deleteMany({ variant: v._id });
-            } else {
-                variantData.createdBy = auditContext.userId;
-                variantDoc = await ProductVariant.create(variantData);
-            }
+                createdBy: auditContext.userId,
+            });
             
             if (v.options && Array.isArray(v.options)) {
                 const optionDocs = v.options.map(opt => ({
@@ -620,33 +597,36 @@ const updateProduct = async (id, data, auditContext) => {
 };
 
 /**
- * Soft delete product
+ * Permanently delete product and its dependent catalog records.
  */
 const deleteProduct = async (id, auditContext) => {
-    const product = await Product.findOne({ _id: id, isDeleted: false });
+    const product = await Product.findById(id);
     if (!product) {
         throw new Error('Product not found');
     }
 
-    const beforeState = await getProductById(id);
+    const beforeState = product.isDeleted ? product.toObject() : await getProductById(id);
+    const variants = await ProductVariant.find({ product: id }).select('_id');
+    const variantIds = variants.map(v => v._id);
 
-    product.isDeleted = true;
-    product.deletedAt = new Date();
-    product.updatedBy = auditContext.userId;
-    await product.save();
-
-    // Mark variants as inactive
-    await ProductVariant.updateMany({ product: id }, { $set: { isActive: false } });
+    await Promise.all([
+        ProductVariantOption.deleteMany({ variant: { $in: variantIds } }),
+        ProductVariant.deleteMany({ product: id }),
+        ProductImage.deleteMany({ product: id }),
+        ProductAttributeValue.deleteMany({ product: id }),
+        Inventory.deleteMany({ product: id }),
+    ]);
+    await Product.deleteOne({ _id: id });
 
     await auditService.logAction(auditContext, {
         entityType: 'Product',
         entityId: id,
         action: 'DELETE',
         before: beforeState,
-        after: { ...beforeState, isDeleted: true, deletedAt: new Date() },
+        after: null,
     });
 
-    return product;
+    return { deletedId: id };
 };
 
 /**
@@ -677,21 +657,19 @@ const bulkUpdateStatus = async (ids, isActive, auditContext) => {
 };
 
 const bulkDelete = async (ids, auditContext) => {
-    const productsBefore = await Product.find({ _id: { $in: ids }, isDeleted: false });
+    const productsBefore = await Product.find({ _id: { $in: ids } });
+    const productIds = productsBefore.map(product => product._id);
+    const variants = await ProductVariant.find({ product: { $in: productIds } }).select('_id');
+    const variantIds = variants.map(v => v._id);
 
-    await Product.updateMany(
-        { _id: { $in: ids }, isDeleted: false },
-        { 
-            $set: { 
-                isDeleted: true, 
-                deletedAt: new Date(),
-                updatedBy: auditContext.userId 
-            } 
-        }
-    );
-
-    // Deactivate variants
-    await ProductVariant.updateMany({ product: { $in: ids } }, { $set: { isActive: false } });
+    await Promise.all([
+        ProductVariantOption.deleteMany({ variant: { $in: variantIds } }),
+        ProductVariant.deleteMany({ product: { $in: productIds } }),
+        ProductImage.deleteMany({ product: { $in: productIds } }),
+        ProductAttributeValue.deleteMany({ product: { $in: productIds } }),
+        Inventory.deleteMany({ product: { $in: productIds } }),
+    ]);
+    await Product.deleteMany({ _id: { $in: productIds } });
 
     for (const prod of productsBefore) {
         await auditService.logAction(auditContext, {
@@ -699,7 +677,7 @@ const bulkDelete = async (ids, auditContext) => {
             entityId: prod._id,
             action: 'DELETE',
             before: prod.toObject(),
-            after: { ...prod.toObject(), isDeleted: true, deletedAt: new Date() },
+            after: null,
         });
     }
 

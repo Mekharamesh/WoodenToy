@@ -5,6 +5,8 @@ const Attribute = require('../models/Attribute');
 const ProductAttributeValue = require('../models/ProductAttributeValue');
 const Inventory = require('../models/Inventory');
 const ProductImage = require('../models/catalog/ProductImage');
+const ProductVariant = require('../models/ProductVariant');
+const ProductVariantOption = require('../models/ProductVariantOption');
 
 // ==========================================
 // PRODUCT CONTROLLERS (ENHANCED)
@@ -293,13 +295,14 @@ const deleteProduct = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
 
-        // Delete associated inventory
-        await Inventory.deleteOne({ product: product._id });
+        const variants = await ProductVariant.find({ product: product._id }).select('_id');
+        const variantIds = variants.map(v => v._id);
 
-        // Delete product attribute values
+        await ProductVariantOption.deleteMany({ variant: { $in: variantIds } });
+        await ProductVariant.deleteMany({ product: product._id });
+        await ProductImage.deleteMany({ product: product._id });
+        await Inventory.deleteMany({ product: product._id });
         await ProductAttributeValue.deleteMany({ product: product._id });
-
-        // Delete product
         await Product.findByIdAndDelete(req.params.id);
 
         res.json({

@@ -54,7 +54,7 @@ export default function Header({
       <div className="mx-auto flex min-h-[88px] max-w-[1500px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
         <button
           type="button"
-          onClick={() => onNavigate('home')}
+          onClick={() => onNavigate('/')}
           className="shrink-0 font-serif text-3xl font-bold tracking-tight text-[#5A2F1F] sm:text-4xl"
         >
           WoodenToys
@@ -80,10 +80,10 @@ export default function Header({
             ))
           ) : (
             <>
-              <button type="button" onClick={() => onNavigate('home')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+              <button type="button" onClick={() => onNavigate('/')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
                 Home
               </button>
-              <button type="button" onClick={() => onNavigate('shop')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
+              <button type="button" onClick={() => onNavigate('/')} className="text-sm font-bold text-[#232027] hover:text-[#8B5E3C]">
                 All Products
               </button>
 
@@ -98,7 +98,7 @@ export default function Header({
                 {activeMenu === 'byAge' && (
                   <div className="absolute left-0 top-full w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl">
                     {['0-6 Months', '6-12 Months', '1-2 Years', '2-3 Years', '3+ Years'].map((age) => (
-                      <button key={age} onClick={() => onNavigate('shop', { ageGroup: age })} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                      <button key={age} onClick={() => onNavigate('/')} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                         {age}
                       </button>
                     ))}
@@ -123,14 +123,14 @@ export default function Header({
                         const subs = getSubCategories(mainCat._id);
                         return (
                           <div key={mainCat._id} className="group relative">
-                            <button type="button" onClick={() => onNavigate('shop', { category: mainCat._id })} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                            <button type="button" onClick={() => onNavigate('/')} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                               {mainCat.name}
                               {subs.length > 0 && <ChevronDown className="-rotate-90 h-4 w-4" strokeWidth={1.8} />}
                             </button>
                             {subs.length > 0 && (
                               <div className="absolute left-full top-0 hidden w-52 rounded-[10px] border border-[#E9DED3] bg-white py-2 shadow-xl group-hover:block">
                                 {subs.map((subCat) => (
-                                  <button key={subCat._id} onClick={() => onNavigate('shop', { category: subCat._id })} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
+                                  <button key={subCat._id} onClick={() => onNavigate('/')} type="button" className="block w-full px-4 py-2.5 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF] hover:text-[#8B5E3C]">
                                     {subCat.name}
                                   </button>
                                 ))}
@@ -168,7 +168,7 @@ export default function Header({
           <div className="relative">
             <button
               type="button"
-              onClick={() => (user ? setDropdownOpen((open) => !open) : onNavigate('login'))}
+              onClick={() => (user ? setDropdownOpen((open) => !open) : onNavigate('/login'))}
               className="flex h-12 w-12 items-center justify-center rounded-full border border-[#EFE6DD] bg-white text-[#A7632E] shadow-sm transition hover:border-[#D9B382] hover:bg-[#FAF4EF]"
               aria-label="Account"
             >
@@ -182,11 +182,11 @@ export default function Header({
                   <p className="truncate text-xs text-[#7C7370]">{user.email}</p>
                 </div>
                 {user.role === 'admin' && (
-                  <button type="button" onClick={() => { onNavigate('admin'); setDropdownOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF]">
+                  <button type="button" onClick={() => { onNavigate('/admin'); setDropdownOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF]">
                     Admin Dashboard
                   </button>
                 )}
-                <button type="button" onClick={() => { onNavigate('profile'); setDropdownOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF]">
+                <button type="button" onClick={() => { onNavigate('/profile'); setDropdownOpen(false); }} className="block w-full px-4 py-3 text-left text-sm text-[#4A403B] hover:bg-[#FAF4EF]">
                   My Profile
                 </button>
                 <button type="button" onClick={() => { onLogout(); setDropdownOpen(false); }} className="block w-full px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50">
@@ -198,7 +198,7 @@ export default function Header({
 
           <button
             type="button"
-            onClick={() => onNavigate('wishlist')}
+            onClick={() => onNavigate('/wishlist')}
             className="relative flex h-12 w-12 items-center justify-center rounded-full text-[#201A17] transition hover:bg-[#FAF4EF]"
             aria-label="Wishlist"
           >
@@ -212,7 +212,7 @@ export default function Header({
 
           <button
             type="button"
-            onClick={() => onNavigate('cart')}
+            onClick={() => onNavigate('/cart')}
             className="relative flex h-12 w-12 items-center justify-center rounded-full text-[#201A17] transition hover:bg-[#FAF4EF]"
             aria-label="Cart"
           >

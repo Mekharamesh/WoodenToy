@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const feeSchema = new mongoose.Schema(
   {
     paymentMethod: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'PaymentMethod',
-      required: false,
+      type: String,
+      enum: ['COD', 'CashFree', 'Both (COD & CashFree)'],
+      default: 'Both (COD & CashFree)',
     },
     feeName: {
       type: String,

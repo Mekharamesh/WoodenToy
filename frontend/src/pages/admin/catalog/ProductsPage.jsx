@@ -349,7 +349,7 @@ export const ProductsPage = () => {
             fetchProducts();
             setIsConfirmOpen(false);
         });
-        setConfirmMessage('Are you sure you want to soft-delete this product?');
+        setConfirmMessage('Are you sure you want to permanently delete this product?');
         setIsConfirmOpen(true);
     };
 

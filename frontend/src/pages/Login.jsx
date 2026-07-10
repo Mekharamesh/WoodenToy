@@ -94,7 +94,7 @@ export default function Login({ onAuthSuccess, onNavigate }) {
       {/* ── TOP HEADER ── */}
       <header className="h-16 shrink-0 bg-[#F9FAFB] flex items-center justify-between px-6 border-b border-gray-200">
         <button 
-          onClick={() => onNavigate('home')}
+          onClick={() => onNavigate('/')}
           className="font-serif text-xl font-bold tracking-tight text-brand-dark cursor-pointer"
         >
           WoodenToys

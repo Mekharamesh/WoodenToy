@@ -143,20 +143,18 @@ export default function OrdersPage() {
     return matchId || matchUser || matchShipping;
   });
 
-  const STATUS_WEIGHTS = {
-    'Pending': 0,
-    'Placed': 1,
-    'Packed': 2,
-    'Shipping': 3,
-    'Shipped': 4,
-    'Out for delivery': 5,
-    'Delivered': 6,
-    'Cancelled': 99
+  // Define sequential status progression
+  const STATUS_PROGRESSION = {
+    'Placed': ['Packed', 'Cancelled'],
+    'Packed': ['Shipping', 'Cancelled'],
+    'Shipping': ['Out for delivery', 'Cancelled'],
+    'Out for delivery': ['Delivered', 'Cancelled'],
+    'Delivered': [], // Final status - no changes allowed
+    'Cancelled': []  // Final status - no changes allowed
   };
 
-  const isStatusDisabled = (currentStatus, targetStatus) => {
-    if (targetStatus === 'Cancelled') return currentStatus === 'Delivered';
-    return STATUS_WEIGHTS[targetStatus] < (STATUS_WEIGHTS[currentStatus] || 0);
+  const getValidNextStatuses = (currentStatus) => {
+    return STATUS_PROGRESSION[currentStatus] || [];
   };
 
   const getStatusColor = (status) => {
@@ -259,21 +257,31 @@ export default function OrdersPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="inline-flex items-center rounded-full border border-[#E6DFD4] bg-white shadow-sm">
-                      <select
-                        className="appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-gray-900 rounded-full focus:outline-none"
-                        value={order.status}
-                        onChange={(e) => handleStatusSelectChange(order, e.target.value)}
-                      >
-                        {ORDER_STATUS_OPTIONS.map((statusOption) => (
-                          <option 
-                            key={statusOption} 
-                            value={statusOption}
-                            disabled={isStatusDisabled(order.status, statusOption)}
-                          >
-                            {statusOption}
-                          </option>
-                        ))}
-                      </select>
+                      {getValidNextStatuses(order.status).length > 0 ? (
+                        <select
+                          className="appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-gray-900 rounded-full focus:outline-none cursor-pointer"
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleStatusSelectChange(order, e.target.value);
+                            }
+                          }}
+                        >
+                          <option value="">Change Status</option>
+                          {getValidNextStatuses(order.status).map((statusOption) => (
+                            <option key={statusOption} value={statusOption}>
+                              {statusOption}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <select
+                          className="appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-gray-900 rounded-full focus:outline-none cursor-not-allowed opacity-50"
+                          disabled
+                        >
+                          <option value="">{order.status} (Final)</option>
+                        </select>
+                      )}
                       <span className="pointer-events-none px-3 text-gray-500">▾</span>
                     </div>
                   </td>

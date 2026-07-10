@@ -50,7 +50,7 @@ export default function CompleteOrderPage({ onNavigate }) {
 
   useEffect(() => {
     if (cartItems.length === 0) {
-      onNavigate('cart');
+      onNavigate('/');
     }
     
     // Load saved addresses
@@ -318,10 +318,10 @@ export default function CompleteOrderPage({ onNavigate }) {
         return;
       }
 
-      // COD / other methods â€” order is complete immediately
+      // COD / other methods – order is complete immediately
       toast.success('Order placed successfully!');
       clearCart();
-      onNavigate('order-success', order._id);
+      onNavigate(`/order-success/${order._id}`);
       
     } catch (error) {
       toast.error(error.message || 'Failed to place order');
@@ -353,7 +353,7 @@ export default function CompleteOrderPage({ onNavigate }) {
         </div>
 
         <div className="flex items-center gap-3 mb-8">
-          <button onClick={() => onNavigate('review-order')} className="p-2 bg-white rounded-full text-gray-500 hover:text-[#8B5E3C] shadow-sm transition-colors">
+          <button onClick={() => onNavigate('/review-order')} className="p-2 bg-white rounded-full text-gray-500 hover:text-[#8B5E3C] shadow-sm transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Complete Your Order</h1>

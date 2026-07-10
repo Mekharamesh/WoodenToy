@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { catalogService } from '../api/catalogService';
 import { adminService } from '../api/adminService';
@@ -21,7 +22,50 @@ import ReviewManagementPage from './admin/reviews/ReviewManagementPage';
 import CouponManagementPage from './admin/coupons/CouponManagementPage';
 import HomePageCMS from './admin/CMS/HomePageCMS';
 
+const adminRouteState = {
+  '/admin': { tab: 'dashboard' },
+  '/admin/dashboard': { tab: 'dashboard' },
+  '/admin/staff': { tab: 'staff', staffSubTab: 'list', staffMenuOpen: true },
+  '/admin/staff/add': { tab: 'staff', staffSubTab: 'add', staffMenuOpen: true },
+  '/admin/staff/roles': { tab: 'staff', staffSubTab: 'role-assign', staffMenuOpen: true },
+  '/admin/catalog/categories': { tab: 'v2-categories', catalogMenuOpen: true },
+  '/admin/catalog/sub-categories': { tab: 'v2-subcategories', catalogMenuOpen: true },
+  '/admin/catalog/attributes': { tab: 'v2-attributes', catalogMenuOpen: true },
+  '/admin/products': { tab: 'v2-products', productSubTab: 'list', productMenuOpen: true },
+  '/admin/products/add': { tab: 'v2-products', productSubTab: 'add', productMenuOpen: true },
+  '/admin/orders': { tab: 'orders' },
+  '/admin/inventory': { tab: 'inventory', inventoryMenuOpen: true },
+  '/admin/customers': { tab: 'customers', customerMenuOpen: true },
+  '/admin/cms': { tab: 'cms' },
+  '/admin/coupons': { tab: 'coupons' },
+  '/admin/reviews': { tab: 'reviews' },
+  '/admin/fees': { tab: 'fees', feeSubTab: 'list', feeMenuOpen: true },
+  '/admin/fees/add': { tab: 'fees', feeSubTab: 'add', feeMenuOpen: true },
+  '/admin/cancellations': { tab: 'cancellation' },
+  '/admin/refunds': { tab: 'refund', refundSubTab: 'list', refundMenuOpen: true },
+};
+
+const adminTabPaths = {
+  dashboard: '/admin',
+  staff: '/admin/staff',
+  'v2-categories': '/admin/catalog/categories',
+  'v2-subcategories': '/admin/catalog/sub-categories',
+  'v2-attributes': '/admin/catalog/attributes',
+  'v2-products': '/admin/products',
+  orders: '/admin/orders',
+  inventory: '/admin/inventory',
+  customers: '/admin/customers',
+  cms: '/admin/cms',
+  coupons: '/admin/coupons',
+  reviews: '/admin/reviews',
+  fees: '/admin/fees',
+  cancellation: '/admin/cancellations',
+  refund: '/admin/refunds',
+};
+
 export default function AdminDashboard({ user, onNavigate, onLogout }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
@@ -129,6 +173,25 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  const openAdminTab = (tab, options = {}) => {
+    setCurrentTab(tab);
+    if (options.staffSubTab) setStaffSubTab(options.staffSubTab);
+    if (options.productSubTab) setProductSubTab(options.productSubTab);
+    if (options.feeSubTab) setFeeSubTab(options.feeSubTab);
+    if (options.refundSubTab) setRefundSubTab(options.refundSubTab);
+    if (options.staffMenuOpen !== undefined) setStaffMenuOpen(options.staffMenuOpen);
+    if (options.catalogMenuOpen !== undefined) setCatalogMenuOpen(options.catalogMenuOpen);
+    if (options.productMenuOpen !== undefined) setProductMenuOpen(options.productMenuOpen);
+    if (options.inventoryMenuOpen !== undefined) setInventoryMenuOpen(options.inventoryMenuOpen);
+    if (options.customerMenuOpen !== undefined) setCustomerMenuOpen(options.customerMenuOpen);
+    if (options.feeMenuOpen !== undefined) setFeeMenuOpen(options.feeMenuOpen);
+    if (options.refundMenuOpen !== undefined) setRefundMenuOpen(options.refundMenuOpen);
+    if (options.editingStaff !== undefined) setEditingStaff(options.editingStaff);
+    if (options.roleAssignStaff !== undefined) setRoleAssignStaff(options.roleAssignStaff);
+    if (options.editingFee !== undefined) setEditingFee(options.editingFee);
+    navigate(options.path || adminTabPaths[tab] || '/admin');
+  };
+
   const loadData = () => {
     // Fetch products
     catalogService.getProducts()
@@ -182,6 +245,23 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const normalizedPath = location.pathname.replace(/\/+$/, '') || '/admin';
+    const routeState = adminRouteState[normalizedPath] || adminRouteState['/admin'];
+    setCurrentTab(routeState.tab);
+    if (routeState.staffSubTab) setStaffSubTab(routeState.staffSubTab);
+    if (routeState.productSubTab) setProductSubTab(routeState.productSubTab);
+    if (routeState.feeSubTab) setFeeSubTab(routeState.feeSubTab);
+    if (routeState.refundSubTab) setRefundSubTab(routeState.refundSubTab);
+    if (routeState.staffMenuOpen !== undefined) setStaffMenuOpen(routeState.staffMenuOpen);
+    if (routeState.catalogMenuOpen !== undefined) setCatalogMenuOpen(routeState.catalogMenuOpen);
+    if (routeState.productMenuOpen !== undefined) setProductMenuOpen(routeState.productMenuOpen);
+    if (routeState.inventoryMenuOpen !== undefined) setInventoryMenuOpen(routeState.inventoryMenuOpen);
+    if (routeState.customerMenuOpen !== undefined) setCustomerMenuOpen(routeState.customerMenuOpen);
+    if (routeState.feeMenuOpen !== undefined) setFeeMenuOpen(routeState.feeMenuOpen);
+    if (routeState.refundMenuOpen !== undefined) setRefundMenuOpen(routeState.refundMenuOpen);
+  }, [location.pathname]);
+
   // Load the current logged-in staff member's permissions dynamically
   useEffect(() => {
     if (!isAdmin && user?.id) {
@@ -195,10 +275,10 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
   useEffect(() => {
     if (isAdmin || userPermissions !== null) {
       if (currentTab === 'dashboard' && !canAccessDashboard) {
-        if (canView('catalog')) setCurrentTab('v2-categories');
-        else if (canView('orders')) setCurrentTab('orders');
-        else if (canView('fees')) setCurrentTab('fees');
-        else if (canView('staff_management')) setCurrentTab('staff');
+        if (canView('catalog')) openAdminTab('v2-categories');
+        else if (canView('orders')) openAdminTab('orders');
+        else if (canView('fees')) openAdminTab('fees');
+        else if (canView('staff_management')) openAdminTab('staff');
       }
     }
   }, [isAdmin, userPermissions, currentTab]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -502,7 +582,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
           <nav className="px-4 space-y-1 mt-4">
             {canAccessDashboard && (
             <button 
-              onClick={() => setCurrentTab('dashboard')}
+              onClick={() => openAdminTab('dashboard')}
               className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-colors ${currentTab === 'dashboard' ? 'bg-[#E6DFD4] text-brand-dark' : 'text-brand-medium hover:bg-brand-light hover:text-brand-dark'}`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
@@ -531,7 +611,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   {staffMenuOpen && (
                     <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
                       <button
-                        onClick={() => { setCurrentTab('staff'); setStaffSubTab('list'); }}
+                        onClick={() => openAdminTab('staff', { staffSubTab: 'list', staffMenuOpen: true, path: '/admin/staff' })}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                           currentTab === 'staff' && staffSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                         }`}
@@ -542,7 +622,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                       
                       {hasPermission('staff_management', 'create') && (
                         <button
-                          onClick={() => { setCurrentTab('staff'); setStaffSubTab('add'); setEditingStaff(null); }}
+                          onClick={() => openAdminTab('staff', { staffSubTab: 'add', staffMenuOpen: true, editingStaff: null, path: '/admin/staff/add' })}
                           className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                             currentTab === 'staff' && staffSubTab === 'add' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                           }`}
@@ -554,7 +634,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                       
                       {hasPermission('staff_management', 'edit') && (
                         <button
-                          onClick={() => { setCurrentTab('staff'); setStaffSubTab('role-assign'); setRoleAssignStaff(null); }}
+                          onClick={() => openAdminTab('staff', { staffSubTab: 'role-assign', staffMenuOpen: true, roleAssignStaff: null, path: '/admin/staff/roles' })}
                           className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                             currentTab === 'staff' && staffSubTab === 'role-assign' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                           }`}
@@ -587,7 +667,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                 <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
                   {canAccessCatalog && (
                   <button
-                    onClick={() => setCurrentTab('v2-categories')}
+                    onClick={() => openAdminTab('v2-categories', { catalogMenuOpen: true })}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                       currentTab === 'v2-categories' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                     }`}
@@ -598,7 +678,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   )}
                   {canAccessCatalog && (
                   <button
-                    onClick={() => setCurrentTab('v2-subcategories')}
+                    onClick={() => openAdminTab('v2-subcategories', { catalogMenuOpen: true })}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                       currentTab === 'v2-subcategories' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                     }`}
@@ -609,7 +689,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   )}
                   {canAccessCatalog && (
                   <button
-                    onClick={() => setCurrentTab('v2-attributes')}
+                    onClick={() => openAdminTab('v2-attributes', { catalogMenuOpen: true })}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                       currentTab === 'v2-attributes' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                     }`}
@@ -628,7 +708,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   <button
                     onClick={() => {
                       setProductMenuOpen(open => !open);
-                      setCurrentTab('v2-products');
+                      openAdminTab('v2-products', { productSubTab: !productMenuOpen ? 'list' : productSubTab, productMenuOpen: !productMenuOpen, path: '/admin/products' });
                       if (!productMenuOpen) setProductSubTab('list');
                     }}
                     className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
@@ -644,7 +724,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   {(productMenuOpen || currentTab === 'v2-products') && (
                     <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
                       <button
-                        onClick={() => { setCurrentTab('v2-products'); setProductSubTab('list'); }}
+                        onClick={() => openAdminTab('v2-products', { productSubTab: 'list', productMenuOpen: true, path: '/admin/products' })}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                           currentTab === 'v2-products' && productSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                         }`}
@@ -653,7 +733,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                         Product List
                       </button>
                       <button
-                        onClick={() => { setCurrentTab('v2-products'); setProductSubTab('add'); }}
+                        onClick={() => openAdminTab('v2-products', { productSubTab: 'add', productMenuOpen: true, path: '/admin/products/add' })}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                           currentTab === 'v2-products' && productSubTab === 'add' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                         }`}
@@ -670,7 +750,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               {(isAdmin || canView('orders')) && (
                 <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
                   <button
-                    onClick={() => setCurrentTab('orders')}
+                    onClick={() => openAdminTab('orders')}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
                       currentTab === 'orders' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
                     }`}
@@ -701,7 +781,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   {inventoryMenuOpen && (
                     <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
                       <button
-                        onClick={() => { setCurrentTab('inventory'); }}
+                        onClick={() => openAdminTab('inventory', { inventoryMenuOpen: true })}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                           currentTab === 'inventory' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                         }`}
@@ -732,7 +812,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   {customerMenuOpen && (
                     <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
                       <button
-                        onClick={() => { setCurrentTab('customers'); }}
+                        onClick={() => openAdminTab('customers', { customerMenuOpen: true })}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                           currentTab === 'customers' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                         }`}
@@ -749,7 +829,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               {isAdmin && (
                 <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
                   <button
-                    onClick={() => setCurrentTab('cms')}
+                    onClick={() => openAdminTab('cms')}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
                       currentTab === 'cms' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
                     }`}
@@ -764,7 +844,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               {isAdmin && (
                 <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
                   <button
-                    onClick={() => setCurrentTab('coupons')}
+                    onClick={() => openAdminTab('coupons')}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
                       currentTab === 'coupons' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
                     }`}
@@ -779,7 +859,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               {isAdmin && (
                 <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
                   <button
-                    onClick={() => setCurrentTab('reviews')}
+                    onClick={() => openAdminTab('reviews')}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
                       currentTab === 'reviews' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
                     }`}
@@ -807,7 +887,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   {feeMenuOpen && (
                     <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
                       <button
-                        onClick={() => { setCurrentTab('fees'); setFeeSubTab('list'); }}
+                        onClick={() => openAdminTab('fees', { feeSubTab: 'list', feeMenuOpen: true, path: '/admin/fees' })}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                           currentTab === 'fees' && feeSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                         }`}
@@ -816,7 +896,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                         Fee List
                       </button>
                       <button
-                        onClick={() => { setCurrentTab('fees'); setFeeSubTab('add'); setEditingFee(null); }}
+                        onClick={() => openAdminTab('fees', { feeSubTab: 'add', feeMenuOpen: true, editingFee: null, path: '/admin/fees/add' })}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                           currentTab === 'fees' && feeSubTab === 'add' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                         }`}
@@ -833,7 +913,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               {(isAdmin || canView('cancellation')) && (
                 <div className="pt-2 border-t border-[#E6DFD4]/50 mt-2">
                   <button
-                    onClick={() => setCurrentTab('cancellation')}
+                    onClick={() => openAdminTab('cancellation')}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors mb-0.5 ${
                       currentTab === 'cancellation' ? 'bg-[#F8F4EC] text-[#8B5E3C]' : 'text-gray-600 hover:bg-[#F8F4EC] hover:text-[#8B5E3C]'
                     }`}
@@ -864,7 +944,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
                   {refundMenuOpen && (
                     <div className="ml-3 pl-3 border-l border-[#E6DFD4] space-y-0.5 mb-1">
                       <button
-                        onClick={() => { setCurrentTab('refund'); setRefundSubTab('list'); }}
+                        onClick={() => openAdminTab('refund', { refundSubTab: 'list', refundMenuOpen: true })}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors ${
                           currentTab === 'refund' && refundSubTab === 'list' ? 'bg-[#8B5E3C]/10 text-[#8B5E3C] font-semibold' : 'text-gray-500 hover:text-[#8B5E3C] hover:bg-[#F8F4EC]'
                         }`}
@@ -893,7 +973,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
           </div>
           
           <button 
-            onClick={() => onNavigate('home')}
+            onClick={() => onNavigate('/')}
             className="flex items-center gap-3 w-full px-4 py-2.5 text-xs font-medium text-brand-medium hover:text-brand-dark transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>

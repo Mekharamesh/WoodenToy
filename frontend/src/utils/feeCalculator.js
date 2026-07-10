@@ -7,10 +7,18 @@ const normalizeText = (value) => String(value || '').toLowerCase().replace(/\s+/
 const normalizeToken = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export const normalizePaymentMethod = (value) => {
+  if (!value) return '';
   const normalized = normalizeText(value);
+  
+  // Check for both/all first (matches "both", "all", "both(cod&cashfree)", etc.)
+  if (normalized.includes('both') || normalized === 'all') return 'both';
+  
+  // Check for COD variants
   if (['cod', 'cashondelivery', 'cashdelivery'].includes(normalized)) return 'cod';
+  
+  // Check for CashFree variants
   if (['cashfree', 'cashfreegateway', 'online', 'onlinepayment', 'payonline'].includes(normalized)) return 'cashfree';
-  if (['both', 'all'].includes(normalized)) return 'both';
+  
   return normalized;
 };
 
@@ -43,7 +51,19 @@ const isStateMatch = (fee, feeState) => {
 };
 
 const isPaymentMatch = (fee, paymentMethod) => {
-  const feePayment = normalizePaymentMethod(fee.paymentMethod?.name || fee.paymentMethodName);
+  // Extract payment method from fee (handle both new string format and old object format)
+  let feePaymentValue = fee.paymentMethod;
+  
+  // Handle old format: paymentMethod is an object with name property
+  if (typeof feePaymentValue === 'object' && feePaymentValue?.name) {
+    feePaymentValue = feePaymentValue.name;
+  }
+  // Handle legacy format: paymentMethodName fallback
+  else if (!feePaymentValue && fee.paymentMethodName) {
+    feePaymentValue = fee.paymentMethodName;
+  }
+  
+  const feePayment = normalizePaymentMethod(feePaymentValue);
   if (!feePayment || feePayment === 'both') return true;
   return feePayment === normalizePaymentMethod(paymentMethod);
 };

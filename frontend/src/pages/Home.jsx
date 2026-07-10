@@ -19,7 +19,7 @@ const FALLBACK_HERO = [
     title: 'Play that grows\nwith them.',
     description: 'Our heirloom quality wooden toys are designed to spark curiosity, creativity, and conscious growth in every child.',
     buttonText: 'Shop Collection',
-    ctaURL: 'all-products',
+    ctaURL: '/',
     animation: 'Fade',
   },
   {
@@ -28,7 +28,7 @@ const FALLBACK_HERO = [
     title: 'Adventures on\nthe right track.',
     description: 'Encourage creative storytelling and motor skills with our beautifully crafted wooden train sets.',
     buttonText: 'Shop Collection',
-    ctaURL: 'all-products',
+    ctaURL: '/',
     animation: 'Fade',
   },
   {
@@ -37,7 +37,7 @@ const FALLBACK_HERO = [
     title: 'Discover shapes\nand colors.',
     description: 'Engaging educational toys that help develop cognitive skills and problem-solving early on.',
     buttonText: 'Shop Collection',
-    ctaURL: 'all-products',
+    ctaURL: '/',
     animation: 'Fade',
   },
 ];
@@ -137,7 +137,7 @@ function DualBannerSection({ bannerData, onNavigate }) {
               >
                 {bannerData.leftImages.map((img, i) => (
                   <SwiperSlide key={i}>
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={img || '/wood-placeholder.png'} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
                   </SwiperSlide>
                 ))}
               </Swiper>
@@ -145,7 +145,7 @@ function DualBannerSection({ bannerData, onNavigate }) {
               <div className="absolute inset-0 z-10 bg-linear-to-r from-black/55 via-black/20 to-transparent pointer-events-none" />
               <div className="absolute inset-0 z-20 flex items-end p-8 pointer-events-none">
                 <button
-                  onClick={() => onNavigate && onNavigate(bannerData.leftCtaUrl || 'all-products')}
+                  onClick={() => onNavigate && onNavigate(bannerData.leftCtaUrl || '/')}
                   className="pointer-events-auto bg-white text-brand-dark text-xs font-bold px-8 py-4 uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-colors"
                 >
                   {leftCtaLabel} <span className="ml-1">→</span>
@@ -169,7 +169,7 @@ function DualBannerSection({ bannerData, onNavigate }) {
               >
                 {bannerData.rightImages?.map((img, i) => (
                   <SwiperSlide key={i}>
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={img || '/wood-placeholder.png'} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
                   </SwiperSlide>
                 ))}
               </Swiper>
@@ -177,7 +177,7 @@ function DualBannerSection({ bannerData, onNavigate }) {
               <div className="absolute inset-0 z-10 bg-linear-to-r from-black/55 via-black/20 to-transparent pointer-events-none" />
               <div className="absolute inset-0 z-20 flex items-end p-8 pointer-events-none">
                 <button
-                  onClick={() => onNavigate && onNavigate(bannerData.rightCtaUrl || 'all-products')}
+                  onClick={() => onNavigate && onNavigate(bannerData.rightCtaUrl || '/')}
                   className="pointer-events-auto bg-white text-brand-dark text-xs font-bold px-8 py-4 uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-colors"
                 >
                   {rightCtaLabel} <span className="ml-1">→</span>
@@ -207,7 +207,7 @@ function ProductGridSection({ grid, onNavigate, onAddToCart, onAddToWishlist, us
   if (!safeProducts.length) return null;
   const handleAction = (type, product, e) => {
     e.stopPropagation();
-    if (!user) { alert(`Please sign in to add to ${type.toLowerCase()}.`); onNavigate('login'); return; }
+    if (!user) { alert(`Please sign in to add to ${type.toLowerCase()}.`); onNavigate('/login'); return; }
     if (type === 'Cart') onAddToCart?.(product);
     else onAddToWishlist?.(product);
   };
@@ -224,7 +224,7 @@ function ProductGridSection({ grid, onNavigate, onAddToCart, onAddToWishlist, us
             <h2 className="text-xl font-bold tracking-tight text-brand-dark">{grid.title}</h2>
             <div className="flex items-center gap-4">
               {grid.ctaText && (
-                <button onClick={() => onNavigate(grid.ctaUrl || 'all-products')} className="text-[10px] font-bold uppercase tracking-widest text-brand-medium hover:text-brand-dark">
+                <button onClick={() => onNavigate(grid.ctaUrl || '/')} className="text-[10px] font-bold uppercase tracking-widest text-brand-medium hover:text-brand-dark">
                   {grid.ctaText} &gt;
                 </button>
               )}
@@ -269,7 +269,7 @@ function ProductGridSection({ grid, onNavigate, onAddToCart, onAddToWishlist, us
                 {safeProducts.map((p, i) => (
                   <SwiperSlide key={p._id || i}>
                     <motion.div variants={fadeUp} initial="rest" whileHover="hover"
-                      animate="rest" onClick={() => onNavigate('product-detail', p)}
+                      animate="rest" onClick={() => onNavigate(`/product/${p._id}`)}
                       className="group cursor-pointer bg-white rounded-2xl overflow-hidden border border-[#E6DFD4] shadow-sm hover:shadow-md transition-shadow"
                     >
                       <div className="aspect-square bg-[#F7F3EE] p-4 relative overflow-hidden">
@@ -344,7 +344,7 @@ function CategoryProductsSection({ onNavigate, onAddToCart, user }) {
               <h2 className="text-xl font-bold tracking-tight text-brand-dark">Shop by Category</h2>
               <p className="text-xs text-brand-medium mt-1">Tap a category to explore.</p>
             </div>
-            <button onClick={() => onNavigate('all-products')} className="text-[10px] font-bold uppercase tracking-widest text-brand-medium hover:text-brand-dark">View All &gt;</button>
+            <button onClick={() => onNavigate('/')} className="text-[10px] font-bold uppercase tracking-widest text-brand-medium hover:text-brand-dark">View All &gt;</button>
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-6">
@@ -414,11 +414,11 @@ function CategoryProductsSection({ onNavigate, onAddToCart, user }) {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     {activeProducts.length ? activeProducts.slice(0, 4).map((product) => (
-                      <div key={product._id} className="group cursor-pointer" onClick={() => onNavigate('product-detail', product)}>
+                      <div key={product._id} className="group cursor-pointer" onClick={() => onNavigate(`/product/${product._id}`)}>
                         <div className="aspect-square bg-white rounded-xl overflow-hidden mb-2 relative border border-[#E6DFD4]">
-                          <img src={product.images?.find((image) => image.isThumbnail)?.url || product.images?.[0]?.url || product.image || ''} alt={product.name} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.style.display = 'none'; }} />
+                          <img src={product.images?.find((image) => image.isThumbnail)?.url || product.images?.[0]?.url || (product.image && product.image.trim() !== '' ? product.image : '') || '/wood-placeholder.png'} alt={product.name} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
                           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-end justify-center pb-3 transition-opacity">
-                            <button onClick={(e) => { e.stopPropagation(); if (!user) { onNavigate('login'); return; } onAddToCart?.(product); }} className="bg-brand-dark text-white text-[9px] uppercase tracking-widest font-bold px-3 py-1.5">Add to Cart</button>
+                            <button onClick={(e) => { e.stopPropagation(); if (!user) { onNavigate('/login'); return; } onAddToCart?.(product); }} className="bg-brand-dark text-white text-[9px] uppercase tracking-widest font-bold px-3 py-1.5">Add to Cart</button>
                           </div>
                         </div>
                         <h3 className="text-sm font-medium text-brand-dark truncate">{product.name}</h3>
@@ -491,7 +491,7 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
   }, []);
 
   const handleAction = (type, product) => {
-    if (!user) { alert(`Please sign in to add to ${type.toLowerCase()}.`); onNavigate('login'); return; }
+    if (!user) { alert(`Please sign in to add to ${type.toLowerCase()}.`); onNavigate('/login'); return; }
     if (type === 'Cart') onAddToCart?.(product);
     else onAddToWishlist?.(product);
   };
@@ -512,9 +512,9 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
           {heroSlides.map((slide, i) => (
             <SwiperSlide key={i}>
               <div className="relative w-full h-full">
-                <img src={slide.bannerImage} alt={slide.title}
+                <img src={slide.bannerImage || '/wood-placeholder.png'} alt={slide.title}
                   className="w-full h-full object-cover object-center brightness-90"
-                  onError={e => { e.target.style.display='none'; e.target.parentElement.style.background='#2C1A0E'; }} />
+                  onError={e => { e.target.src = '/wood-placeholder.png'; }} />
                 <div className="absolute inset-0 bg-linear-to-r from-black/60 via-black/25 to-transparent" />
                 <div className="absolute inset-0 flex items-center">
                   <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 w-full">
@@ -534,7 +534,7 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                         <p className="text-white/80 text-sm md:text-base leading-relaxed mb-10 max-w-md font-light">{slide.description}</p>
                       )}
                       <motion.button
-                        onClick={() => onNavigate(slide.ctaURL || 'all-products')}
+                        onClick={() => onNavigate(slide.ctaURL || '/')}
                         whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                         className="bg-white text-brand-dark text-xs font-bold px-8 py-4 uppercase tracking-widest hover:bg-brand-beige transition-colors"
                       >
@@ -579,7 +579,7 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                 <p className="text-xs text-brand-medium mt-1">Chosen by parents this week.</p>
               </div>
               <div className="flex items-center gap-4">
-                <button onClick={() => onNavigate('all-products')} className="text-[10px] font-bold uppercase tracking-widest text-brand-medium hover:text-brand-dark">View All &gt;</button>
+                <button onClick={() => onNavigate('/')} className="text-[10px] font-bold uppercase tracking-widest text-brand-medium hover:text-brand-dark">View All &gt;</button>
                 <div className="flex gap-2">
                   <button className="trending-prev w-10 h-10 rounded-full border border-[#E6DFD4] flex items-center justify-center text-brand-dark hover:bg-[#F7F3EE] disabled:opacity-30 transition-colors shadow-sm">
                     &lt;
@@ -625,7 +625,7 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                         variants={fadeUp}
                         initial="rest" whileHover="hover" animate="rest"
                         className="group relative cursor-pointer"
-                        onClick={() => onNavigate('product-detail', p)}
+                        onClick={() => onNavigate(`/product/${p._id}`)}
                       >
                         <div className="aspect-square bg-[#F8F8F8] p-4 relative mb-4 overflow-hidden">
                           {(() => {

@@ -13,12 +13,21 @@ export default function WishlistPage({ wishlistItems, onRemove, onMoveToCart, on
 
   const getEffectiveImages = (item) => {
     if (item.selectedVariant?.images && Array.isArray(item.selectedVariant.images) && item.selectedVariant.images.length > 0) {
-      return item.selectedVariant.images;
+      return item.selectedVariant.images.filter(img => {
+        if (typeof img === 'string') return img.trim() !== '';
+        return img?.url && img.url.trim() !== '';
+      });
     }
     if (Array.isArray(item.images) && item.images.length > 0) {
-      return item.images;
+      return item.images.filter(img => {
+        if (typeof img === 'string') return img.trim() !== '';
+        return img?.url && img.url.trim() !== '';
+      });
     }
-    return [item.image];
+    if (item.image && (typeof item.image !== 'string' || item.image.trim() !== '')) {
+      return [item.image];
+    }
+    return ['/wood-placeholder.png'];
   };
 
   const getVariantText = (item) => {
@@ -40,7 +49,7 @@ export default function WishlistPage({ wishlistItems, onRemove, onMoveToCart, on
           <h2 className="text-2xl font-bold text-gray-800 mb-3">Your Wishlist is Empty</h2>
           <p className="text-gray-500 mb-8">Save items you love here to easily find and purchase them later.</p>
           <button
-            onClick={() => onNavigate('home')}
+            onClick={() => onNavigate('/')}
             className="w-full bg-[#8B5E3C] text-white py-3.5 rounded-xl font-semibold hover:bg-[#7a5234] transition-colors"
           >
             Explore Toys
@@ -54,7 +63,7 @@ export default function WishlistPage({ wishlistItems, onRemove, onMoveToCart, on
     <div className="min-h-screen bg-[#F8F4EC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
-          <button onClick={() => onNavigate('home')} className="p-2 bg-white rounded-full text-gray-500 hover:text-[#8B5E3C] shadow-sm transition-colors">
+          <button onClick={() => onNavigate('/')} className="p-2 bg-white rounded-full text-gray-500 hover:text-[#8B5E3C] shadow-sm transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Your Wishlist</h1>
@@ -69,9 +78,18 @@ export default function WishlistPage({ wishlistItems, onRemove, onMoveToCart, on
               const effectivePrice = getEffectivePrice(item);
               const effectiveImages = getEffectiveImages(item);
               const variantText = getVariantText(item);
-              const firstImage = typeof effectiveImages[0] === 'string' 
-                ? effectiveImages[0] 
-                : effectiveImages[0]?.url || '/wood-placeholder.png';
+              let firstImage = '/wood-placeholder.png';
+              
+              if (effectiveImages && effectiveImages.length > 0) {
+                const img = effectiveImages[0];
+                if (typeof img === 'string') {
+                  if (img.trim() !== '') {
+                    firstImage = img;
+                  }
+                } else if (img?.url && img.url.trim() !== '') {
+                  firstImage = img.url;
+                }
+              }
               
               return (
                 <div key={index} className="p-6 flex flex-col md:grid md:grid-cols-12 gap-6 items-center hover:bg-gray-50 transition-colors">
@@ -82,11 +100,11 @@ export default function WishlistPage({ wishlistItems, onRemove, onMoveToCart, on
                         src={firstImage} 
                         alt={item.name} 
                         className="w-full h-full object-cover"
-                        onError={(e) => { e.target.style.display='none'; }}
+                        onError={(e) => { e.target.src = '/wood-placeholder.png'; }}
                       />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-xl line-clamp-2 leading-snug mb-1 cursor-pointer hover:text-[#8B5E3C]" onClick={() => onNavigate('product-detail', item)}>
+                      <h3 className="font-bold text-gray-800 text-xl line-clamp-2 leading-snug mb-1 cursor-pointer hover:text-[#8B5E3C]" onClick={() => onNavigate(`/product/${item._id}`)}>
                         {item.name}
                       </h3>
                       {variantText && (

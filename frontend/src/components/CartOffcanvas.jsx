@@ -36,9 +36,12 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
             </div>
           ) : (
             cartItems.map((item, index) => {
-              const firstImage = typeof item.image === 'string' 
-                ? item.image 
-                : item.image?.url || '/wood-placeholder.png';
+              let firstImage = '/wood-placeholder.png';
+              if (typeof item.image === 'string' && item.image.trim() !== '') {
+                firstImage = item.image;
+              } else if (item.image?.url && item.image.url.trim() !== '') {
+                firstImage = item.image.url;
+              }
               
               return (
                 <div key={index} className="flex gap-4 p-3 bg-brand-beige/30 rounded-2xl border border-brand-medium/10">
@@ -47,7 +50,7 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
                       src={firstImage} 
                       alt={item.name} 
                       className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display='none'; }}
+                      onError={(e) => { e.target.src = '/wood-placeholder.png'; }}
                     />
                   </div>
                   <div className="flex-1 flex flex-col justify-between">

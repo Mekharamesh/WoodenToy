@@ -108,7 +108,7 @@ function StarInput({ value, onChange }) {
 /* ═══════════════════════════════════════════════════
    RATING BREAKDOWN BAR (new labeled style)
 ═══════════════════════════════════════════════════ */
-const STAR_LABELS = { 5: 'Very Good', 4: 'Good', 3: 'Ok-Ok', 2: 'Bad', 1: 'Very Bad' };
+const STAR_LABELS = { 5: '⭐⭐⭐⭐⭐', 4: '⭐⭐⭐⭐', 3: '⭐⭐⭐', 2: '⭐⭐', 1: '⭐' };
 const STAR_COLORS = { 5: '#22c55e', 4: '#4ade80', 3: '#f59e0b', 2: '#f97316', 1: '#ef4444' };
 
 function RatingBar({ star, pct, count }) {

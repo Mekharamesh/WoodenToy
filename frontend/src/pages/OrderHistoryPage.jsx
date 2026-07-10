@@ -64,7 +64,7 @@ export default function OrderHistoryPage({ onNavigate }) {
             <h3 className="text-xl font-bold text-gray-800 mb-2">No orders found</h3>
             <p className="text-gray-500 mb-6">Looks like you haven't placed any orders yet.</p>
             <button
-              onClick={() => onNavigate('home')}
+              onClick={() => onNavigate('/')}
               className="px-6 py-3 bg-[#8B5E3C] text-white rounded-xl font-bold hover:bg-[#7a5234] transition-colors"
             >
               Start Shopping
@@ -101,7 +101,7 @@ export default function OrderHistoryPage({ onNavigate }) {
                         {order.status}
                       </span>
                       <button 
-                        onClick={() => onNavigate('order-success', order._id)}
+                        onClick={() => onNavigate(`/order-success/${order._id}`)}
                         className="text-sm font-bold text-[#8B5E3C] hover:text-[#7a5234] flex items-center gap-1"
                       >
                         View Details <ExternalLink className="w-4 h-4" />

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Bell,
@@ -56,6 +57,25 @@ const modules = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
 ];
 
+const profileModulePaths = {
+  profile: '/profile',
+  orders: '/profile/order-history',
+  reviews: '/profile/reviews',
+  addresses: '/profile/addresses',
+  cart: '/profile/cart',
+  wallet: '/profile/wallet',
+  wishlist: '/profile/wishlist',
+  saved: '/profile/saved-products',
+  rewards: '/profile/loyalty-rewards',
+  password: '/profile/change-password',
+  notifications: '/profile/notifications',
+};
+
+const profilePathModules = Object.fromEntries(
+  Object.entries(profileModulePaths).map(([moduleId, path]) => [path, moduleId])
+);
+profilePathModules['/profile/order-history/details'] = 'order-details';
+
 const toInputDate = (value) => {
   if (!value) return '';
   const date = new Date(value);
@@ -95,6 +115,8 @@ export default function CustomerProfilePage({
   onMoveToCart,
   savedItems = [],
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const profile = profileData?.user || user || {};
   const { cartItems, updateQuantity, removeFromCart, getSubtotal } = useCartStore();
   const [activeModule, setActiveModule] = useState('profile');
@@ -127,6 +149,21 @@ export default function CustomerProfilePage({
   const [userReviews, setUserReviews] = useState({});       // { "orderId:orderItemId": userRating | null }
   const [walletSummary, setWalletSummary] = useState({ balance: 0, currency: 'INR', status: 'active', transactions: [] });
   const [walletLoading, setWalletLoading] = useState(false);
+
+  const openProfileModule = (moduleId) => {
+    setActiveModule(moduleId);
+    setActiveOrder(null);
+    navigate(profileModulePaths[moduleId] || '/profile');
+  };
+
+  useEffect(() => {
+    const normalizedPath = location.pathname.replace(/\/+$/, '') || '/profile';
+    const nextModule = profilePathModules[normalizedPath] || 'profile';
+    setActiveModule(nextModule);
+    if (nextModule !== 'order-details') {
+      setActiveOrder(null);
+    }
+  }, [location.pathname]);
   
   useEffect(() => {
     try {
@@ -465,7 +502,7 @@ export default function CustomerProfilePage({
       {ordersLoading ? (
         <p className="mt-8 text-sm text-[#6D625C]">Loading review items...</p>
       ) : reviewTargets.length === 0 ? (
-        <EmptyState icon={Star} title="No review items yet" text="Once your order is delivered, the products will appear here for review." action="Shop Now" onAction={() => onNavigate('home')} />
+        <EmptyState icon={Star} title="No review items yet" text="Once your order is delivered, the products will appear here for review." action="Shop Now" onAction={() => onNavigate('/')} />
       ) : (
         <div className="mt-6 space-y-4">
           {reviewTargets.map(({ key, order, item, productId, orderId, orderItemId, hasReviewed, myRating, orderStatus }) => {
@@ -513,7 +550,7 @@ export default function CustomerProfilePage({
                     )}
                     <button
                       type="button"
-                      onClick={() => { setActiveOrder(order); setActiveModule('order-details'); }}
+                              onClick={() => { setActiveOrder(order); setActiveModule('order-details'); navigate('/profile/order-history/details'); }}
                       className="rounded-[8px] border border-[#E9DED3] px-4 py-2.5 text-sm font-bold text-[#141225] transition hover:bg-[#FAF8F5]"
                     >
                       View Order
@@ -534,13 +571,13 @@ export default function CustomerProfilePage({
         <div>
           <h2 className="text-lg font-bold text-[#141225]">Order History</h2>
         </div>
-        <button type="button" onClick={() => onNavigate('order-history')} className="rounded-[8px] bg-[#9A6031] px-4 py-2 text-sm font-bold text-white">Open Full Page</button>
+        <button type="button" onClick={() => onNavigate('/order-history')} className="rounded-[8px] bg-[#9A6031] px-4 py-2 text-sm font-bold text-white">Open Full Page</button>
       </div>
 
       {ordersLoading ? (
         <p className="mt-8 text-sm text-[#6D625C]">Loading orders...</p>
       ) : orders.length === 0 ? (
-        <EmptyState icon={Package} title="No orders yet" text="Your placed orders will appear here after checkout." action="Start Shopping" onAction={() => onNavigate('home')} />
+        <EmptyState icon={Package} title="No orders yet" text="Your placed orders will appear here after checkout." action="Start Shopping" onAction={() => onNavigate('/')} />
       ) : (
         <div className="mt-6 overflow-x-auto rounded-[14px] border border-[#E9DED3] bg-white">
           <table className="w-full text-left text-sm text-[#4A403B]">
@@ -678,7 +715,7 @@ export default function CustomerProfilePage({
                         )}
                         <button 
                           type="button" 
-                          onClick={() => { setActiveOrder(order); setActiveModule('order-details'); }}
+                          onClick={() => { setActiveOrder(order); setActiveModule('order-details'); navigate('/profile/order-history/details'); }}
                           className="flex items-center gap-1 rounded bg-[#9A6031] px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-[#7E4B25]"
                         >
                           <Eye className="h-3.5 w-3.5" /> View
@@ -798,7 +835,7 @@ export default function CustomerProfilePage({
             <h2 className="text-lg font-bold text-[#141225]">Order Details</h2>
             <p className="mt-1 text-sm text-[#6D625C]">Order #{activeOrder._id.slice(-8).toUpperCase()}</p>
           </div>
-          <button type="button" onClick={() => { setActiveModule('orders'); setActiveOrder(null); }} className="rounded-[8px] border border-[#E9DED3] px-4 py-2 text-sm font-bold text-[#141225] hover:bg-gray-50">Back to Orders</button>
+          <button type="button" onClick={() => openProfileModule('orders')} className="rounded-[8px] border border-[#E9DED3] px-4 py-2 text-sm font-bold text-[#141225] hover:bg-gray-50">Back to Orders</button>
         </div>
 
         <div className="space-y-6">
@@ -825,7 +862,7 @@ export default function CustomerProfilePage({
                     </div>
                     <div>
                       <button 
-                        onClick={() => onNavigate('product-detail', { _id: item.product })}
+                        onClick={() => onNavigate(`/product/${item.product}`)}
                         className="rounded-[8px] bg-[#9A6031] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#7E4B25] w-full sm:w-auto mt-2 sm:mt-0 shadow-sm"
                       >
                         Buy Again
@@ -934,7 +971,7 @@ export default function CustomerProfilePage({
                    const imgUrl = typeof item.image === 'string' ? item.image : (item.image?.url || '');
                    const imageSrc = imgUrl ? (imgUrl.startsWith('http') || imgUrl.startsWith('data:') ? imgUrl : (imgUrl.startsWith('/uploads') || imgUrl.startsWith('uploads/')) ? `http://localhost:5000${imgUrl.startsWith('/') ? '' : '/'}${imgUrl}` : imgUrl) : '/animal_balance_maze.png';
                    return (
-                     <div key={i} className="group relative overflow-hidden rounded-[12px] border border-[#E9DED3] bg-white p-3 cursor-pointer shadow-sm hover:shadow-md transition-shadow" onClick={() => onNavigate('product-detail', { _id: item.id || item._id })}>
+                     <div key={i} className="group relative overflow-hidden rounded-[12px] border border-[#E9DED3] bg-white p-3 cursor-pointer shadow-sm hover:shadow-md transition-shadow" onClick={() => onNavigate(`/product/${item.id || item._id}`)}>
                        <div className="aspect-square bg-[#F8F3EF] mb-3 rounded-lg overflow-hidden">
                          <img src={imageSrc} alt={item.name} className="h-full w-full object-contain mix-blend-multiply transition duration-300 group-hover:scale-110" />
                        </div>
@@ -947,7 +984,7 @@ export default function CustomerProfilePage({
             ) : (
                <div className="rounded-[12px] border border-[#E9DED3] bg-white p-6 text-center">
                  <p className="text-sm text-[#6D625C]">No recently viewed products found.</p>
-                 <button onClick={() => onNavigate('home')} className="mt-3 text-[#9A6031] font-bold text-sm hover:underline">Start browsing toys</button>
+                 <button onClick={() => onNavigate('/')} className="mt-3 text-[#9A6031] font-bold text-sm hover:underline">Start browsing toys</button>
                </div>
             )}
           </div>
@@ -963,11 +1000,11 @@ export default function CustomerProfilePage({
           <h2 className="text-lg font-bold text-[#141225]">Cart</h2>
           <p className="mt-1 text-sm text-[#6D625C]">Synced with backend for logged-in customers.</p>
         </div>
-        <button type="button" onClick={() => onNavigate('cart')} className="rounded-[8px] bg-[#9A6031] px-4 py-2 text-sm font-bold text-white">Open Cart</button>
+        <button type="button" onClick={() => onNavigate('/cart')} className="rounded-[8px] bg-[#9A6031] px-4 py-2 text-sm font-bold text-white">Open Cart</button>
       </div>
 
       {cartItems.length === 0 ? (
-        <EmptyState icon={ShoppingBag} title="Your cart is empty" text="Add toys to your cart and they will stay with your account." action="Continue Shopping" onAction={() => onNavigate('home')} />
+        <EmptyState icon={ShoppingBag} title="Your cart is empty" text="Add toys to your cart and they will stay with your account." action="Continue Shopping" onAction={() => onNavigate('/')} />
       ) : (
         <div className="mt-6 divide-y divide-[#EFE6DD] rounded-[14px] border border-[#E9DED3] bg-white">
           {cartItems.map((item) => (
@@ -1041,7 +1078,7 @@ export default function CustomerProfilePage({
         </div>
 
         {wishlistItems.length === 0 ? (
-          <EmptyState icon={Heart} title="Your wishlist is empty" text="Start adding toys you love." action="Explore Toys" onAction={() => onNavigate('home')} />
+          <EmptyState icon={Heart} title="Your wishlist is empty" text="Start adding toys you love." action="Explore Toys" onAction={() => onNavigate('/')} />
         ) : (
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {wishlistItems.map((item, index) => {
@@ -1091,7 +1128,7 @@ export default function CustomerProfilePage({
         </div>
 
         {savedItems.length === 0 ? (
-          <EmptyState icon={Bookmark} title="No saved products" text="You haven't saved any products yet." action="Browse Toys" onAction={() => onNavigate('home')} />
+          <EmptyState icon={Bookmark} title="No saved products" text="You haven't saved any products yet." action="Browse Toys" onAction={() => onNavigate('/')} />
         ) : (
           <div className="mt-6 space-y-4">
             {savedItems.map((item) => (
@@ -1415,7 +1452,7 @@ export default function CustomerProfilePage({
               <button
                 key={id}
                 type="button"
-                onClick={() => setActiveModule(id)}
+                onClick={() => openProfileModule(id)}
                 className={`flex w-full items-center gap-4 rounded-[10px] px-4 py-4 text-left text-sm font-semibold transition ${
                   activeModule === id
                     ? 'bg-[#F4EBE2] text-[#2E2E2E]'

@@ -48,7 +48,7 @@ export default function CashfreeCallbackPage({ onNavigate }) {
           setMessage('Payment successful! Redirecting to your order...');
 
           setTimeout(() => {
-            onNavigate('order-success', orderId);
+            onNavigate(`/order-success/${orderId}`);
           }, 2000);
         } else {
           setStatus('failed');
@@ -88,7 +88,7 @@ export default function CashfreeCallbackPage({ onNavigate }) {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Failed</h2>
             <p className="text-gray-500 text-sm mb-6">{message}</p>
             <button
-              onClick={() => onNavigate('complete-order')}
+              onClick={() => onNavigate('/complete-order')}
               className="w-full py-3 bg-[#8B5E3C] text-white rounded-xl font-bold hover:bg-[#7a5234] transition-colors"
             >
               Try Again
