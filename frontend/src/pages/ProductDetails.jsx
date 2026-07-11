@@ -213,6 +213,53 @@ const getCustomAdditionalInfo = (product) => {
   );
 };
 
+const getPricingInfo = (source = {}) => {
+  const listPrice = Number(
+    source.compareAtPrice ?? source.basePrice ?? source.effectivePrice ?? source.price ?? 0
+  );
+  const salePriceCandidate = source.discountPrice !== null && source.discountPrice !== undefined && source.discountPrice !== ''
+    ? Number(source.discountPrice)
+    : NaN;
+  const salePrice = Number.isFinite(salePriceCandidate) && salePriceCandidate > 0
+    ? salePriceCandidate
+    : Number(source.basePrice ?? source.effectivePrice ?? source.price ?? 0);
+  const effectiveListPrice = listPrice > 0 ? listPrice : salePrice;
+  const hasDiscount = salePrice > 0 && effectiveListPrice > 0 && salePrice < effectiveListPrice;
+  const discountPercent = hasDiscount ? Math.round((1 - salePrice / effectiveListPrice) * 100) : 0;
+
+  return {
+    salePrice,
+    listPrice: effectiveListPrice,
+    hasDiscount,
+    discountPercent,
+  };
+};
+
+const getRecommendationProducts = (productData, fallbackProducts = []) => {
+  if (!productData) return Array.isArray(fallbackProducts) ? fallbackProducts.slice(0, 4) : [];
+
+  const related = [
+    ...(Array.isArray(productData.relatedProducts) ? productData.relatedProducts : []),
+    ...(Array.isArray(productData.crossSellProducts) ? productData.crossSellProducts : []),
+    ...(Array.isArray(productData.upSellProducts) ? productData.upSellProducts : []),
+  ];
+
+  const uniqueMap = new Map();
+  for (const item of related) {
+    if (item && item._id) {
+      uniqueMap.set(String(item._id), item);
+    }
+  }
+
+  const uniqueRelated = [...uniqueMap.values()];
+  if (uniqueRelated.length > 0) {
+    return uniqueRelated.slice(0, 4);
+  }
+
+  if (!Array.isArray(fallbackProducts)) return [];
+  return fallbackProducts.filter((p) => p?._id !== productData._id).slice(0, 4);
+};
+
 // Build attribute options map from variant options (source of truth)
 // Returns: { [attributeName]: Set<value> }
 const buildAttributeOptionsFromVariants = (product) => {
@@ -322,9 +369,10 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
           }
         }
 
-        const recommendations = recommendationsResponse?.products || recommendationsResponse?.data || [];
+        const fallbackRecommendations = recommendationsResponse?.products || recommendationsResponse?.data || [];
+        const recommendationItems = getRecommendationProducts(productData, fallbackRecommendations);
         if (active) {
-          setRecommendedProducts(recommendations.filter(p => p._id !== productData?._id).slice(0, 4));
+          setRecommendedProducts(recommendationItems.filter(p => p._id !== productData?._id).slice(0, 4));
         }
       } catch (err) {
         console.error('Failed to load product details', err);
@@ -618,40 +666,28 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                   <p className="text-sm uppercase tracking-[0.24em] text-slate-500">{categoryName || 'Wooden Toy'}</p>
                   <div className="mt-3 flex flex-col gap-2">
                     {(() => {
-                      const source = selectedVariant || product;
-                      if (!source) return null;
-
-                      const listPrice = Number(
-                        source.compareAtPrice ?? source.basePrice ?? 0
-                      );
-
-                      const salePrice = Number(
-                        source.discountPrice !== null && source.discountPrice !== undefined && source.discountPrice !== ''
-                          ? source.discountPrice
-                          : (source.price ?? source.basePrice ?? 0)
-                      );
-
-                      const effectiveListPrice = listPrice > 0 ? listPrice : salePrice;
-                      const hasDiscount = effectiveListPrice > 0 && salePrice > 0 && salePrice < effectiveListPrice;
-                      const discountPercent = hasDiscount
-                        ? Math.round((1 - salePrice / effectiveListPrice) * 100)
-                        : 0;
+                      const priceSource = selectedVariant || (Array.isArray(product?.variants) && product.variants.length === 1 ? product.variants[0] : null) || product;
+                      const pricing = getPricingInfo(priceSource);
+                      const showStartingFrom = !selectedVariant && Array.isArray(product?.variants) && product.variants.length > 1;
 
                       return (
                         <>
+                          {showStartingFrom && (
+                            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Starting from</p>
+                          )}
                           <div className="flex items-end gap-3">
                             <p className="text-3xl font-semibold tracking-tight text-slate-900">
-                              ₹{(salePrice * quantity).toFixed(2)}
+                              ₹{(pricing.salePrice * quantity).toFixed(2)}
                             </p>
-                            {hasDiscount && (
+                            {pricing.hasDiscount && (
                               <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                                -{discountPercent}%
+                                -{pricing.discountPercent}%
                               </span>
                             )}
                           </div>
-                          {hasDiscount && (
+                          {pricing.hasDiscount && (
                             <p className="text-sm text-slate-500 line-through">
-                              ₹{(effectiveListPrice * quantity).toFixed(2)}
+                              ₹{(pricing.listPrice * quantity).toFixed(2)}
                             </p>
                           )}
                         </>
@@ -965,20 +1001,35 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
         <div className="mx-auto max-w-7xl">
           <h2 className="text-2xl font-bold text-slate-900 mb-8 text-center font-serif">You May Also Like</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {recommendedProducts.map(p => (
-              <div key={p._id} className="group cursor-pointer" onClick={() => onNavigate(`/product/${p._id}`)}>
-                <div className="aspect-square bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200">
-                  <img
-                    src={p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || (p.image && p.image.trim() !== '' ? p.image : '/wood-placeholder.png') || '/wood-placeholder.png'}
-                    alt={p.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    onError={(e) => { e.target.src = '/wood-placeholder.png'; }}
-                  />
+            {recommendedProducts.map((p) => {
+              const recPricing = getPricingInfo(p);
+              return (
+                <div key={p._id} className="group cursor-pointer" onClick={() => onNavigate(`/product/${p._id}`)}>
+                  <div className="aspect-square bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200">
+                    <img
+                      src={p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || (p.image && p.image.trim() !== '' ? p.image : '/wood-placeholder.png') || '/wood-placeholder.png'}
+                      alt={p.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => { e.target.src = '/wood-placeholder.png'; }}
+                    />
+                  </div>
+                  <h3 className="font-semibold text-slate-900 text-sm mb-1 truncate">{p.name}</h3>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-slate-600 text-sm font-bold">₹{recPricing.salePrice.toFixed(2)}</p>
+                      {recPricing.hasDiscount && (
+                        <p className="text-[10px] text-slate-500 line-through">₹{recPricing.listPrice.toFixed(2)}</p>
+                      )}
+                    </div>
+                    {recPricing.hasDiscount && (
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                        -{recPricing.discountPercent}%
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <h3 className="font-semibold text-slate-900 text-sm mb-1 truncate">{p.name}</h3>
-                <p className="text-slate-600 text-sm font-bold">₹{p.price?.toFixed(2)}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

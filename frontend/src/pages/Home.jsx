@@ -48,6 +48,20 @@ const TESTIMONIALS = [
   { rating: 5, quote: "The personalized name puzzle was the perfect gift for my nephew. Fast shipping and the wood feels incredibly smooth and safe.", author: "Elena T.", context: "Verified Buyer" },
 ];
 
+const getPricingInfo = (source = {}) => {
+  const listPrice = Number(source.compareAtPrice ?? source.basePrice ?? source.effectivePrice ?? source.price ?? 0);
+  const salePriceCandidate = source.discountPrice !== null && source.discountPrice !== undefined && source.discountPrice !== ''
+    ? Number(source.discountPrice)
+    : NaN;
+  const salePrice = Number.isFinite(salePriceCandidate) && salePriceCandidate > 0
+    ? salePriceCandidate
+    : Number(source.basePrice ?? source.effectivePrice ?? source.price ?? 0);
+  const effectiveListPrice = listPrice > 0 ? listPrice : salePrice;
+  const hasDiscount = salePrice > 0 && effectiveListPrice > 0 && salePrice < effectiveListPrice;
+  const discountPercent = hasDiscount ? Math.round((1 - salePrice / effectiveListPrice) * 100) : 0;
+  return { salePrice, listPrice: effectiveListPrice, hasDiscount, discountPercent };
+};
+
 // ── Animation Variants ───────────────────────────────────────────────────────
 const fadeUp = { hidden: { opacity: 0, y: 30 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } } };
 const stagger = { visible: { transition: { staggerChildren: 0.12 } } };
@@ -298,7 +312,24 @@ function ProductGridSection({ grid, onNavigate, onAddToCart, onAddToWishlist, us
                       </div>
                       <div className="p-3">
                         <h3 className="text-sm font-medium text-brand-dark truncate">{p.name || 'Untitled Product'}</h3>
-                        <p className="text-sm text-brand-medium mt-0.5">₹{Number(p.price || 0).toFixed(2)}</p>
+                        {(() => {
+                          const pricing = getPricingInfo(p);
+                          return (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-brand-medium mt-0.5">₹{pricing.salePrice.toFixed(2)}</p>
+                                {pricing.hasDiscount && (
+                                  <p className="text-[10px] text-brand-medium line-through">₹{pricing.listPrice.toFixed(2)}</p>
+                                )}
+                              </div>
+                              {pricing.hasDiscount && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                                  -{pricing.discountPercent}%
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </motion.div>
                   </SwiperSlide>
@@ -422,7 +453,24 @@ function CategoryProductsSection({ onNavigate, onAddToCart, user }) {
                           </div>
                         </div>
                         <h3 className="text-sm font-medium text-brand-dark truncate">{product.name}</h3>
-                        <p className="text-xs text-brand-medium">₹{Number(product.price || 0).toFixed(2)}</p>
+                        {(() => {
+                          const pricing = getPricingInfo(product);
+                          return (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs text-brand-medium">₹{pricing.salePrice.toFixed(2)}</p>
+                                {pricing.hasDiscount && (
+                                  <p className="text-[10px] text-brand-medium line-through">₹{pricing.listPrice.toFixed(2)}</p>
+                                )}
+                              </div>
+                              {pricing.hasDiscount && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                                  -{pricing.discountPercent}%
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )) : <div className="col-span-2 rounded-xl border border-dashed border-[#E6DFD4] p-6 text-sm text-brand-medium">No products selected for this category yet.</div>}
                   </div>
@@ -654,7 +702,17 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                         <div className="flex justify-between items-start">
                           <div>
                             <h3 className="text-sm text-brand-dark font-medium">{p.name}</h3>
-                            <p className="text-sm text-brand-medium mt-1">₹{p.price?.toFixed(2)}</p>
+                            {(() => {
+                              const pricing = getPricingInfo(p);
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm text-brand-medium mt-1">₹{pricing.salePrice.toFixed(2)}</p>
+                                  {pricing.hasDiscount && (
+                                    <p className="text-[10px] text-brand-medium line-through">₹{pricing.listPrice.toFixed(2)}</p>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <div className="flex items-center gap-1 bg-[#F9F9F9] px-1.5 py-0.5 rounded">
                             <svg className="w-2.5 h-2.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>

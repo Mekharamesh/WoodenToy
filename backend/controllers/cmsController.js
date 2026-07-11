@@ -4,6 +4,8 @@ const CmsThirdBanner = require('../models/CmsThirdBanner');
 const CmsProductGrid = require('../models/CmsProductGrid');
 const CmsCategoryGrid = require('../models/CmsCategoryGrid');
 const CmsFooter = require('../models/CmsFooter');
+const ProductVariant = require('../models/ProductVariant');
+const productService = require('../services/productService');
 
 // Utility to wrap async functions
 const asyncHandler = (fn) => (req, res, next) =>
@@ -75,7 +77,6 @@ exports.deleteThirdBanner = asyncHandler(async (req, res) => {
 // --- PRODUCT GRID ---
 exports.getProductGrids = asyncHandler(async (req, res) => {
   const ProductImage = require('../models/catalog/ProductImage');
-  const ProductVariant = require('../models/ProductVariant');
   const grids = await CmsProductGrid.find().populate('products').sort({ sortOrder: 1 });
 
   // Enrich each product with images from ProductImage collection
@@ -103,8 +104,12 @@ exports.getProductGrids = asyncHandler(async (req, res) => {
         .filter(url => typeof url === 'string' && url.trim().length > 0)
         .map(url => ({ url, isThumbnail: false, displayOrder: 1 }));
 
+      const variants = await ProductVariant.find({ product: prod._id }).limit(3);
+      const pricing = productService.buildProductPricing(prod, variants, productImages.length > 0 ? productImages : fallbackImages);
+
       return {
         ...prod,
+        ...pricing,
         images: productImages.length > 0 ? productImages : fallbackImages,
       };
     }));
@@ -132,7 +137,6 @@ exports.deleteProductGrid = asyncHandler(async (req, res) => {
 // --- CATEGORY GRID ---
 exports.getCategoryGrids = asyncHandler(async (req, res) => {
   const ProductImage = require('../models/catalog/ProductImage');
-  const ProductVariant = require('../models/ProductVariant');
   const grids = await CmsCategoryGrid.find().populate('category').populate('products').sort({ sortOrder: 1 });
 
   const enrichedGrids = await Promise.all(grids.map(async (grid) => {
@@ -156,7 +160,14 @@ exports.getCategoryGrids = asyncHandler(async (req, res) => {
         .filter(url => typeof url === 'string' && url.trim().length > 0)
         .map(url => ({ url, isThumbnail: false, displayOrder: 1 }));
 
-      return { ...prod, images: productImages.length > 0 ? productImages : fallbackImages };
+      const variants = await ProductVariant.find({ product: prod._id }).limit(3);
+      const pricing = productService.buildProductPricing(prod, variants, productImages.length > 0 ? productImages : fallbackImages);
+
+      return {
+        ...prod,
+        ...pricing,
+        images: productImages.length > 0 ? productImages : fallbackImages,
+      };
     }));
     return gridObj;
   }));

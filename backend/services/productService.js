@@ -78,6 +78,61 @@ const getPrimaryVariantPrice = (variants = []) => {
     return Number.isFinite(normalized) ? normalized : null;
 };
 
+const buildProductPricing = (product = {}, variants = [], images = []) => {
+    const normalizeNumber = (value, fallback = 0) => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : fallback;
+    };
+
+    let basePrice = normalizeNumber(product.price, 0);
+    let effectivePrice = normalizeNumber(product.price, 0);
+    let discountPrice = undefined;
+    const rawDiscount = product.discountPrice;
+    if (rawDiscount !== undefined && rawDiscount !== null && rawDiscount !== '') {
+        const parsed = normalizeNumber(rawDiscount, 0);
+        if (parsed > 0) discountPrice = parsed;
+    }
+    let compareAtPrice = normalizeNumber(product.compareAtPrice, 0);
+    let effectiveImages = Array.isArray(images)
+        ? images.map(img => (img && typeof img.toObject === 'function' ? img.toObject() : img))
+        : [];
+
+    if (Array.isArray(variants) && variants.length > 0) {
+        const primary = variants.find(v => v.isPrimary) || variants[0];
+        const primaryBase = primary?.basePrice ?? primary?.price ?? basePrice;
+        const normalizedBase = normalizeNumber(primaryBase, basePrice);
+
+        effectivePrice = normalizedBase;
+        basePrice = normalizedBase;
+
+        if (primary?.discountPrice !== '' && primary?.discountPrice !== undefined) {
+            const parsed = normalizeNumber(primary.discountPrice, 0);
+            if (parsed > 0) discountPrice = parsed;
+        }
+
+        compareAtPrice = (compareAtPrice > 0 ? compareAtPrice : normalizedBase);
+
+        if (effectiveImages.length === 0 && Array.isArray(primary.images) && primary.images.length > 0) {
+            effectiveImages = primary.images.map((url, idx) => ({ url, displayOrder: idx + 1 }));
+        }
+    } else {
+        compareAtPrice = (compareAtPrice > 0 ? compareAtPrice : basePrice);
+    }
+
+    const totalStock = Array.isArray(variants)
+        ? variants.reduce((sum, v) => sum + Math.max(0, (v.inventory || 0) - (v.reserveStock || 0)), 0)
+        : 0;
+
+    return {
+        effectivePrice,
+        basePrice,
+        discountPrice,
+        compareAtPrice,
+        images: effectiveImages,
+        totalStock,
+    };
+};
+
 const ensureUniqueProductSku = async (requestedSku, fallbackBase) => {
     const baseSku = String(requestedSku || fallbackBase || 'SKU').trim().toUpperCase().replace(/\s+/g, '-');
     if (!baseSku) {
@@ -207,22 +262,13 @@ const getProducts = async (query = {}) => {
     for (const prod of products) {
         const variants = await ProductVariant.find({ product: prod._id });
         const images = await ProductImage.find({ product: prod._id }).sort({ displayOrder: 1 });
-        let effectivePrice = prod.price;
-        let effectiveImages = images.map(img => img.toObject());
-        if (variants.length > 0) {
-            const primary = variants.find(v => v.isPrimary) || variants[0];
-            effectivePrice = primary.basePrice || primary.price || prod.price;
-            if (effectiveImages.length === 0 && primary.images && primary.images.length > 0) {
-                effectiveImages = primary.images.map((url, idx) => ({ url, displayOrder: idx + 1 }));
-            }
-        }
+        const pricing = buildProductPricing(prod.toObject(), variants, images.map(img => img.toObject()));
 
         result.push({
             ...prod.toObject(),
-            effectivePrice,
+            ...pricing,
             variantsCount: variants.length,
             totalStock: variants.reduce((sum, v) => sum + (v.inventory || 0), 0),
-            images: effectiveImages,
         });
     }
 
@@ -283,13 +329,45 @@ const getProductById = async (id) => {
         }
     }
 
+    const pricing = buildProductPricing(product.toObject(), variants, images.map(img => img.toObject()));
+    const relatedProducts = await enrichRelatedProducts(product.relatedProducts);
+    const crossSellProducts = await enrichRelatedProducts(product.crossSellProducts);
+    const upSellProducts = await enrichRelatedProducts(product.upSellProducts);
+
     return {
         ...product.toObject(),
+        ...pricing,
         effectivePrice,
         variants: mappedVariants,
         images: effectiveImages,
         attributeValues: attributeValues.map(av => av.toObject()),
+        relatedProducts,
+        crossSellProducts,
+        upSellProducts,
     };
+};
+
+const enrichRelatedProducts = async (relatedProductRefs) => {
+    if (!Array.isArray(relatedProductRefs) || relatedProductRefs.length === 0) return [];
+
+    const ids = relatedProductRefs
+        .map((ref) => (ref && ref._id ? String(ref._id) : String(ref)))
+        .filter((id, index, self) => id && self.indexOf(id) === index);
+
+    if (ids.length === 0) return [];
+
+    const products = await Product.find({ _id: { $in: ids } })
+        .populate('category', 'name slug');
+
+    const enriched = [];
+    for (const prod of products) {
+        const variants = await ProductVariant.find({ product: prod._id });
+        const images = await ProductImage.find({ product: prod._id }).sort({ displayOrder: 1 });
+        const pricing = buildProductPricing(prod.toObject(), variants, images.map(img => img.toObject()));
+        enriched.push({ ...prod.toObject(), ...pricing });
+    }
+
+    return ids.map((id) => enriched.find((item) => String(item._id) === id)).filter(Boolean);
 };
 
 /**
@@ -692,4 +770,5 @@ module.exports = {
     deleteProduct,
     bulkUpdateStatus,
     bulkDelete,
+    buildProductPricing,
 };
