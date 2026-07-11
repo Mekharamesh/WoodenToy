@@ -616,14 +616,48 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm uppercase tracking-[0.24em] text-slate-500">{categoryName || 'Wooden Toy'}</p>
-                  <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-                    {selectedVariant && (selectedVariant.basePrice != null || selectedVariant.price != null)
-                      ? `₹${((selectedVariant.basePrice ?? selectedVariant.price) * quantity).toFixed(2)}`
-                      : product.price != null
-                        ? `₹${(product.price * quantity).toFixed(2)}`
-                        : '-'
-                    }
-                  </p>
+                  <div className="mt-3 flex flex-col gap-2">
+                    {(() => {
+                      const source = selectedVariant || product;
+                      if (!source) return null;
+
+                      const listPrice = Number(
+                        source.compareAtPrice ?? source.basePrice ?? 0
+                      );
+
+                      const salePrice = Number(
+                        source.discountPrice !== null && source.discountPrice !== undefined && source.discountPrice !== ''
+                          ? source.discountPrice
+                          : (source.price ?? source.basePrice ?? 0)
+                      );
+
+                      const effectiveListPrice = listPrice > 0 ? listPrice : salePrice;
+                      const hasDiscount = effectiveListPrice > 0 && salePrice > 0 && salePrice < effectiveListPrice;
+                      const discountPercent = hasDiscount
+                        ? Math.round((1 - salePrice / effectiveListPrice) * 100)
+                        : 0;
+
+                      return (
+                        <>
+                          <div className="flex items-end gap-3">
+                            <p className="text-3xl font-semibold tracking-tight text-slate-900">
+                              ₹{(salePrice * quantity).toFixed(2)}
+                            </p>
+                            {hasDiscount && (
+                              <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                                -{discountPercent}%
+                              </span>
+                            )}
+                          </div>
+                          {hasDiscount && (
+                            <p className="text-sm text-slate-500 line-through">
+                              ₹{(effectiveListPrice * quantity).toFixed(2)}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                   {(() => {
                     const baseWeight = selectedVariant?.weight || product?.shippingWeight || product?.weight;
                     if (baseWeight) {

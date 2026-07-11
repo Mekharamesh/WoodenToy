@@ -16,7 +16,6 @@ const emptyForm = {
   endDate: '',
   status: 'active',
   visible: true,
-  showOnCheckout: true,
   description: '',
   category: '',
   subCategory: '',
@@ -159,7 +158,6 @@ export default function CouponManagementPage() {
       endDate: coupon.endDate ? new Date(coupon.endDate).toISOString().slice(0, 10) : '',
       status: coupon.status || 'active',
       visible: coupon.visible !== false,
-      showOnCheckout: coupon.showOnCheckout !== false,
       description: coupon.description || '',
       category: coupon.category?._id || coupon.category || '',
       subCategory: coupon.subCategory?._id || coupon.subCategory || '',
@@ -238,7 +236,6 @@ export default function CouponManagementPage() {
         subCategory: form.subCategory || null,
         product: form.product || null,
         visible: form.visible,
-        showOnCheckout: form.showOnCheckout,
         status: form.status,
       };
 
@@ -595,10 +592,6 @@ export default function CouponManagementPage() {
               <label className="flex items-center gap-2 rounded-xl border border-[#E6DFD4] px-3 py-3 text-sm font-medium text-[#2F241D]">
                 <input checked={form.visible} onChange={(e) => setForm({ ...form, visible: e.target.checked })} type="checkbox" className="h-4 w-4 rounded border-[#E6DFD4]" />
                 Visible to Customers
-              </label>
-              <label className="flex items-center gap-2 rounded-xl border border-[#E6DFD4] px-3 py-3 text-sm font-medium text-[#2F241D]">
-                <input checked={form.showOnCheckout} onChange={(e) => setForm({ ...form, showOnCheckout: e.target.checked })} type="checkbox" className="h-4 w-4 rounded border-[#E6DFD4]" />
-                Show on Checkout
               </label>
             </div>
 

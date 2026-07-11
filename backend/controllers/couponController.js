@@ -178,7 +178,6 @@ exports.createCoupon = async (req, res) => {
       startDate: parseOptionalDate(req.body.startDate),
       endDate: parseOptionalDate(req.body.endDate),
       visible: req.body.visible !== false,
-      showOnCheckout: req.body.showOnCheckout !== false,
       status: req.body.status || 'active',
       createdBy: req.user?._id || null,
     };
@@ -211,7 +210,6 @@ exports.updateCoupon = async (req, res) => {
       startDate: parseOptionalDate(req.body.startDate),
       endDate: parseOptionalDate(req.body.endDate),
       visible: req.body.visible !== false,
-      showOnCheckout: req.body.showOnCheckout !== false,
       status: req.body.status || 'active',
     };
 
@@ -271,7 +269,6 @@ exports.getEligibleCoupons = async (req, res) => {
       deleted: false,
       status: 'active',
       visible: true,
-      showOnCheckout: { $ne: false },
       $and: [
         {
           $or: [

@@ -130,6 +130,13 @@ export const VariantManagement = ({
         onChange(updated);
     };
 
+    const getDiscountPercentage = (variant) => {
+        const base = Number(variant.basePrice || 0);
+        const discounted = Number(variant.discountPrice || 0);
+        if (!base || discounted <= 0 || discounted >= base) return '';
+        return `${Math.round(((base - discounted) / base) * 100)}%`;
+    };
+
     const handleBulkApply = (field, val) => {
         if (val === '') return;
         const updated = variants.map(v => ({ ...v, [field]: Number(val) }));
@@ -263,7 +270,7 @@ export const VariantManagement = ({
                                                             <h4 className="text-sm font-bold text-gray-900 border-b pb-2">Pricing & Logistics</h4>
                                                             <div className="grid grid-cols-2 gap-4">
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Discount Price</span><input type="number" value={variant.discountPrice || ''} onChange={e => handleFieldChange(idx, 'discountPrice', e.target.value)} className="p-2 border rounded text-sm"/></div>
-                                                                <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Cost Price</span><input type="number" value={variant.costPrice || ''} onChange={e => handleFieldChange(idx, 'costPrice', e.target.value)} className="p-2 border rounded text-sm"/></div>
+                                                                <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Discount %</span><input type="text" value={getDiscountPercentage(variant)} readOnly className="p-2 border rounded text-sm bg-slate-50 text-slate-700"/></div>
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Barcode</span><input type="text" value={variant.barcode || ''} onChange={e => handleFieldChange(idx, 'barcode', e.target.value)} className="p-2 border rounded text-sm"/></div>
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Weight (kg)</span><input type="number" step="0.0001" min="0" value={variant.weight || ''} onChange={e => handleFieldChange(idx, 'weight', e.target.value)} onBlur={e => handleFieldChange(idx, 'weight', formatWeightInput(e.target.value))} className="p-2 border rounded text-sm"/></div>
                                                                 <div className="flex flex-col gap-1"><span className="text-xs text-gray-500">Length (cm)</span><input type="number" value={variant.length || ''} onChange={e => handleFieldChange(idx, 'length', e.target.value)} className="p-2 border rounded text-sm"/></div>
@@ -323,8 +330,8 @@ export const VariantManagement = ({
                                             <input type="number" value={variant.discountPrice || ''} onChange={e => handleFieldChange(idx, 'discountPrice', e.target.value)} className="p-2 border rounded text-sm focus:ring-1 focus:ring-amber-500 focus:outline-none"/>
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                            <label className="text-xs text-gray-500">Cost Price</label>
-                                            <input type="number" value={variant.costPrice || ''} onChange={e => handleFieldChange(idx, 'costPrice', e.target.value)} className="p-2 border rounded text-sm focus:ring-1 focus:ring-amber-500 focus:outline-none"/>
+                                            <label className="text-xs text-gray-500">Discount %</label>
+                                            <input type="text" value={getDiscountPercentage(variant)} readOnly className="p-2 border rounded text-sm bg-slate-50 text-slate-700 focus:outline-none"/>
                                         </div>
                                         <div className="flex flex-col gap-1">
                                             <label className="text-xs text-gray-500">Inventory</label>
