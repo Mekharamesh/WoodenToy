@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { authService } from '../api/authService';
 import { orderService } from '../api/orderService';
+import { adminService } from '../api/adminService';
 import { uploadAPI } from '../api/catalogAdminService';
 import { reviewService } from '../api/reviewService';
 import { walletService } from '../api/walletService';
@@ -50,6 +51,7 @@ const modules = [
   { id: 'addresses', label: 'Addresses', icon: MapPin },
   { id: 'cart', label: 'Cart', icon: ShoppingBag },
   { id: 'wallet', label: 'Wallet', icon: CreditCard },
+  { id: 'refunds', label: 'Refunds', icon: ShieldCheck },
   { id: 'wishlist', label: 'Wishlist', icon: Heart },
   { id: 'saved', label: 'Saved Products', icon: Bookmark },
   { id: 'rewards', label: 'Loyalty Rewards', icon: Star },
@@ -64,6 +66,7 @@ const profileModulePaths = {
   addresses: '/profile/addresses',
   cart: '/profile/cart',
   wallet: '/profile/wallet',
+  refunds: '/profile/refunds',
   wishlist: '/profile/wishlist',
   saved: '/profile/saved-products',
   rewards: '/profile/loyalty-rewards',
@@ -144,6 +147,9 @@ export default function CustomerProfilePage({
   const [cancelLoading, setCancelLoading] = useState(false);
   const [showRefundDestinationModal, setShowRefundDestinationModal] = useState(false);
   const [refundDestinationInput, setRefundDestinationInput] = useState('');
+  const [refundDestinationType, setRefundDestinationType] = useState('phone_upi');
+  const [refunds, setRefunds] = useState([]);
+  const [refundsLoading, setRefundsLoading] = useState(false);
   const [reviewModalProduct, setReviewModalProduct] = useState(null);
   const [productRatings, setProductRatings] = useState({}); // { productId: avgRating }
   const [userReviews, setUserReviews] = useState({});       // { "orderId:orderItemId": userRating | null }
@@ -212,6 +218,21 @@ export default function CustomerProfilePage({
         }
       };
       loadWallet();
+    }
+
+    if (activeModule === 'refunds') {
+      const loadRefunds = async () => {
+        try {
+          setRefundsLoading(true);
+          const data = await adminService.getMyRefunds();
+          setRefunds(Array.isArray(data) ? data : []);
+        } catch (error) {
+          toast.error(error.message || 'Failed to load refunds');
+        } finally {
+          setRefundsLoading(false);
+        }
+      };
+      loadRefunds();
     }
   }, [activeModule]);
 
@@ -464,7 +485,10 @@ export default function CustomerProfilePage({
     if (!cancelOrderTarget) return;
     try {
       setCancelLoading(true);
-      await orderService.cancelOrder(cancelOrderTarget._id, { refundDestination: refundDestinationInput });
+      const destinationValue = refundDestinationType === 'wallet'
+        ? 'Wallet'
+        : refundDestinationInput;
+      await orderService.cancelOrder(cancelOrderTarget._id, { refundDestination: destinationValue });
       toast.success('Cancellation requested, refund pending');
       setOrders(orders.map(o => o._id === cancelOrderTarget._id ? { ...o, status: 'Cancelled' } : o));
       setIsCancelModalOpen(false);
@@ -564,6 +588,61 @@ export default function CustomerProfilePage({
       )}
     </section>
   );
+
+  const renderRefunds = () => {
+    const nonWalletRefunds = refunds.filter((refund) => {
+      const destination = (refund.refundDestination || '').toLowerCase();
+      return destination !== 'wallet' && destination !== 'wallet balance' && destination !== 'wallet_credit' && destination !== 'wallet credit';
+    });
+
+    return (
+      <section className="px-5 py-7 lg:px-7">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-[#141225]">Refunds</h2>
+            <p className="mt-1 text-sm text-[#6D625C]">Track refund requests that were directed to phone/UPI destinations.</p>
+          </div>
+          <span className="rounded-full bg-[#F2E3D1] px-3 py-1 text-xs font-bold text-[#8B5E3C]">{nonWalletRefunds.length} Requests</span>
+        </div>
+
+        {refundsLoading ? (
+          <div className="mt-6 rounded-[14px] border border-[#E9DED3] bg-[#FAF8F5] p-6 text-sm text-[#6D625C]">Loading refund history…</div>
+        ) : nonWalletRefunds.length === 0 ? (
+          <EmptyState icon={ShieldCheck} title="No phone/UPI refunds yet" text="Refunds to phone or UPI will appear here after admin approval." />
+        ) : (
+          <div className="mt-6 space-y-4">
+            {nonWalletRefunds.map((refund) => {
+              const destination = refund.refundDestination || refund.destination || 'Phone/UPI';
+              return (
+                <div key={refund._id || refund.orderId || refund.createdAt} className="rounded-[14px] border border-[#E9DED3] bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[#6D625C]">Order #{refund.orderId ? String(refund.orderId).slice(-8).toUpperCase() : 'Unknown'}</p>
+                      <h3 className="mt-1 text-lg font-bold text-[#141225]">₹{Number(refund.amount || refund.refundAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h3>
+                      <p className="mt-2 text-sm text-[#6D625C]">Destination: <span className="font-semibold text-[#141225]">{destination}</span></p>
+                    </div>
+
+                    <div className="flex flex-col items-start gap-2 sm:items-end">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${refund.status === 'Refund Approved' ? 'bg-emerald-100 text-emerald-700' : refund.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-[#F2E3D1] text-[#8B5E3C]'}`}>
+                        {refund.status || 'Pending'}
+                      </span>
+                      <p className="text-xs text-[#6D625C]">Requested {formatDate(refund.createdAt)}</p>
+                    </div>
+                  </div>
+
+                  {refund.reason && (
+                    <div className="mt-4 rounded-[12px] border border-[#EFE6DD] bg-[#FAF8F5] p-4 text-sm text-[#6D625C]">
+                      <span className="font-semibold text-[#141225]">Reason:</span> {refund.reason}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    );
+  };
 
   const renderOrders = () => (
     <section className="px-5 py-7 lg:px-7">
@@ -1274,8 +1353,15 @@ export default function CustomerProfilePage({
 
   const renderWallet = () => {
     const txns = walletSummary.transactions || [];
-    const credits = txns.filter((entry) => entry.type === 'credit').reduce((sum, entry) => sum + (entry.amount || 0), 0);
-    const debits = txns.filter((entry) => entry.type === 'debit').reduce((sum, entry) => sum + (entry.amount || 0), 0);
+    const refundTransactions = txns.filter((entry) => {
+      if (entry.type !== 'credit') return false;
+      const description = String(entry.description || '').toLowerCase();
+      const isRefundApproval = entry.metadata?.source === 'refund-approval';
+      const isWalletDestination = String(entry.metadata?.destination || 'wallet').toLowerCase() === 'wallet';
+      const seemsLikeRefund = description.includes('refund') || description.includes('credited for order');
+      return isRefundApproval || (isWalletDestination && seemsLikeRefund);
+    });
+    const credits = refundTransactions.reduce((sum, entry) => sum + (entry.amount || 0), 0);
 
     return (
       <section className="px-5 py-7 lg:px-7">
@@ -1286,23 +1372,16 @@ export default function CustomerProfilePage({
               <h2 className="mt-2 text-4xl font-black text-[#141225]">₹{Number(walletSummary.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h2>
               <p className="mt-3 max-w-2xl text-sm text-[#6D625C]">Refunds are credited here automatically after admin approval, and you can use this balance during future purchases.</p>
             </div>
-            <div className="rounded-[16px] border border-white/70 bg-white/70 px-4 py-3 text-sm font-semibold text-[#6D625C]">
-              Status: <span className="text-[#141225]">{walletSummary.status === 'active' ? 'Active' : 'Disabled'}</span>
-            </div>
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
             <div className="rounded-[16px] border border-[#EFE2D1] bg-white/70 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A817C]">Credits</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A817C]">Refund Credits</p>
               <p className="mt-2 text-xl font-black text-[#2E7D32]">₹{credits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
             </div>
             <div className="rounded-[16px] border border-[#EFE2D1] bg-white/70 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A817C]">Debits</p>
-              <p className="mt-2 text-xl font-black text-[#C94A4A]">₹{debits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div className="rounded-[16px] border border-[#EFE2D1] bg-white/70 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A817C]">Transactions</p>
-              <p className="mt-2 text-xl font-black text-[#141225]">{txns.length}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A817C]">Refund Entries</p>
+              <p className="mt-2 text-xl font-black text-[#141225]">{refundTransactions.length}</p>
             </div>
           </div>
         </div>
@@ -1310,36 +1389,36 @@ export default function CustomerProfilePage({
         <div className="mt-6 rounded-[20px] border border-[#E9DED3] bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-bold text-[#141225]">Recent Activity</h3>
-              <p className="mt-1 text-sm text-[#6D625C]">Your latest wallet credits and debits appear here.</p>
+              <h3 className="text-lg font-bold text-[#141225]">Wallet Refund Details</h3>
+              <p className="mt-1 text-sm text-[#6D625C]">Your approved refund credits are displayed here.</p>
             </div>
           </div>
 
           {walletLoading ? (
-            <div className="mt-5 rounded-[14px] border border-[#E9DED3] bg-[#FAF8F5] p-6 text-sm text-[#6D625C]">Loading wallet history…</div>
-          ) : txns.length === 0 ? (
-            <div className="mt-5 rounded-[14px] border border-dashed border-[#E9DED3] bg-[#FAF8F5] p-8 text-center text-sm text-[#6D625C]">No wallet activity yet. Refund approvals will appear here automatically.</div>
+            <div className="mt-5 rounded-[14px] border border-[#E9DED3] bg-[#FAF8F5] p-6 text-sm text-[#6D625C]">Loading refund details…</div>
+          ) : refundTransactions.length === 0 ? (
+            <div className="mt-5 rounded-[14px] border border-dashed border-[#E9DED3] bg-[#FAF8F5] p-8 text-center text-sm text-[#6D625C]">No wallet refunds yet. Approved refund credits will appear here.</div>
           ) : (
             <div className="mt-5 space-y-3">
-              {txns.map((entry) => (
-                <div key={entry._id || entry.referenceId || entry.createdAt} className="flex flex-col gap-3 rounded-[14px] border border-[#E9DED3] p-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${entry.type === 'credit' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {entry.type === 'credit' ? 'Credit' : 'Debit'}
-                      </span>
-                      <span className="text-xs font-semibold text-[#8A817C]">{new Date(entry.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+              {refundTransactions.map((entry) => {
+                const destination = 'Wallet';
+                return (
+                  <div key={entry._id || entry.referenceId || entry.createdAt} className="flex flex-col gap-3 rounded-[14px] border border-[#E9DED3] p-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Refund</span>
+                        <span className="text-xs font-semibold text-[#8A817C]">{new Date(entry.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                      </div>
+                      <p className="mt-2 text-sm font-semibold text-[#141225]">{entry.description || 'Refund credited to wallet'}</p>
+                      <p className="mt-2 text-sm text-[#6D625C]">Destination: <span className="font-semibold text-[#141225]">{destination}</span></p>
                     </div>
-                    <p className="mt-2 text-sm font-semibold text-[#141225]">{entry.description || 'Wallet activity'}</p>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-emerald-600">+₹{Number(entry.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-xs text-[#8A817C]">Balance: ₹{Number(entry.balanceAfter || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-lg font-black ${entry.type === 'credit' ? 'text-emerald-600' : 'text-[#C94A4A]'}`}>
-                      {entry.type === 'credit' ? '+' : '-'}₹{Number(entry.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-xs text-[#8A817C]">Balance: ₹{Number(entry.balanceAfter || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1501,6 +1580,7 @@ export default function CustomerProfilePage({
           {activeModule === 'wallet' && renderWallet()}
           {activeModule === 'password' && renderChangePassword()}
           {activeModule === 'notifications' && renderNotifications()}
+          {activeModule === 'refunds' && renderRefunds()}
         </div>
       </div>
 
@@ -1763,19 +1843,53 @@ export default function CustomerProfilePage({
             {/* Modal Body */}
             <div className="px-5 pb-5">
               <p className="text-sm text-[#4A403B] mb-5">
-                Please provide the Phone Number or UPI ID where you would like to receive your refund of <span className="font-bold text-[#141225]">₹{cancellationPreviewData.estimatedRefund.toFixed(2)}</span>.
+                Select how you'd like to receive your refund of <span className="font-bold text-[#141225]">₹{cancellationPreviewData.estimatedRefund.toFixed(2)}</span>.
               </p>
 
-              <label className="block mb-6">
-                <span className="text-xs font-bold text-[#6D625C] uppercase tracking-wider mb-2 block">Phone Number / UPI ID</span>
-                <input
-                  type="text"
-                  value={refundDestinationInput}
-                  onChange={(e) => setRefundDestinationInput(e.target.value)}
-                  placeholder="e.g. 9080773897 or name@upi"
-                  className="w-full rounded-[10px] border border-[#E6D9CE] px-4 py-3 outline-none focus:border-[#9A6031] bg-white text-[#141225] font-medium"
-                />
-              </label>
+              <div className="space-y-4 mb-6">
+                <label className="flex items-center gap-3 rounded-[12px] border border-[#E6D9CE] bg-white px-4 py-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="refundDestinationType"
+                    value="phone_upi"
+                    checked={refundDestinationType === 'phone_upi'}
+                    onChange={() => setRefundDestinationType('phone_upi')}
+                    className="h-4 w-4 accent-[#9A6031]"
+                  />
+                  <div>
+                    <p className="font-semibold text-[#141225]">Phone Number / UPI</p>
+                    <p className="text-sm text-[#6D625C]">Enter the phone number or UPI ID to receive the refund.</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 rounded-[12px] border border-[#E6D9CE] bg-white px-4 py-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="refundDestinationType"
+                    value="wallet"
+                    checked={refundDestinationType === 'wallet'}
+                    onChange={() => setRefundDestinationType('wallet')}
+                    className="h-4 w-4 accent-[#9A6031]"
+                  />
+                  <div>
+                    <p className="font-semibold text-[#141225]">Wallet</p>
+                    <p className="text-sm text-[#6D625C]">Credit the refund to your wallet after admin approval.</p>
+                  </div>
+                </label>
+              </div>
+
+              {refundDestinationType === 'phone_upi' && (
+                <label className="block mb-6">
+                  <span className="text-xs font-bold text-[#6D625C] uppercase tracking-wider mb-2 block">Phone Number / UPI ID</span>
+                  <input
+                    type="text"
+                    value={refundDestinationInput}
+                    onChange={(e) => setRefundDestinationInput(e.target.value)}
+                    placeholder="e.g. 9080773897 or name@upi"
+                    className="w-full rounded-[10px] border border-[#E6D9CE] px-4 py-3 outline-none focus:border-[#9A6031] bg-white text-[#141225] font-medium"
+                  />
+                </label>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3">

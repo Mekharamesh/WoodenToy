@@ -80,7 +80,10 @@ const approveRefund = async (req, res) => {
     refund.status = 'Refund Approved';
     refund.refundActionStatus = 'Refunded';
 
-    if (refund.orderRef) {
+    const destinationValue = (refund.refundDestination || '').toString().trim().toLowerCase();
+    const isWalletDestination = ['wallet', 'wallet balance', 'wallet_credit', 'wallet credit'].includes(destinationValue);
+
+    if (refund.orderRef && isWalletDestination) {
       const order = await require('../models/Order').findById(refund.orderRef);
       if (order?.user) {
         const user = await User.findById(order.user);
@@ -94,14 +97,26 @@ const approveRefund = async (req, res) => {
               refundId: refund._id.toString(),
               orderId: refund.orderId,
               source: 'refund-approval',
-            },
-          });
-        }
-      }
-    }
+              destination: 'Wallet',
+};
 
-    const updatedRefund = await refund.save();
-    res.json(updatedRefund);
+const getMyRefunds = async (req, res) => {
+  try {
+    const refunds = await Refund.find()
+      .populate({
+        path: 'orderRef',
+        select: 'user status totalPrice createdAt',
+        populate: { path: 'user', select: 'name email' }
+      })
+      .sort({ createdAt: -1 });
+
+    const userRefunds = refunds.filter((refund) => {
+      if (refund.orderRef?.user?._id?.toString() === req.user._id.toString()) return true;
+      if (refund.customerEmail && req.user.email && refund.customerEmail.toLowerCase() === req.user.email.toLowerCase()) return true;
+      return false;
+    });
+
+    res.json(userRefunds);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -111,4 +126,5 @@ module.exports = {
   getRefunds,
   seedRefunds,
   approveRefund,
+  getMyRefunds,
 };

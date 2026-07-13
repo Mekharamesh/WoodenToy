@@ -96,6 +96,13 @@ export const adminService = {
     );
   },
 
+  getMyRefunds: async () => {
+    return withAuthRetry(
+      (config) => axios.get(`${API_URL}/user-refunds`, config),
+      'Failed to load refund history'
+    );
+  },
+
   getCustomers: async () => {
     return withAuthRetry(
       (config) => axios.get(`${API_URL}/auth/customers`, config),

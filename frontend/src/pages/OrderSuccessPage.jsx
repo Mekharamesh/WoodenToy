@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { CheckCircle, ShoppingBag, ArrowRight } from 'lucide-react';
 import { orderService } from '../api/orderService';
 
-export default function OrderSuccessPage({ orderId, onNavigate }) {
+export default function OrderSuccessPage({ orderId: propOrderId, onNavigate }) {
+  const { orderId: routeOrderId } = useParams();
+  const orderId = propOrderId || routeOrderId;
   const [order, setOrder] = useState(null);
   const [countdown, setCountdown] = useState(3);
 
@@ -12,20 +15,19 @@ export default function OrderSuccessPage({ orderId, onNavigate }) {
     }
   }, [orderId]);
 
-  // Auto-redirect to order history after 3 seconds
+  // Auto-redirect to order history after countdown completes
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          onNavigate('/order-history');
-          return 0;
-        }
-        return prev - 1;
-      });
+    if (countdown <= 0) {
+      onNavigate('/order-history');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown((prev) => prev - 1);
     }, 1000);
-    return () => clearInterval(timer);
-  }, [onNavigate]);
+
+    return () => clearTimeout(timer);
+  }, [countdown, onNavigate]);
 
   return (
     <div className="min-h-screen bg-[#F8F4EC] flex flex-col items-center justify-center p-4">
