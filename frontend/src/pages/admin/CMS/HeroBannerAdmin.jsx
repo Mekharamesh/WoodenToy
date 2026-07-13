@@ -6,9 +6,10 @@ const emptyForm = {
   title: '', subtitle: '', description: '', buttonText: 'Shop Now',
   ctaURL: '', animation: 'Fade', sortOrder: 0, status: true,
   startDate: '', endDate: '', bannerImage: '', mobileBanner: '',
+  desktopVideo: '', mobileVideo: '', items: [],
 };
 
-function ImageUploader({ label, value, onChange }) {
+function MediaUploader({ label, value, onChange, accept = "image/*,video/mp4,video/webm" }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef();
 
@@ -29,7 +30,11 @@ function ImageUploader({ label, value, onChange }) {
       <div className="border-2 border-dashed border-[#E6DFD4] rounded-xl p-3 flex flex-col items-center gap-2 relative bg-[#F7F3EE]">
         {value ? (
           <div className="relative w-full">
-            <img src={value} alt="preview" className="w-full h-36 object-cover rounded-lg" />
+            {value && value.match(/\.(mp4|webm)$/i) ? (
+              <video src={value} className="w-full h-36 object-cover rounded-lg" controls />
+            ) : (
+              <img src={value} alt="preview" className="w-full h-36 object-cover rounded-lg" />
+            )}
             <button type="button" onClick={() => onChange('')}
               className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5"><X className="w-3 h-3" /></button>
           </div>
@@ -39,7 +44,7 @@ function ImageUploader({ label, value, onChange }) {
             <p className="text-xs text-brand-medium">{uploading ? 'Uploading...' : 'Click to upload'}</p>
           </div>
         )}
-        <input ref={inputRef} type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFile} />
+        <input ref={inputRef} type="file" accept={accept} className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFile} />
         {!value && (
           <button type="button" onClick={() => inputRef.current.click()}
             className="text-xs text-brand-dark underline">{uploading ? 'Uploading...' : 'Browse file'}</button>
@@ -76,7 +81,9 @@ export default function HeroBannerAdmin() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.bannerImage) return alert('Please upload a desktop banner image.');
+    if (!form.items || form.items.length === 0) {
+      return alert('Please add at least one media item.');
+    }
     setSaving(true);
     try {
       if (editId) await cmsService.updateHeroBanner(editId, form);
@@ -94,6 +101,8 @@ export default function HeroBannerAdmin() {
       animation: item.animation || 'Fade', sortOrder: item.sortOrder || 0,
       status: item.status, startDate: toDateInput(item.startDate), endDate: toDateInput(item.endDate),
       bannerImage: item.bannerImage || '', mobileBanner: item.mobileBanner || '',
+      desktopVideo: item.desktopVideo || '', mobileVideo: item.mobileVideo || '',
+      items: item.items || [],
     });
     setEditId(item._id); setShowForm(true);
   };
@@ -146,13 +155,13 @@ export default function HeroBannerAdmin() {
                   className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">Start Date *</label>
-                <input required type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
+                <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">Start Date</label>
+                <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                   className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">End Date *</label>
-                <input required type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
+                <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">End Date</label>
+                <input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
                   className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
@@ -161,9 +170,54 @@ export default function HeroBannerAdmin() {
               <textarea rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm resize-none" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <ImageUploader label="Desktop Banner Image *" value={form.bannerImage} onChange={sf('bannerImage')} />
-              <ImageUploader label="Mobile Banner Image" value={form.mobileBanner} onChange={sf('mobileBanner')} />
+            <div className="border-t border-[#E6DFD4] pt-5">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-semibold text-brand-dark uppercase tracking-wider block">Media Items (Multi-Image / Multi-Video)</label>
+                <button type="button" onClick={() => setForm(f => ({ ...f, items: [...(f.items || []), { mediaType: 'image', desktopUrl: '', mobileUrl: '' }] }))}
+                  className="text-xs flex items-center gap-1 bg-[#F7F3EE] px-3 py-1.5 rounded-lg font-semibold text-brand-dark hover:bg-[#E6DFD4]">
+                  <Plus className="w-3 h-3" /> Add Item
+                </button>
+              </div>
+              <div className="space-y-4">
+                {(form.items || []).map((item, idx) => (
+                  <div key={idx} className="p-4 border border-[#E6DFD4] rounded-xl bg-white relative">
+                    <button type="button" onClick={() => setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))}
+                      className="absolute top-2 right-2 p-1 bg-red-50 text-red-500 rounded hover:bg-red-100">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="mb-3 w-1/3">
+                      <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">Type</label>
+                      <select value={item.mediaType || 'image'} onChange={e => {
+                        const newItems = [...form.items];
+                        newItems[idx].mediaType = e.target.value;
+                        setForm(f => ({ ...f, items: newItems }));
+                      }} className="w-full border border-[#E6DFD4] rounded-lg px-2 py-1.5 text-sm bg-white">
+                        <option value="image">Image</option>
+                        <option value="video">Video</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <MediaUploader label={`Desktop ${item.mediaType === 'video' ? 'Video' : 'Image'}`} value={item.desktopUrl}
+                        accept={item.mediaType === 'video' ? 'video/mp4,video/webm' : 'image/*'}
+                        onChange={(val) => {
+                          const newItems = [...form.items];
+                          newItems[idx].desktopUrl = val;
+                          setForm(f => ({ ...f, items: newItems }));
+                        }} />
+                      <MediaUploader label={`Mobile ${item.mediaType === 'video' ? 'Video' : 'Image'}`} value={item.mobileUrl}
+                        accept={item.mediaType === 'video' ? 'video/mp4,video/webm' : 'image/*'}
+                        onChange={(val) => {
+                          const newItems = [...form.items];
+                          newItems[idx].mobileUrl = val;
+                          setForm(f => ({ ...f, items: newItems }));
+                        }} />
+                    </div>
+                  </div>
+                ))}
+                {(!form.items || form.items.length === 0) && (
+                  <p className="text-xs text-brand-medium text-center py-4 bg-[#F7F3EE] rounded-xl">No media items added yet. Click 'Add Item' above.</p>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="hero-status" checked={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.checked }))} />

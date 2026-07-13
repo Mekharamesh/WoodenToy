@@ -58,13 +58,19 @@ export default function OrdersPage({ canView = true, canEdit = true, canDelete =
   };
 
   const handleStatusSelectChange = (order, status) => {
-    if (status === 'Shipping') {
+    const normalizedStatus = normalizeOrderStatus(status);
+    if (!canAdvanceToStatus(order.status, normalizedStatus)) {
+      toast.error('Please update the order status step by step.');
+      return;
+    }
+
+    if (normalizedStatus === 'Shipping') {
       setShippingModalOrder(order);
       setShippingTrackingId(order.trackingId || '');
       setShippingTrackingUrl(order.trackingUrl || '');
       setShowShippingModal(true);
     } else {
-      handleStatusChange(order._id, status);
+      handleStatusChange(order._id, normalizedStatus);
     }
   };
 
@@ -171,23 +177,57 @@ export default function OrdersPage({ canView = true, canEdit = true, canDelete =
     return matchId || matchUser || matchShipping;
   });
 
-  // Sequential status list and helper to allow only the immediate next status
-  const STATUS_SEQUENCE = ['Placed', 'Packed', 'Shipping', 'Out for delivery', 'Delivered'];
+  const normalizeOrderStatus = (status) => {
+    if (!status) return 'Pending';
+    const canonical = String(status).trim();
+    const aliases = {
+      'Order Placed': 'Placed',
+      'Order placed': 'Placed',
+      'Out for Delivery': 'Out for delivery',
+      'Out for Delivery ': 'Out for delivery',
+      'Out For Delivery': 'Out for delivery',
+      'out for delivery': 'Out for delivery',
+      'Shipped': 'Shipping',
+      'Shipped ': 'Shipping',
+      'Pending': 'Pending',
+      'Delivered': 'Delivered',
+      'Cancelled': 'Cancelled',
+    };
+    return aliases[canonical] || canonical;
+  };
+
+  const STATUS_SEQUENCE = ['Pending', 'Placed', 'Packed', 'Shipping', 'Out for delivery', 'Delivered'];
 
   const getImmediateNextStatus = (currentStatus) => {
-    if (currentStatus === 'Pending') return 'Placed';
-    const idx = STATUS_SEQUENCE.indexOf(currentStatus);
+    const normalizedCurrentStatus = normalizeOrderStatus(currentStatus);
+    const idx = STATUS_SEQUENCE.indexOf(normalizedCurrentStatus);
     if (idx === -1) return null;
     return STATUS_SEQUENCE[idx + 1] || null;
   };
 
-  // Used in the UI status dropdowns to disable statuses that can't be set
-  const isStatusDisabled = (currentStatus, optionStatus) => {
-    if (currentStatus === optionStatus) return false; // always show current as enabled
-    if (currentStatus === 'Delivered') return true; // final status - lock all changes
-    const next = getImmediateNextStatus(currentStatus);
-    // Allow only the immediate next status; everything else should be disabled
-    return optionStatus !== next;
+  const canAdvanceToStatus = (currentStatus, targetStatus) => {
+    const normalizedCurrentStatus = normalizeOrderStatus(currentStatus);
+    const normalizedTargetStatus = normalizeOrderStatus(targetStatus);
+    if (!normalizedTargetStatus) return false;
+    if (normalizedCurrentStatus === normalizedTargetStatus) return true;
+    if (normalizedTargetStatus === 'Cancelled') {
+      return normalizedCurrentStatus !== 'Delivered' && normalizedCurrentStatus !== 'Cancelled';
+    }
+    if (normalizedCurrentStatus === 'Delivered' || normalizedCurrentStatus === 'Cancelled') return false;
+    const currentIndex = STATUS_SEQUENCE.indexOf(normalizedCurrentStatus);
+    const targetIndex = STATUS_SEQUENCE.indexOf(normalizedTargetStatus);
+    if (currentIndex === -1 || targetIndex === -1) return false;
+    return targetIndex === currentIndex + 1;
+  };
+
+  const getOrderStatusSelectOptions = (currentStatus) => {
+    const normalized = normalizeOrderStatus(currentStatus);
+    const options = [normalized];
+    const nextStatus = getImmediateNextStatus(currentStatus);
+    if (nextStatus && normalized !== 'Cancelled' && normalized !== 'Delivered') {
+      options.push(nextStatus);
+    }
+    return options;
   };
 
   const getStatusColor = (status) => {
@@ -301,18 +341,18 @@ export default function OrdersPage({ canView = true, canEdit = true, canDelete =
                   <td className="px-6 py-4">
                     <div className="inline-flex items-center rounded-full border border-[#E6DFD4] bg-white shadow-sm">
                       <select
-                        className={`appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-gray-900 rounded-full focus:outline-none ${order.status === 'Delivered' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                        value={order.status}
+                        className={`appearance-none bg-transparent px-4 py-2 text-sm font-semibold text-gray-900 rounded-full focus:outline-none ${normalizeOrderStatus(order.status) === 'Delivered' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                        value={normalizeOrderStatus(order.status)}
                         onChange={(e) => {
                           const val = e.target.value;
-                          if (val && val !== order.status) {
+                          if (val) {
                             handleStatusSelectChange(order, val);
                           }
                         }}
-                        disabled={order.status === 'Delivered'}
+                        disabled={normalizeOrderStatus(order.status) === 'Delivered' || normalizeOrderStatus(order.status) === 'Cancelled'}
                       >
-                        {ORDER_STATUS_OPTIONS.map((statusOption) => (
-                          <option key={statusOption} value={statusOption} disabled={isStatusDisabled(order.status, statusOption)}>
+                        {getOrderStatusSelectOptions(order.status).map((statusOption) => (
+                          <option key={statusOption} value={statusOption}>
                             {statusOption}
                           </option>
                         ))}
@@ -641,7 +681,7 @@ export default function OrdersPage({ canView = true, canEdit = true, canDelete =
 
               {/* Order Totals Summary */}
               <div className="mt-4 rounded-3xl bg-[#F8F4EC] p-4 flex flex-wrap gap-6 overflow-x-auto">
-                <div className="min-w-[120px]">
+                <div className="min-w-30">
                   <p className="text-xs uppercase tracking-widest text-gray-500">Subtotal</p>
                   <p className="mt-2 font-semibold text-gray-900">₹{selectedOrder.itemsPrice?.toLocaleString() ?? (selectedOrder.totalPrice - (selectedOrder.shippingPrice||0)).toLocaleString()}</p>
                 </div>
@@ -650,14 +690,14 @@ export default function OrdersPage({ canView = true, canEdit = true, canDelete =
                   selectedOrder.fees
                     .filter(fee => !(selectedOrder.paymentMethod === 'COD' && fee.name.toLowerCase() === 'advance'))
                     .map((fee, idx) => (
-                      <div key={idx} className="min-w-[120px]">
+                      <div key={idx} className="min-w-30">
                         <p className="text-xs uppercase tracking-widest text-gray-500">{fee.name}</p>
                         <p className="mt-2 font-semibold text-gray-900">₹{(fee.amount || 0).toLocaleString()}</p>
                       </div>
                     ))
                 ) : (
                   selectedOrder.shippingPrice > 0 && (
-                    <div className="min-w-[120px]">
+                    <div className="min-w-30">
                       <p className="text-xs uppercase tracking-widest text-gray-500">Weight Charge</p>
                       <p className="mt-2 font-semibold text-gray-900">₹{(selectedOrder.shippingPrice || 0).toLocaleString()}</p>
                     </div>
@@ -666,11 +706,11 @@ export default function OrdersPage({ canView = true, canEdit = true, canDelete =
 
                 {(selectedOrder.codAdvance > 0 || selectedOrder.paymentMethod === 'COD') && (
                   <>
-                    <div className="min-w-[120px]">
+                    <div className="min-w-30">
                       <p className="text-xs uppercase tracking-widest text-gray-500">Advance (Paid)</p>
                       <p className="mt-2 font-semibold text-gray-900">₹{(selectedOrder.codAdvance || 0).toLocaleString()}</p>
                     </div>
-                    <div className="min-w-[120px]">
+                    <div className="min-w-30">
                       <p className="text-xs uppercase tracking-widest text-gray-500">Balance Amount</p>
                       <p className="mt-2 font-semibold text-gray-900">₹{(selectedOrder.balanceAmount || 0).toLocaleString()}</p>
                     </div>
@@ -678,7 +718,7 @@ export default function OrdersPage({ canView = true, canEdit = true, canDelete =
                 )}
                 
                 {selectedOrder.paymentMethod !== 'COD' && (
-                    <div className="min-w-[120px]">
+                    <div className="min-w-30">
                       <p className="text-xs uppercase tracking-widest text-gray-500">Total Paid</p>
                       <p className="mt-2 font-semibold text-gray-900">₹{(
                         (selectedOrder.itemsPrice ?? (selectedOrder.totalPrice - (selectedOrder.shippingPrice||0))) +
@@ -701,15 +741,19 @@ export default function OrdersPage({ canView = true, canEdit = true, canDelete =
                   <h3 className="text-sm font-bold text-gray-900 mb-3">Update Order Status</h3>
                   <select
                     className="w-full px-4 py-2 rounded-xl border border-[#E6DFD4] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 bg-white"
-                    value={editFormData.status}
-                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                    value={normalizeOrderStatus(editFormData.status || selectedOrder?.status)}
+                    onChange={(e) => {
+                      const selectedStatus = e.target.value;
+                      if (!canAdvanceToStatus(selectedOrder?.status || editFormData.status, selectedStatus)) {
+                        toast.error('Please update the order status step by step.');
+                        return;
+                      }
+                      setEditFormData({ ...editFormData, status: selectedStatus });
+                    }}
+                    disabled={normalizeOrderStatus(selectedOrder?.status || editFormData.status) === 'Delivered' || normalizeOrderStatus(selectedOrder?.status || editFormData.status) === 'Cancelled'}
                   >
-                    {ORDER_STATUS_OPTIONS.map((statusOption) => (
-                      <option 
-                        key={statusOption} 
-                        value={statusOption}
-                        disabled={isStatusDisabled(selectedOrder.status, statusOption)}
-                      >
+                    {getOrderStatusSelectOptions(selectedOrder?.status || editFormData.status).map((statusOption) => (
+                      <option key={statusOption} value={statusOption}>
                         {statusOption}
                       </option>
                     ))}

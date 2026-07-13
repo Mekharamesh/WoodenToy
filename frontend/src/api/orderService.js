@@ -7,7 +7,7 @@ export const ORDER_STATUS_OPTIONS = [
   'Packed',
   'Shipping',
   'Out for delivery',
-  'Delivered',
+  'Delivered'
 ];
 
 const getAuthHeaders = () => {

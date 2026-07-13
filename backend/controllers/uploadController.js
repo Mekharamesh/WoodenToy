@@ -20,31 +20,31 @@ const storage = multer.diskStorage({
     },
 });
 
-// File filter — only images
+// File filter — images and videos
 const fileFilter = (req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'];
     if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Only image files are allowed (jpg, png, webp, gif)'), false);
+        cb(new Error('Only image and video files are allowed (jpg, png, webp, gif, mp4, webm)'), false);
     }
 };
 
 const upload = multer({
     storage,
     fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB per file
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
 });
 
-// @desc    Upload one or more product images
+// @desc    Upload one or more media files
 // @route   POST /api/catalog/upload
 // @access  Private/Admin
 const uploadImages = [
-    upload.array('images', 10), // max 10 images
+    upload.array('images', 10), // max 10 files
     (req, res) => {
         try {
             if (!req.files || req.files.length === 0) {
-                return res.status(400).json({ success: false, message: 'No images uploaded' });
+                return res.status(400).json({ success: false, message: 'No files uploaded' });
             }
 
             const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -52,7 +52,7 @@ const uploadImages = [
 
             res.status(201).json({
                 success: true,
-                message: `${req.files.length} image(s) uploaded successfully`,
+                message: `${req.files.length} file(s) uploaded successfully`,
                 data: { urls },
             });
         } catch (error) {

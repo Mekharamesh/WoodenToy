@@ -2023,12 +2023,16 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
               editingStaff={editingStaff}
               onBack={() => setStaffSubTab('list')}
               onSuccess={(staff) => { setRoleAssignStaff(staff); setStaffSubTab('role-assign'); }}
+              currentUserPermissions={userPermissions || []}
+              isAdmin={isAdmin}
             />
           )}
           {canAccessStaff && currentTab === 'staff' && staffSubTab === 'role-assign' && (
             <RoleAssignPage
               targetStaff={roleAssignStaff}
               onBack={() => setStaffSubTab('list')}
+              currentUserPermissions={userPermissions || []}
+              isAdmin={isAdmin}
             />
           )}
 

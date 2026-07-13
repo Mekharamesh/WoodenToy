@@ -5,6 +5,19 @@ import { ADMIN_MODULES } from '../../config/adminModules';
 
 const ACTIONS = ['view', 'create', 'edit', 'delete'];
 
+const canToggleAction = (moduleKey, action, currentUserPermissions = [], isAdmin = false) => {
+  if (isAdmin) return true;
+  const permission = (currentUserPermissions || []).find((entry) => entry.module === moduleKey);
+  if (!permission) return false;
+  if (action === 'view') return !!(permission.view || permission.create || permission.edit || permission.delete);
+  return !!permission[action];
+};
+
+const getVisibleModules = (modules = [], currentUserPermissions = [], isAdmin = false) => {
+  if (isAdmin) return modules;
+  return (modules || []).filter((mod) => ACTIONS.some((action) => canToggleAction(mod.key || mod, action, currentUserPermissions, isAdmin)));
+};
+
 const initPerms = (modules) =>
   (modules || []).reduce((acc, mod) => {
     const key = mod.key || mod;
@@ -25,58 +38,66 @@ const permsToMap = (permissionsArr, modules) => {
 const mapToPerms = (map) =>
   Object.entries(map).map(([module, actions]) => ({ module, ...actions }));
 
-const PermissionTable = ({ modules, permissions, onToggle, onToggleRow, onToggleColumn, onSelectAll, onClearAll }) => (
-  <div className="overflow-x-auto">
-    <div className="flex justify-end gap-2 mb-3">
-      <button onClick={onSelectAll} type="button" className="px-3 py-1.5 text-xs font-semibold border border-[#E6DFD4] rounded-lg hover:bg-[#F8F4EC] text-gray-600 transition-colors">Select All</button>
-      <button onClick={onClearAll} type="button" className="px-3 py-1.5 text-xs font-semibold border border-[#E6DFD4] rounded-lg hover:bg-[#F8F4EC] text-gray-600 transition-colors">Clear All</button>
-    </div>
-    <table className="w-full text-sm border border-[#E6DFD4] rounded-xl overflow-hidden">
-      <thead className="bg-[#F8F4EC]">
-        <tr>
-          <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-gray-500 w-48">Module</th>
-          {ACTIONS.map(action => (
-            <th key={action} className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-gray-500">
-              <button onClick={() => onToggleColumn(action)} type="button" className="hover:text-[#8B5E3C] transition-colors capitalize">{action}</button>
-            </th>
-          ))}
-          <th className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-gray-500">All</th>
-        </tr>
-      </thead>
-      <tbody>
-        {modules.map((mod, idx) => {
-          const perm = permissions[mod.key] || {};
-          const allOn = ACTIONS.every(a => perm[a]);
-          return (
-            <tr key={mod.key} className={`border-b border-[#F0EAE2] hover:bg-[#FDF9F5] transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]'}`}>
-              <td className="px-5 py-3.5 font-semibold text-gray-700">
-                <span className="mr-2">{mod.icon}</span>{mod.label}
-              </td>
-              {ACTIONS.map(action => (
-                <td key={action} className="px-5 py-3.5 text-center">
+const PermissionTable = ({ modules, permissions, onToggle, onToggleRow, onToggleColumn, onSelectAll, onClearAll, canToggleAction: canToggleActionForModule = () => true }) => {
+  const visibleModules = (modules || []).filter((mod) => ACTIONS.some((action) => canToggleActionForModule(mod.key || mod, action)));
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex justify-end gap-2 mb-3">
+        <button onClick={onSelectAll} type="button" className="px-3 py-1.5 text-xs font-semibold border border-[#E6DFD4] rounded-lg hover:bg-[#F8F4EC] text-gray-600 transition-colors">Select All</button>
+        <button onClick={onClearAll} type="button" className="px-3 py-1.5 text-xs font-semibold border border-[#E6DFD4] rounded-lg hover:bg-[#F8F4EC] text-gray-600 transition-colors">Clear All</button>
+      </div>
+      <table className="w-full text-sm border border-[#E6DFD4] rounded-xl overflow-hidden">
+        <thead className="bg-[#F8F4EC]">
+          <tr>
+            <th className="px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-gray-500 w-48">Module</th>
+            {ACTIONS.map(action => (
+              <th key={action} className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-gray-500">
+                <button onClick={() => onToggleColumn(action)} type="button" className="hover:text-[#8B5E3C] transition-colors capitalize">{action}</button>
+              </th>
+            ))}
+            <th className="px-5 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-gray-500">All</th>
+          </tr>
+        </thead>
+        <tbody>
+          {visibleModules.map((mod, idx) => {
+            const moduleKey = mod.key || mod;
+            const perm = permissions[moduleKey] || {};
+            const allOn = ACTIONS.every(a => perm[a]);
+            const canToggleRowForModule = ACTIONS.some((action) => canToggleActionForModule(moduleKey, action));
+            return (
+              <tr key={moduleKey} className={`border-b border-[#F0EAE2] hover:bg-[#FDF9F5] transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]'}`}>
+                <td className="px-5 py-3.5 font-semibold text-gray-700">
+                  <span className="mr-2">{mod.icon}</span>{mod.label}
+                </td>
+                {ACTIONS.map(action => (
+                  <td key={action} className="px-5 py-3.5 text-center">
+                    <input
+                      type="checkbox"
+                      checked={!!perm[action]}
+                      disabled={!canToggleActionForModule(moduleKey, action)}
+                      onChange={() => onToggle(moduleKey, action)}
+                      className="w-4 h-4 accent-[#8B5E3C] rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </td>
+                ))}
+                <td className="px-5 py-3.5 text-center">
                   <input
                     type="checkbox"
-                    checked={!!perm[action]}
-                    onChange={() => onToggle(mod.key, action)}
-                    className="w-4 h-4 accent-[#8B5E3C] rounded cursor-pointer"
+                    checked={allOn}
+                    disabled={!canToggleRowForModule}
+                    onChange={() => onToggleRow(moduleKey)}
+                    className="w-4 h-4 accent-[#8B5E3C] rounded cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </td>
-              ))}
-              <td className="px-5 py-3.5 text-center">
-                <input
-                  type="checkbox"
-                  checked={allOn}
-                  onChange={() => onToggleRow(mod.key)}
-                  className="w-4 h-4 accent-[#8B5E3C] rounded cursor-pointer"
-                />
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-);
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 const InputField = ({ label, error, required, children }) => (
   <div>
@@ -93,7 +114,7 @@ const inputClass = (hasError) =>
     hasError ? 'border-red-400 focus:ring-red-200' : 'border-[#E6DFD4] focus:ring-[#8B5E3C]/30 focus:border-[#8B5E3C]'
   }`;
 
-export default function AddStaffPage({ onBack, onSuccess, editingStaff }) {
+export default function AddStaffPage({ onBack, onSuccess, editingStaff, currentUserPermissions = [], isAdmin = false }) {
   const isEdit = !!editingStaff;
 
   const [form, setForm] = useState({
@@ -108,6 +129,7 @@ export default function AddStaffPage({ onBack, onSuccess, editingStaff }) {
   const [permissionModules, setPermissionModules] = useState(ADMIN_MODULES);
   const [staffPerms, setStaffPerms] = useState(initPerms(ADMIN_MODULES));
   const [loadingPerms, setLoadingPerms] = useState(false);
+  const visiblePermissionModules = getVisibleModules(permissionModules, currentUserPermissions, isAdmin);
 
   useEffect(() => {
     roleAPI.getAll().then(roles => setDynamicRoles(roles)).catch(() => setDynamicRoles([]));
@@ -162,19 +184,21 @@ export default function AddStaffPage({ onBack, onSuccess, editingStaff }) {
     setStaffPerms(prev => ({ ...prev, [moduleKey]: { view: !allOn, create: !allOn, edit: !allOn, delete: !allOn } }));
   };
   const toggleStaffColumn = (action) => {
-    const allOn = permissionModules.every(m => staffPerms[m.key][action]);
+    const allowedModules = visiblePermissionModules.filter((m) => canToggleAction(m.key, action, currentUserPermissions, isAdmin));
+    if (allowedModules.length === 0) return;
+    const allOn = allowedModules.every(m => staffPerms[m.key][action]);
     setStaffPerms(prev => {
       const next = { ...prev };
-      permissionModules.forEach(m => { next[m.key] = { ...next[m.key], [action]: !allOn }; });
+      allowedModules.forEach(m => { next[m.key] = { ...next[m.key], [action]: !allOn }; });
       return next;
     });
   };
   const staffSelectAll = () => {
     const map = {};
-    permissionModules.forEach(m => { map[m.key] = { view: true, create: true, edit: true, delete: true }; });
-    setStaffPerms(map);
+    visiblePermissionModules.forEach(m => { map[m.key] = { view: true, create: true, edit: true, delete: true }; });
+    setStaffPerms(prev => ({ ...prev, ...map }));
   };
-  const staffClearAll = () => setStaffPerms(initPerms(permissionModules));
+  const staffClearAll = () => setStaffPerms(prev => ({ ...prev, ...Object.fromEntries(visiblePermissionModules.map(m => [m.key, { view: false, create: false, edit: false, delete: false }])) }));
 
   const validate = () => {
     const e = {};
@@ -313,13 +337,14 @@ export default function AddStaffPage({ onBack, onSuccess, editingStaff }) {
                 <div className="text-center py-6 text-gray-400">Loading permissions...</div>
               ) : (
                 <PermissionTable
-                  modules={permissionModules}
+                  modules={visiblePermissionModules}
                   permissions={staffPerms}
                   onToggle={toggleStaffPerm}
                   onToggleRow={toggleStaffRow}
                   onToggleColumn={toggleStaffColumn}
                   onSelectAll={staffSelectAll}
                   onClearAll={staffClearAll}
+                  canToggleAction={(moduleKey, action) => canToggleAction(moduleKey, action, currentUserPermissions, isAdmin)}
                 />
               )}
             </div>

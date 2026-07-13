@@ -220,20 +220,15 @@ const updateOrderStatus = async (req, res) => {
     const { status } = req.body;
     const validStatuses = Order.VALID_STATUSES || [
       'Placed',
+      'Packed',
       'Shipping',
       'Out for delivery',
       'Delivered',
       'Cancelled',
       'Pending',
-      'Packed',
-      'Shipped',
     ];
 
     if (!validStatuses.includes(status)) {
-      console.log('--- INVALID STATUS TRIGGERED ---');
-      console.log('Received status:', `'${status}'`, 'Type:', typeof status);
-      console.log('Valid statuses:', validStatuses);
-      console.log('Order.VALID_STATUSES:', Order.VALID_STATUSES);
       return res.status(400).json({ message: 'Invalid order status' });
     }
 
@@ -247,9 +242,8 @@ const updateOrderStatus = async (req, res) => {
       'Placed': 1,
       'Packed': 2,
       'Shipping': 3,
-      'Shipped': 4,
-      'Out for delivery': 5,
-      'Delivered': 6,
+      'Out for delivery': 4,
+      'Delivered': 5,
       'Cancelled': 99
     };
 
@@ -258,6 +252,14 @@ const updateOrderStatus = async (req, res) => {
 
     if (status === 'Cancelled' && order.status === 'Delivered') {
       return res.status(400).json({ message: 'Cannot cancel a delivered order' });
+    }
+
+    if (status === 'Cancelled' && currentWeight === 99) {
+      return res.status(400).json({ message: 'Order is already cancelled' });
+    }
+
+    if (status !== 'Cancelled' && newWeight > currentWeight + 1) {
+      return res.status(400).json({ message: 'Please update order status step by step' });
     }
 
     if (status !== 'Cancelled' && newWeight < currentWeight) {
@@ -402,18 +404,26 @@ const updateOrderDetails = async (req, res) => {
 
     if (status && status !== order.status) {
       const STATUS_WEIGHTS = {
-        'Pending': 0, 'Placed': 1, 'Packed': 2, 'Shipping': 3,
-        'Shipped': 4, 'Out for delivery': 5, 'Delivered': 6, 'Cancelled': 99
+        'Pending': 0,
+        'Placed': 1,
+        'Packed': 2,
+        'Shipping': 3,
+        'Out for delivery': 4,
+        'Delivered': 5,
+        'Cancelled': 99
       };
 
       const currentWeight = STATUS_WEIGHTS[order.status] || 0;
       const newWeight = STATUS_WEIGHTS[status] || 0;
 
-      if (status !== 'Cancelled' && newWeight < currentWeight) {
+      if (status === 'Cancelled') {
+        if (order.status === 'Delivered' || order.status === 'Cancelled') {
+          return res.status(400).json({ message: 'Cannot cancel a delivered order' });
+        }
+      } else if (newWeight < currentWeight) {
         return res.status(400).json({ message: 'Cannot move order status backwards' });
-      }
-      if (order.status === 'Delivered' && status === 'Cancelled') {
-        return res.status(400).json({ message: 'Cannot cancel a delivered order' });
+      } else if (newWeight > currentWeight + 1) {
+        return res.status(400).json({ message: 'Please update order status step by step' });
       }
 
       order.status = status;

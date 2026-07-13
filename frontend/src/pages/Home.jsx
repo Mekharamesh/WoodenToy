@@ -507,13 +507,38 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
       if (heroRes.status === 'fulfilled') {
         const active = (heroRes.value.data || []).filter(b => {
           if (!b.status) return false;
-          const start = new Date(b.startDate);
-          start.setHours(0, 0, 0, 0);
-          const end = new Date(b.endDate);
-          end.setHours(23, 59, 59, 999);
-          return start <= now && end >= now;
+          if (b.startDate && b.endDate) {
+            const start = new Date(b.startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(b.endDate);
+            end.setHours(23, 59, 59, 999);
+            if (start > now || end < now) return false;
+          }
+          return true;
         });
-        setHeroSlides(active.length > 0 ? active : FALLBACK_HERO);
+
+        // Flatten banners to support multiple images/videos per banner
+        const flattened = active.flatMap(banner => {
+          const mediaSlides = [];
+          
+          // Legacy check
+          if (banner.desktopVideo || banner.mobileVideo) {
+            mediaSlides.push({ ...banner, itemType: 'video', desktopUrl: banner.desktopVideo, mobileUrl: banner.mobileVideo });
+          } else if (banner.bannerImage || banner.mobileBanner) {
+            mediaSlides.push({ ...banner, itemType: 'image', desktopUrl: banner.bannerImage, mobileUrl: banner.mobileBanner });
+          }
+
+          // New dynamic items
+          if (banner.items && banner.items.length > 0) {
+            banner.items.forEach(item => {
+              mediaSlides.push({ ...banner, itemType: item.mediaType || 'image', desktopUrl: item.desktopUrl, mobileUrl: item.mobileUrl });
+            });
+          }
+
+          return mediaSlides.length > 0 ? mediaSlides : [banner];
+        });
+
+        setHeroSlides(flattened.length > 0 ? flattened : FALLBACK_HERO);
       } else {
         setHeroSlides(FALLBACK_HERO);
       }
@@ -560,9 +585,51 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
           {heroSlides.map((slide, i) => (
             <SwiperSlide key={i}>
               <div className="relative w-full h-full">
-                <img src={slide.bannerImage || '/wood-placeholder.png'} alt={slide.title}
-                  className="w-full h-full object-cover object-center brightness-90"
-                  onError={e => { e.target.src = '/wood-placeholder.png'; }} />
+                {(() => {
+                  const isDesktopVid = slide.desktopUrl && slide.desktopUrl.match(/\.(mp4|webm)$/i);
+                  const isMobileVid = slide.mobileUrl && slide.mobileUrl.match(/\.(mp4|webm)$/i);
+                  
+                  return (
+                    <>
+                      {/* Desktop Render */}
+                      {slide.desktopUrl && (
+                        isDesktopVid ? (
+                          <video 
+                            src={slide.desktopUrl} 
+                            className={`w-full h-full object-cover object-center brightness-90 ${slide.mobileUrl ? 'hidden md:block' : ''}`}
+                            autoPlay muted loop playsInline
+                          />
+                        ) : (
+                          <img src={slide.desktopUrl} alt={slide.title}
+                            className={`w-full h-full object-cover object-center brightness-90 ${slide.mobileUrl ? 'hidden md:block' : ''}`}
+                            onError={e => { e.target.src = '/wood-placeholder.png'; }} />
+                        )
+                      )}
+                      
+                      {/* Mobile Render */}
+                      {slide.mobileUrl && (
+                        isMobileVid ? (
+                          <video 
+                            src={slide.mobileUrl} 
+                            className={`w-full h-full object-cover object-center brightness-90 ${slide.desktopUrl ? 'block md:hidden' : ''}`}
+                            autoPlay muted loop playsInline
+                          />
+                        ) : (
+                          <img src={slide.mobileUrl} alt={slide.title}
+                            className={`w-full h-full object-cover object-center brightness-90 ${slide.desktopUrl ? 'block md:hidden' : ''}`}
+                            onError={e => { e.target.src = '/wood-placeholder.png'; }} />
+                        )
+                      )}
+
+                      {/* Fallback Render */}
+                      {(!slide.desktopUrl && !slide.mobileUrl) && (
+                        <img src={slide.bannerImage || '/wood-placeholder.png'} alt={slide.title}
+                          className="w-full h-full object-cover object-center brightness-90"
+                          onError={e => { e.target.src = '/wood-placeholder.png'; }} />
+                      )}
+                    </>
+                  );
+                })()}
                 <div className="absolute inset-0 bg-linear-to-r from-black/60 via-black/25 to-transparent" />
                 <div className="absolute inset-0 flex items-center">
                   <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 w-full">

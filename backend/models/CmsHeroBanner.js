@@ -13,11 +13,21 @@ const heroBannerSchema = new mongoose.Schema({
   },
   bannerImage: {
     type: String, // URL of the desktop image
-    required: true,
   },
   mobileBanner: {
     type: String, // URL of the mobile image
   },
+  desktopVideo: {
+    type: String, // URL of the desktop video
+  },
+  mobileVideo: {
+    type: String, // URL of the mobile video
+  },
+  items: [{
+    mediaType: { type: String, enum: ['image', 'video'], default: 'image' },
+    desktopUrl: { type: String },
+    mobileUrl: { type: String }
+  }],
   ctaImage: {
     type: String,
   },
@@ -34,11 +44,9 @@ const heroBannerSchema = new mongoose.Schema({
   },
   startDate: {
     type: Date,
-    required: true,
   },
   endDate: {
     type: Date,
-    required: true,
   },
   status: {
     type: Boolean,
