@@ -367,7 +367,7 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/profile"
+          path="/profile/*"
           element={
             <ProtectedRoute user={user}>
               <PageLayout>

@@ -93,6 +93,10 @@ const formatDate = (value, fallback = 'Not added') => {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const isWalletRefundDestination = (destination) => {
+  return String(destination || '').trim().toUpperCase() === 'WALLET';
+};
+
 const emptyAddress = {
   label: 'Home',
   fullName: '',
@@ -350,7 +354,7 @@ export default function CustomerProfilePage({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-bold text-[#141225]">Order {refund.orderId}</p>
-                  <p className="mt-1 text-sm text-[#6D625C]">Amount: ₹{(refund.amount || 0).toFixed(2)} • Method: {refund.refundDestination === 'WALLET' ? 'Wallet' : (refund.refundDestination || 'UPI/Phone')}</p>
+                  <p className="mt-1 text-sm text-[#6D625C]">Amount: ₹{(refund.amount || 0).toFixed(2)} • Method: {isWalletRefundDestination(refund.refundDestination) ? 'Wallet' : 'UPI / Phone'}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold">{refund.status}</p>
@@ -539,6 +543,50 @@ export default function CustomerProfilePage({
       setRefundsLoading(false);
     }
   };
+
+  // Background poll to detect refund approvals and redirect user accordingly
+  useEffect(() => {
+    if (!user) return;
+    let mounted = true;
+    const APPROVED_STATUSES = ['Refund Approved', 'Completed', 'Approved Refund'];
+    const seenApproved = new Set();
+    let intervalId = null;
+
+    const poll = async () => {
+      try {
+        const latest = await refundService.getMyRefunds();
+        if (!mounted) return;
+        for (const r of latest || []) {
+          if (APPROVED_STATUSES.includes(r.status) && !seenApproved.has(r._id)) {
+            seenApproved.add(r._id);
+            if (isWalletRefundDestination(r.refundDestination)) {
+              toast.success('Your refund was approved and credited to your wallet');
+              navigate('/profile/wallet');
+            } else {
+              toast.success('Your refund was approved');
+              navigate('/profile/refunds');
+            }
+          }
+        }
+      } catch (e) {
+        // ignore polling errors
+      }
+    };
+
+    (async () => {
+      try {
+        const initial = await refundService.getMyRefunds();
+        (initial || []).forEach(r => {
+          if (APPROVED_STATUSES.includes(r.status)) seenApproved.add(r._id);
+        });
+      } catch (e) {}
+      // immediate poll then periodic
+      await poll();
+      intervalId = setInterval(poll, 10000);
+    })();
+
+    return () => { mounted = false; if (intervalId) clearInterval(intervalId); };
+  }, [user, navigate]);
 
   const confirmCancelOrder = () => {
     if (cancellationPreviewData?.estimatedRefund > 0) {
@@ -1348,19 +1396,12 @@ export default function CustomerProfilePage({
               <h2 className="mt-2 text-4xl font-black text-[#141225]">₹{Number(walletSummary.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h2>
               <p className="mt-3 max-w-2xl text-sm text-[#6D625C]">Refunds are credited here automatically after admin approval, and you can use this balance during future purchases.</p>
             </div>
-            <div className="rounded-[16px] border border-white/70 bg-white/70 px-4 py-3 text-sm font-semibold text-[#6D625C]">
-              Status: <span className="text-[#141225]">{walletSummary.status === 'active' ? 'Active' : 'Disabled'}</span>
-            </div>
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
             <div className="rounded-[16px] border border-[#EFE2D1] bg-white/70 p-4">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A817C]">Credits</p>
               <p className="mt-2 text-xl font-black text-[#2E7D32]">₹{credits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div className="rounded-[16px] border border-[#EFE2D1] bg-white/70 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A817C]">Debits</p>
-              <p className="mt-2 text-xl font-black text-[#C94A4A]">₹{debits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
             </div>
             <div className="rounded-[16px] border border-[#EFE2D1] bg-white/70 p-4">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A817C]">Transactions</p>
