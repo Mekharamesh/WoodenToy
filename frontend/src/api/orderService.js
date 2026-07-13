@@ -8,7 +8,6 @@ export const ORDER_STATUS_OPTIONS = [
   'Shipping',
   'Out for delivery',
   'Delivered',
-  'Cancelled',
 ];
 
 const getAuthHeaders = () => {
