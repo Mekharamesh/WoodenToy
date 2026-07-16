@@ -136,5 +136,7 @@ couponSchema.pre('save', function () {
 });
 
 couponSchema.index({ offerType: 1 });
+couponSchema.index({ status: 1, visible: 1, deleted: 1, startDate: 1, endDate: 1 });
+couponSchema.index({ category: 1, subCategory: 1, product: 1 });
 
 module.exports = mongoose.model('Coupon', couponSchema);

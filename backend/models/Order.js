@@ -143,6 +143,12 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
+orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ isPaid: 1, createdAt: -1 });
+orderSchema.index({ isDelivered: 1, createdAt: -1 });
+orderSchema.index({ coupon: 1, couponConsumed: 1 });
+
 const OrderModel = mongoose.model('Order', orderSchema);
 OrderModel.VALID_STATUSES = ORDER_STATUSES;
 module.exports = OrderModel;

@@ -24,6 +24,9 @@ const Order = require('./models/Order');
 const Review = require('./models/Review');
 const Module = require('./models/Module');
 const StaffModel = require('./models/Staff');
+const logger = require('./utils/logger');
+const { requestId, securityHeaders, rateLimiter } = require('./middleware/securityMiddleware');
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 // Load env vars from the backend folder explicitly so production hosts
 // can still resolve the .env file even when the process starts elsewhere.
@@ -87,6 +90,9 @@ const app = express();
 app.set('trust proxy', true);
     
 // Middleware
+app.use(requestId);
+app.use(securityHeaders);
+app.use(rateLimiter());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // ✅ CORS — Add your frontend URLs here
@@ -145,11 +151,14 @@ app.use('/api/coupons', couponRoutes);
 app.use('/api/cms', cmsRoutes);
 
 app.get('/', (req, res) => {
-    res.send('API is running...');
+    res.json({ success: true, message: 'API is running...' });
 });
+
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    logger.info('Server running', { port: PORT });
 });

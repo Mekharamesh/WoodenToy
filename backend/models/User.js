@@ -81,4 +81,8 @@ userSchema.methods.matchPassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ resetPasswordToken: 1 }, { sparse: true });
+userSchema.index({ resetPasswordExpire: 1 }, { sparse: true });
+
 module.exports = mongoose.model('User', userSchema);

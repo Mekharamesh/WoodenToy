@@ -5,7 +5,6 @@
  */
 
 const https = require('https');
-const axios = require('axios');
 const { Cashfree, CFEnvironment } = require('cashfree-pg');
 
 const getCashfreeApiVersion = () => process.env.CASHFREE_API_VERSION || '2023-08-01';
@@ -33,6 +32,7 @@ const allowInsecureTls = () =>
 const createAxiosInstance = () => {
   if (!allowInsecureTls()) return undefined;
 
+  const axios = require('axios');
   return axios.create({
     httpsAgent: new https.Agent({ rejectUnauthorized: false }),
   });

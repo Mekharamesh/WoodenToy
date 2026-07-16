@@ -89,9 +89,6 @@ exports.updateHeroBanner = asyncHandler(async (req, res) => {
   const body = { ...req.body };
   if (body.position === '' || body.position === undefined || body.position === null) body.position = null;
   else body.position = Number(body.position);
-  
-  require('fs').writeFileSync('debug_hero.txt', JSON.stringify({ body, originalPosition: req.body.position }));
-
   const banner = await CmsHeroBanner.findByIdAndUpdate(
     req.params.id,
     { $set: body },

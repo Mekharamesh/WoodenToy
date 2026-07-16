@@ -20,7 +20,7 @@ router.put('/navbar/:id', protect, authorize('admin'), cmsController.updateNavba
 router.delete('/navbar/:id', protect, authorize('admin'), cmsController.deleteNavbar);
 
 router.post('/hero', protect, authorize('admin'), cmsController.createHeroBanner);
-router.put('/hero/:id', cmsController.updateHeroBanner);
+router.put('/hero/:id', protect, authorize('admin'), cmsController.updateHeroBanner);
 router.delete('/hero/:id', protect, authorize('admin'), cmsController.deleteHeroBanner);
 
 router.post('/third-banner', protect, authorize('admin'), cmsController.createThirdBanner);

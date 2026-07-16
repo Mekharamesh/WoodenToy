@@ -51,19 +51,16 @@ const protect = async (req, res, next) => {
 };
 
 const authorize = (...roles) => {
+    const allowedRoles = roles.map((role) => String(role).toLowerCase());
+
     return (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({ message: 'Not authorized, no user context' });
         }
 
-        // Admin users always pass
-        if (roles.includes(req.user.role?.toLowerCase())) {
-            return next();
-        }
+        const userRole = String(req.user.role || '').toLowerCase();
 
-        // Staff users with isStaff flag are allowed through admin routes
-        // (their access is controlled by permissions on the frontend)
-        if (req.user.isStaff) {
+        if (allowedRoles.includes(userRole)) {
             return next();
         }
 

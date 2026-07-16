@@ -57,5 +57,8 @@ const reviewSchema = new mongoose.Schema({
 
 // Allow one review per delivered order item, even if the same product is purchased again later
 reviewSchema.index({ user: 1, orderId: 1, orderItemId: 1 }, { unique: true, sparse: true });
+reviewSchema.index({ product: 1, status: 1, createdAt: -1 });
+reviewSchema.index({ status: 1, createdAt: -1 });
+reviewSchema.index({ rating: 1, status: 1 });
 
 module.exports = mongoose.model('Review', reviewSchema);

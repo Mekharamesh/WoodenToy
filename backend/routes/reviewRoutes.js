@@ -10,6 +10,12 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 
 // Public: read reviews + stats + gallery
 router.get('/featured',           getFeaturedReviews);
+
+// Admin routes must be registered before dynamic product/review routes.
+router.get('/admin/all',    protect, authorize('admin', 'manager', 'staff'), adminGetAllReviews);
+router.get('/admin/stats',  protect, authorize('admin', 'manager', 'staff'), adminGetGlobalStats);
+router.patch('/admin/:reviewId/status', protect, authorize('admin', 'manager'), adminUpdateReviewStatus);
+
 router.get('/:productId',          getReviews);
 router.get('/:productId/stats',    getStats);
 router.get('/:productId/gallery',  getGallery);
@@ -32,10 +38,5 @@ router.put('/:reviewId/reply', protect, authorize('admin', 'manager'), replyToRe
 
 // Owner / Admin: delete
 router.delete('/:reviewId', protect, deleteReview);
-
-// Admin: all reviews across products
-router.get('/admin/all',    protect, authorize('admin', 'manager', 'staff'), adminGetAllReviews);
-router.get('/admin/stats',  protect, authorize('admin', 'manager', 'staff'), adminGetGlobalStats);
-router.patch('/admin/:reviewId/status', protect, authorize('admin', 'manager'), adminUpdateReviewStatus);
 
 module.exports = router;

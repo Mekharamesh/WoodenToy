@@ -45,10 +45,11 @@ const seedRefunds = async (req, res) => {
     // Pad with 15 more generic refunds to reach the 20 total refunds seen in the UI
     for (let i = 1; i <= 15; i++) {
       const isApproved = Math.random() > 0.3;
+      const amount = Math.floor(Math.random() * 3000) + 500;
       sampleRefunds.push({
         orderId: `#WT100${16 - i < 10 ? '0' + (16 - i) : 16 - i}`,
         customerName: `Customer ${i}`,
-        amount: Math.floor(Math.random() * 3000) + 500,
+        amount,
         paymentType: Math.random() > 0.4 ? 'Cashfree' : 'COD',
         slaTimeline: '-',
         status: isApproved ? 'Completed' : 'Pending',
