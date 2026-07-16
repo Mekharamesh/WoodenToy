@@ -95,6 +95,7 @@ const allowedOrigins = [
     'http://localhost:3000',          // Alternative local dev
     'https://darkorange-louse-498272.hostingersite.com',
     'https://linen-finch-820225.hostingersite.com',
+    'http://localhost:4173',
     process.env.FRONTEND_URL,        // Production domain (set in .env)
 ].filter(Boolean); // remove undefined entries
 
