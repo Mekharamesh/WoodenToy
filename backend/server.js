@@ -19,7 +19,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const reviewRoutes  = require('./routes/reviewRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const cmsRoutes = require('./routes/cmsRoutes');
-const seedAttributes = require('./seedAttributes');
+// const seedAttributes = require('./seedAttributes');
 const Order = require('./models/Order');
 const Review = require('./models/Review');
 const Module = require('./models/Module');
@@ -36,55 +36,55 @@ dotenv.config({ path: path.resolve(__dirname, '.env') });
 connectDB();
 
 // Seed default attributes once DB is open
-mongoose.connection.once('open', async () => {
-    seedAttributes();
-    try {
-        await Review.collection.dropIndex('product_1_user_1');
-        console.log('Dropped legacy review unique index product_1_user_1');
-    } catch (err) {
-        if (err.codeName !== 'IndexNotFound' && err.code !== 27) {
-            console.warn('Could not drop legacy review index:', err.message);
-        }
-    }
+// mongoose.connection.once('open', async () => {
+//     seedAttributes();
+//     try {
+//         await Review.collection.dropIndex('product_1_user_1');
+//         console.log('Dropped legacy review unique index product_1_user_1');
+//     } catch (err) {
+//         if (err.codeName !== 'IndexNotFound' && err.code !== 27) {
+//             console.warn('Could not drop legacy review index:', err.message);
+//         }
+//     }
 
-    try {
-        const duplicates = await Review.aggregate([
-            { $match: { user: { $exists: true }, orderId: { $exists: false } } },
-            { $group: { _id: '$user', count: { $sum: 1 }, docs: { $push: '$_id' } } },
-            { $match: { count: { $gt: 1 } } },
-        ]);
+//     try {
+//         const duplicates = await Review.aggregate([
+//             { $match: { user: { $exists: true }, orderId: { $exists: false } } },
+//             { $group: { _id: '$user', count: { $sum: 1 }, docs: { $push: '$_id' } } },
+//             { $match: { count: { $gt: 1 } } },
+//         ]);
 
-        for (const dup of duplicates) {
-            const ids = dup.docs.slice(1);
-            if (ids.length > 0) {
-                await Review.deleteMany({ _id: { $in: ids } });
-            }
-        }
-    } catch (err) {
-        console.warn('Could not clean legacy review duplicates:', err.message);
-    }
+//         for (const dup of duplicates) {
+//             const ids = dup.docs.slice(1);
+//             if (ids.length > 0) {
+//                 await Review.deleteMany({ _id: { $in: ids } });
+//             }
+//         }
+//     } catch (err) {
+//         console.warn('Could not clean legacy review duplicates:', err.message);
+//     }
 
-    await Review.syncIndexes();
-    console.log('Connected to DB. Valid order statuses:', Order.VALID_STATUSES.join(', '));
-    try {
-        const count = await Module.countDocuments();
-        if (count === 0) {
-            const initial = (StaffModel.PERMISSION_MODULES || []).map((k, i) => ({
-                key: k,
-                label: k.split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
-                icon: '',
-                isActive: true,
-                displayOrder: i,
-            }));
-            if (initial.length > 0) {
-                await Module.insertMany(initial);
-                console.log('Seeded Module collection with default admin modules');
-            }
-        }
-    } catch (err) {
-        console.warn('Could not seed Module collection:', err.message);
-    }
-});
+//     await Review.syncIndexes();
+//     console.log('Connected to DB. Valid order statuses:', Order.VALID_STATUSES.join(', '));
+//     try {
+//         const count = await Module.countDocuments();
+//         if (count === 0) {
+//             const initial = (StaffModel.PERMISSION_MODULES || []).map((k, i) => ({
+//                 key: k,
+//                 label: k.split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
+//                 icon: '',
+//                 isActive: true,
+//                 displayOrder: i,
+//             }));
+//             if (initial.length > 0) {
+//                 await Module.insertMany(initial);
+//                 console.log('Seeded Module collection with default admin modules');
+//             }
+//         }
+//     } catch (err) {
+//         console.warn('Could not seed Module collection:', err.message);
+//     }
+// });
 
 const app = express();
 app.set('trust proxy', true);
