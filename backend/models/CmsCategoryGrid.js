@@ -39,6 +39,10 @@ const categoryGridSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  position: {
+    type: Number,
+    default: null,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('CmsCategoryGrid', categoryGridSchema);

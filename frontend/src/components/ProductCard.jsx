@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { getImageSrc } from '../utils/imageUtils';
 
 export default function ProductCard({ product, onNavigate, onAddToCart, onAddToWishlist, user }) {
   const getPricingInfo = (p) => {
@@ -28,7 +29,7 @@ export default function ProductCard({ product, onNavigate, onAddToCart, onAddToW
   };
 
   let imgSrc = product.images?.find(img => img.isThumbnail)?.url || product.images?.[0]?.url || (typeof product.images?.[0] === 'string' ? product.images[0] : null) || product.image || null;
-  if (imgSrc && imgSrc.startsWith('/uploads')) imgSrc = `http://localhost:5000${imgSrc}`;
+  imgSrc = getImageSrc(imgSrc);
   
   const pricing = getPricingInfo(product);
 

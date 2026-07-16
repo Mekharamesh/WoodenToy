@@ -1,4 +1,5 @@
 import React from 'react';
+import { getImageSrc } from '../utils/imageUtils';
 
 export default function WishlistOffcanvas({ isOpen, onClose, wishlistItems, onRemove, onMoveToCart }) {
   if (!isOpen) return null;
@@ -81,10 +82,10 @@ export default function WishlistOffcanvas({ isOpen, onClose, wishlistItems, onRe
                 const img = effectiveImages[0];
                 if (typeof img === 'string') {
                   if (img.trim() !== '') {
-                    firstImage = img;
+                    firstImage = getImageSrc(img);
                   }
                 } else if (img?.url && img.url.trim() !== '') {
-                  firstImage = img.url;
+                  firstImage = getImageSrc(img.url);
                 }
               }
               

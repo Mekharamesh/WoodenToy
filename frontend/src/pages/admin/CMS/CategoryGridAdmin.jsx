@@ -15,6 +15,7 @@ const emptyForm = {
   ctaUrl: '',
   status: true,
   sortOrder: 0,
+  position: '',
 };
 
 const normalizeList = (payload) => {
@@ -156,6 +157,7 @@ export default function CategoryGridAdmin() {
           isThumbnail: image.isThumbnail || false,
           displayOrder: image.displayOrder || 1,
         })),
+        position: form.position === '' ? null : Number(form.position),
       };
 
       if (editId) await cmsService.updateCategoryGrid(editId, payload);
@@ -189,6 +191,7 @@ export default function CategoryGridAdmin() {
       ctaUrl: item.ctaUrl || '',
       status: item.status !== false,
       sortOrder: item.sortOrder || 0,
+      position: item.position != null ? item.position : '',
     });
     setEditId(item._id);
     setShowForm(true);
@@ -240,6 +243,15 @@ export default function CategoryGridAdmin() {
               <div>
                 <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">Sort Order</label>
                 <input type="number" value={form.sortOrder} onChange={(e) => setForm((current) => ({ ...current, sortOrder: +e.target.value }))} className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">
+                  Position <span className="text-[10px] font-normal">(Homepage order)</span>
+                </label>
+                <input type="number" min="1" value={form.position}
+                  onChange={(e) => setForm((current) => ({ ...current, position: e.target.value === '' ? '' : +e.target.value }))}
+                  placeholder="e.g. 1, 2, 3..."
+                  className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
 
@@ -322,6 +334,12 @@ export default function CategoryGridAdmin() {
                 <span>{item.category?.name || 'Unassigned category'}</span>
                 <span className="w-1 h-1 bg-gray-300 rounded-full" />
                 <span>{item.products?.length || 0} products</span>
+                {item.position != null && item.position !== '' && (
+                  <>
+                    <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                    <span className="text-purple-600 font-semibold">Pos: {item.position}</span>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto justify-end mt-2 sm:mt-0">

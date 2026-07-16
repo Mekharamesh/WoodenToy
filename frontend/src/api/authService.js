@@ -1,9 +1,25 @@
-const API_BASE_URL = 'http://localhost:5000/api/auth';
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth`;
 
 // Helper to get authorization headers
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
+const normalizeProfileResponse = (data) => {
+  if (!data || typeof data !== 'object') {
+    return { user: null };
+  }
+
+  if (data.user && typeof data.user === 'object') {
+    return data;
+  }
+
+  if (data._id || data.id || data.name || data.email || data.phone) {
+    return { user: data };
+  }
+
+  return data;
 };
 
 export const authService = {
@@ -125,7 +141,7 @@ export const authService = {
         throw new Error(data.message || 'Failed to fetch profile');
       }
 
-      return data;
+      return normalizeProfileResponse(data);
     } catch (error) {
       console.error('Profile API Error:', error);
       throw error;
@@ -158,11 +174,12 @@ export const authService = {
         throw new Error(data.message || 'Failed to update profile');
       }
 
-      if (data.user) {
-        authService.updateStoredUser(data.user);
+      const normalized = normalizeProfileResponse(data);
+      if (normalized.user) {
+        authService.updateStoredUser(normalized.user);
       }
 
-      return data;
+      return normalized;
     } catch (error) {
       console.error('Update Profile API Error:', error);
       throw error;

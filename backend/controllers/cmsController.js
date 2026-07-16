@@ -11,6 +11,45 @@ const productService = require('../services/productService');
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
+// --- HOMEPAGE SECTIONS (position-based) ---
+exports.getHomepageSections = asyncHandler(async (req, res) => {
+  const [heroBanners, thirdBanners, productGrids, categoryGrids, footers] = await Promise.all([
+    CmsHeroBanner.find({ status: true }),
+    CmsThirdBanner.find({ status: true }),
+    CmsProductGrid.find({ status: true }),
+    CmsCategoryGrid.find({ status: true }).populate('category'),
+    CmsFooter.find({ status: true }),
+  ]);
+
+  // Pick the first active footer (sorted by position)
+  const footer = footers.sort((a, b) => (a.position || 0) - (b.position || 0))[0] || null;
+
+  // Build a flat list of all sections with type + position
+  const sections = [];
+
+  const heroBannersWithPos = heroBanners.filter(b => b.position != null);
+  if (heroBannersWithPos.length > 0) {
+    const sortedHeroes = [...heroBanners].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    sections.push({ type: 'heroGroup', position: heroBannersWithPos[0].position, data: sortedHeroes });
+  }
+  thirdBanners.forEach(b => {
+    if (b.position != null) sections.push({ type: 'thirdBanner', position: b.position, data: b });
+  });
+  productGrids.forEach(g => {
+    if (g.position != null) sections.push({ type: 'productGrid', position: g.position, data: g });
+  });
+  categoryGrids.forEach(g => {
+    if (g.position != null) sections.push({ type: 'categoryGrid', position: g.position, data: g });
+  });
+  if (footer && footer.position != null) {
+    sections.push({ type: 'footer', position: footer.position, data: footer });
+  }
+
+  sections.sort((a, b) => a.position - b.position);
+
+  res.json({ success: true, data: sections });
+});
+
 // --- NAVBAR ---
 exports.getNavbars = asyncHandler(async (req, res) => {
   const navbars = await CmsNavbar.find().sort({ order: 1 });
@@ -39,12 +78,25 @@ exports.getHeroBanners = asyncHandler(async (req, res) => {
 });
 
 exports.createHeroBanner = asyncHandler(async (req, res) => {
-  const banner = await CmsHeroBanner.create(req.body);
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined || body.position === null) body.position = null;
+  else body.position = Number(body.position);
+  const banner = await CmsHeroBanner.create(body);
   res.status(201).json({ success: true, data: banner });
 });
 
 exports.updateHeroBanner = asyncHandler(async (req, res) => {
-  const banner = await CmsHeroBanner.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined || body.position === null) body.position = null;
+  else body.position = Number(body.position);
+  
+  require('fs').writeFileSync('debug_hero.txt', JSON.stringify({ body, originalPosition: req.body.position }));
+
+  const banner = await CmsHeroBanner.findByIdAndUpdate(
+    req.params.id,
+    { $set: body },
+    { new: true }
+  );
   res.json({ success: true, data: banner });
 });
 
@@ -60,12 +112,22 @@ exports.getThirdBanners = asyncHandler(async (req, res) => {
 });
 
 exports.createThirdBanner = asyncHandler(async (req, res) => {
-  const banner = await CmsThirdBanner.create(req.body);
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined) body.position = null;
+  else body.position = Number(body.position);
+  const banner = await CmsThirdBanner.create(body);
   res.status(201).json({ success: true, data: banner });
 });
 
 exports.updateThirdBanner = asyncHandler(async (req, res) => {
-  const banner = await CmsThirdBanner.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined || body.position === null) body.position = null;
+  else body.position = Number(body.position);
+  const banner = await CmsThirdBanner.findByIdAndUpdate(
+    req.params.id,
+    { $set: body },
+    { new: true }
+  );
   res.json({ success: true, data: banner });
 });
 
@@ -120,19 +182,71 @@ exports.getProductGrids = asyncHandler(async (req, res) => {
 });
 
 exports.createProductGrid = asyncHandler(async (req, res) => {
-  const grid = await CmsProductGrid.create(req.body);
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined) body.position = null;
+  else body.position = Number(body.position);
+  const grid = await CmsProductGrid.create(body);
   res.status(201).json({ success: true, data: grid });
 });
 
 exports.updateProductGrid = asyncHandler(async (req, res) => {
-  const grid = await CmsProductGrid.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true }).populate('products');
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined || body.position === null) body.position = null;
+  else body.position = Number(body.position);
+  const grid = await CmsProductGrid.findByIdAndUpdate(
+    req.params.id,
+    { $set: body },
+    { new: true }
+  ).populate('products');
   res.json({ success: true, data: grid });
 });
 
-exports.deleteProductGrid = asyncHandler(async (req, res) => {
-  await CmsProductGrid.findByIdAndDelete(req.params.id);
-  res.json({ success: true, message: 'Grid deleted' });
-});
+exports.deleteProductGrid = async (req, res) => {
+  try {
+    const grid = await CmsProductGrid.findByIdAndDelete(req.params.id);
+    if (!grid) return res.status(404).json({ success: false, message: 'Grid not found' });
+    res.json({ success: true, message: 'Product Grid deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Map URL Resolver
+exports.resolveMapUrl = async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ success: false, message: 'URL required' });
+
+    if (url.includes('maps.app.goo.gl')) {
+      const https = require('https');
+      const resolvedUrl = await new Promise((resolve, reject) => {
+        https.get(url, (response) => {
+          if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+            resolve(response.headers.location);
+          } else {
+            resolve(url);
+          }
+        }).on('error', reject);
+      });
+
+      const match = resolvedUrl.match(/\/place\/([^\/]+)/);
+      if (match) {
+        const q = match[1];
+        return res.json({ success: true, embedUrl: `https://maps.google.com/maps?q=${q}&t=&z=13&ie=UTF8&iwloc=&output=embed` });
+      }
+    }
+    
+    const match = url.match(/\/place\/([^\/]+)/);
+    if (match) {
+      const q = match[1];
+      return res.json({ success: true, embedUrl: `https://maps.google.com/maps?q=${q}&t=&z=13&ie=UTF8&iwloc=&output=embed` });
+    }
+
+    res.json({ success: false, message: 'Could not resolve to an embeddable format' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 // --- CATEGORY GRID ---
 exports.getCategoryGrids = asyncHandler(async (req, res) => {
@@ -176,12 +290,22 @@ exports.getCategoryGrids = asyncHandler(async (req, res) => {
 });
 
 exports.createCategoryGrid = asyncHandler(async (req, res) => {
-  const grid = await CmsCategoryGrid.create(req.body);
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined) body.position = null;
+  else body.position = Number(body.position);
+  const grid = await CmsCategoryGrid.create(body);
   res.status(201).json({ success: true, data: grid });
 });
 
 exports.updateCategoryGrid = asyncHandler(async (req, res) => {
-  const grid = await CmsCategoryGrid.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true }).populate('category').populate('products');
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined || body.position === null) body.position = null;
+  else body.position = Number(body.position);
+  const grid = await CmsCategoryGrid.findByIdAndUpdate(
+    req.params.id,
+    { $set: body },
+    { new: true }
+  ).populate('category').populate('products');
   res.json({ success: true, data: grid });
 });
 
@@ -190,21 +314,40 @@ exports.deleteCategoryGrid = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Category grid deleted' });
 });
 
-// --- FOOTER ---
-exports.getFooter = asyncHandler(async (req, res) => {
-  let footer = await CmsFooter.findOne();
-  if (!footer) {
-    footer = await CmsFooter.create({});
-  }
-  res.json({ success: true, data: footer });
+// --- FOOTER (List-Based) ---
+exports.getFooters = asyncHandler(async (req, res) => {
+  const footers = await CmsFooter.find().sort({ createdAt: -1 });
+  res.json({ success: true, data: footers });
+});
+
+exports.createFooter = asyncHandler(async (req, res) => {
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined) body.position = null;
+  else body.position = Number(body.position);
+  const footer = await CmsFooter.create(body);
+  res.status(201).json({ success: true, data: footer });
 });
 
 exports.updateFooter = asyncHandler(async (req, res) => {
-  let footer = await CmsFooter.findOne();
-  if (!footer) {
-    footer = await CmsFooter.create(req.body);
-  } else {
-    footer = await CmsFooter.findByIdAndUpdate(footer._id, req.body, { returnDocument: 'after', runValidators: true });
-  }
+  const body = { ...req.body };
+  if (body.position === '' || body.position === undefined || body.position === null) body.position = null;
+  else body.position = Number(body.position);
+  const footer = await CmsFooter.findByIdAndUpdate(
+    req.params.id,
+    { $set: body },
+    { new: true }
+  );
+  if (!footer) return res.status(404).json({ success: false, message: 'Footer not found' });
   res.json({ success: true, data: footer });
+});
+
+exports.deleteFooter = asyncHandler(async (req, res) => {
+  await CmsFooter.findByIdAndDelete(req.params.id);
+  res.json({ success: true, message: 'Footer deleted' });
+});
+
+// Legacy: return the first active footer (for public use in Footer.jsx)
+exports.getFooter = asyncHandler(async (req, res) => {
+  const footer = await CmsFooter.findOne({ status: true }).sort({ position: 1 });
+  res.json({ success: true, data: footer || {} });
 });

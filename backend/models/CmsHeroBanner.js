@@ -54,6 +54,10 @@ const heroBannerSchema = new mongoose.Schema({
   sortOrder: {
     type: Number,
     default: 0,
+  },
+  position: {
+    type: Number,
+    default: null, // Homepage section position (e.g. 1 = first on page)
   }
 }, { timestamps: true });
 

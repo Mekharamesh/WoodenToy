@@ -33,12 +33,8 @@ export default function ShopPage({ onNavigate, onAddToCart, onAddToWishlist, use
       .catch(console.error);
   }, []);
 
-  // Sync with URL category if present
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const category = searchParams.get('category');
-    if (category) setSelectedCategory(category);
-  }, [location.search]);
+
+
 
   // Fetch Subcategories when Category changes
   useEffect(() => {

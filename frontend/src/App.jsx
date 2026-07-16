@@ -157,6 +157,53 @@ export default function App() {
     navigate('/');
   };
 
+  const refreshProfileData = async () => {
+    if (!user) {
+      setProfileData(null);
+      setProfileError('');
+      return;
+    }
+
+    try {
+      setProfileLoading(true);
+      setProfileError('');
+      const response = await authService.getProfile();
+      const nextProfileData = response?.user ? response : { user: response };
+      setProfileData(nextProfileData);
+
+      const nextUser = nextProfileData?.user || response || null;
+      if (nextUser) {
+        setUser((current) => ({
+          ...(current || {}),
+          id: nextUser._id || nextUser.id || current?.id,
+          name: nextUser.name || current?.name,
+          email: nextUser.email || current?.email,
+          role: nextUser.role || current?.role,
+          isStaff: nextUser.isStaff ?? current?.isStaff,
+          phone: nextUser.phone ?? current?.phone,
+          gender: nextUser.gender ?? current?.gender,
+          profileImage: nextUser.profileImage ?? current?.profileImage,
+        }));
+      }
+    } catch (err) {
+      setProfileData(null);
+      setProfileError(err.message || 'Failed to fetch protected profile data.');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) {
+      setProfileData(null);
+      setProfileError('');
+      setProfileLoading(false);
+      return;
+    }
+
+    refreshProfileData();
+  }, [user?.id, user?.email, user?.role, user?.isStaff]);
+
   const handleAddToCart = (product) => {
     const addedQuantity = product.quantity || 1;
     addToCart(product, addedQuantity);

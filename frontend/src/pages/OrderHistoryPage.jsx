@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { orderService } from '../api/orderService';
 import { ShoppingBag, Loader2, Package, Calendar, MapPin, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getImageSrc } from '../utils/imageUtils';
 
 export default function OrderHistoryPage({ onNavigate }) {
   const [orders, setOrders] = useState([]);
@@ -126,7 +127,7 @@ export default function OrderHistoryPage({ onNavigate }) {
                     <div key={index} className="py-4 flex gap-4 sm:gap-6 items-center">
                       <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#F8F4EC] rounded-2xl overflow-hidden shrink-0">
                         {item.image ? (
-                          <img src={item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : (item.image.startsWith('/uploads') || item.image.startsWith('uploads/')) ? `http://localhost:5000${item.image.startsWith('/') ? '' : '/'}${item.image}` : item.image} alt={item.name} className="w-full h-full object-cover" />
+                          <img src={getImageSrc(item.image)} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-gray-200"></div>
                         )}

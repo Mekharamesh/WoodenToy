@@ -3,27 +3,15 @@ const Product = require('../models/Product');
 const ProductImage = require('../models/catalog/ProductImage');
 const Order   = require('../models/Order');
 const multer  = require('multer');
-const path    = require('path');
-const fs      = require('fs');
+const { uploadFilesToCloudinary } = require('../utils/cloudinaryStorage');
 
 /* ── multer for review media ──────────────────────── */
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, uploadsDir),
-  filename:    (_, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `review-${unique}${path.extname(file.originalname).toLowerCase()}`);
-  },
-});
-
 const fileFilter = (_, file, cb) => {
   const allowed = ['image/jpeg','image/jpg','image/png','image/webp','video/mp4','video/quicktime'];
   cb(null, allowed.includes(file.mimetype));
 };
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), fileFilter, limits: { fileSize: 50 * 1024 * 1024 } });
 
 /* ── helpers ──────────────────────────────────────── */
 const findReviewForOrderItem = async ({ userId, productId, orderId, orderItemId }) => {
@@ -150,9 +138,12 @@ const createReview = [
       });
       if (existing) return res.status(400).json({ message: 'You have already reviewed this item.' });
 
-      const baseUrl   = `${req.protocol}://${req.get('host')}`;
-      const imageUrls = (req.files?.images || []).map(f => `${baseUrl}/uploads/${f.filename}`);
-      const videoUrls = (req.files?.videos || []).map(f => `${baseUrl}/uploads/${f.filename}`);
+      const [imageAssets, videoAssets] = await Promise.all([
+        uploadFilesToCloudinary(req.files?.images || [], { folder: 'woodentoy/reviews/images' }),
+        uploadFilesToCloudinary(req.files?.videos || [], { folder: 'woodentoy/reviews/videos' }),
+      ]);
+      const imageUrls = imageAssets.map(asset => asset.secure_url);
+      const videoUrls = videoAssets.map(asset => asset.secure_url);
 
       const purchasedItem = orderId && orderItemId
         ? await Order.findOne({
@@ -253,9 +244,12 @@ const updateMyReview = [
       });
       if (!existing) return res.status(404).json({ message: 'No review found to update.' });
 
-      const baseUrl   = `${req.protocol}://${req.get('host')}`;
-      const newImages = (req.files?.images || []).map(f => `${baseUrl}/uploads/${f.filename}`);
-      const newVideos = (req.files?.videos || []).map(f => `${baseUrl}/uploads/${f.filename}`);
+      const [imageAssets, videoAssets] = await Promise.all([
+        uploadFilesToCloudinary(req.files?.images || [], { folder: 'woodentoy/reviews/images' }),
+        uploadFilesToCloudinary(req.files?.videos || [], { folder: 'woodentoy/reviews/videos' }),
+      ]);
+      const newImages = imageAssets.map(asset => asset.secure_url);
+      const newVideos = videoAssets.map(asset => asset.secure_url);
 
       existing.rating      = Number(rating);
       existing.title       = title || '';

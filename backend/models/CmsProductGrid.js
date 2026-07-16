@@ -30,6 +30,10 @@ const productGridSchema = new mongoose.Schema({
   sortOrder: {
     type: Number,
     default: 0,
+  },
+  position: {
+    type: Number,
+    default: null,
   }
 }, { timestamps: true });
 

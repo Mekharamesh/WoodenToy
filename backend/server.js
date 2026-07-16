@@ -25,8 +25,9 @@ const Review = require('./models/Review');
 const Module = require('./models/Module');
 const StaffModel = require('./models/Staff');
 
-// Load env vars
-dotenv.config();
+// Load env vars from the backend folder explicitly so production hosts
+// can still resolve the .env file even when the process starts elsewhere.
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 // Connect to database
 connectDB();
@@ -83,20 +84,47 @@ mongoose.connection.once('open', async () => {
 });
 
 const app = express();
-
+app.set('trust proxy', true);
+    
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+// ✅ CORS — Add your frontend URLs here
+const allowedOrigins = [
+    'http://localhost:5173',          // Local dev
+    'http://localhost:3000',          // Alternative local dev
+    'https://darkorange-louse-498272.hostingersite.com',
+    'https://linen-finch-820225.hostingersite.com',
+    process.env.FRONTEND_URL,        // Production domain (set in .env)
+].filter(Boolean); // remove undefined entries
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (Postman, mobile apps, server-to-server)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error(`CORS: Origin ${origin} not allowed`));
+    },
+    credentials: true,   // Allow cookies / Authorization headers
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Serve uploaded media before the API no-cache middleware so images/videos can
+// be reused by the browser instead of refetched on every product refresh.
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    maxAge: '30d',
+    immutable: true,
+}));
+
 app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     next();
 });
-
-// Serve uploaded images statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);

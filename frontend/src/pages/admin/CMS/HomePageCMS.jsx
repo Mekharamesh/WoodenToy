@@ -37,6 +37,23 @@ export default function HomePageCMS() {
         <p className="text-sm text-brand-medium mt-1">Manage all dynamic content on the homepage.</p>
       </div>
 
+      {/* Position Guide */}
+      <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
+        <div className="flex items-start gap-3">
+          <div className="text-purple-600 text-lg mt-0.5">📍</div>
+          <div>
+            <h3 className="text-sm font-bold text-purple-800 mb-1">Homepage Position Control</h3>
+            <p className="text-xs text-purple-700 leading-relaxed">
+              Each section (Hero Banner, Third Banner, Product Grid, Category Grid, Footer) has a <strong>Position</strong> field.
+              Set a number (1, 2, 3...) to control the order sections appear on the homepage.
+              Lower numbers appear first. Sections without a position use the default layout.
+              <br />
+              <span className="font-semibold mt-1 block">Example: Hero Banner → Position 1, Product Grid → Position 2, Third Banner → Position 3</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Tab Navigation */}
       <div className="flex flex-wrap gap-2 border-b border-[#E6DFD4] pb-4">
         {TABS.map((tab) => (

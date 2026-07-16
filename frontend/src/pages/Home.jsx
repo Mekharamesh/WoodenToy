@@ -12,41 +12,17 @@ import { cmsService } from '../api/cmsService';
 import { productV2API } from '../api/catalogV2Service';
 import { catalogService } from '../api/catalogService';
 import { reviewService } from '../api/reviewService';
+import { getImageSrc } from '../utils/imageUtils';
 
 // ── Fallback static data (used if CMS returns no content) ───────────────────
+// Keep a single neutral fallback slide so the hero section still renders
+// without relying on the old static image files in the public folder.
 const FALLBACK_HERO = [
   {
-    bannerImage: '/hero1.jpeg',
-    subtitle: 'Sustainable & Timeless',
-    title: 'Play that grows\nwith them.',
-    description: 'Our heirloom quality wooden toys are designed to spark curiosity, creativity, and conscious growth in every child.',
-    buttonText: 'Shop Collection',
-    ctaURL: '/',
-    animation: 'Fade',
-  },
-  {
-    bannerImage: '/hero2.jpeg',
-    subtitle: 'Crafted for Imagination',
-    title: 'Adventures on\nthe right track.',
-    description: 'Encourage creative storytelling and motor skills with our beautifully crafted wooden train sets.',
-    buttonText: 'Shop Collection',
-    ctaURL: '/',
-    animation: 'Fade',
-  },
-  {
-    bannerImage: '/hero3.jpeg',
-    subtitle: 'Early Learning',
-    title: 'Discover shapes\nand colors.',
-    description: 'Engaging educational toys that help develop cognitive skills and problem-solving early on.',
-    buttonText: 'Shop Collection',
-    ctaURL: '/',
-    animation: 'Fade',
-  },
-  {
-    bannerImage: '/hero4.jpeg',
-    subtitle: 'Natural Materials',
-    title: 'Joy in every\nlittle piece.',
-    description: 'Safe, non-toxic finishes and smooth wooden textures for worry-free playtime.',
+    bannerImage: '/wood-placeholder.png',
+    subtitle: 'Fresh Collection',
+    title: 'Explore our\nlatest picks.',
+    description: 'Browse our newest wooden toys and gift-ready favorites.',
     buttonText: 'Shop Collection',
     ctaURL: '/',
     animation: 'Fade',
@@ -182,7 +158,7 @@ function DualBannerSection({ bannerData, onNavigate }) {
               >
                 {bannerData.leftImages.map((img, i) => (
                   <SwiperSlide key={i}>
-                    <img src={img || '/wood-placeholder.png'} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
+                    <img src={getImageSrc(img)} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
                   </SwiperSlide>
                 ))}
               </Swiper>
@@ -214,7 +190,7 @@ function DualBannerSection({ bannerData, onNavigate }) {
               >
                 {bannerData.rightImages?.map((img, i) => (
                   <SwiperSlide key={i}>
-                    <img src={img || '/wood-placeholder.png'} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
+                    <img src={getImageSrc(img)} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
                   </SwiperSlide>
                 ))}
               </Swiper>
@@ -320,7 +296,7 @@ function ProductGridSection({ grid, onNavigate, onAddToCart, onAddToWishlist, us
                       <div className="aspect-square bg-[#F7F3EE] p-4 relative overflow-hidden">
                         {(() => {
                           let imgSrc = p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || (typeof p.images?.[0] === 'string' ? p.images[0] : null) || p.image || null;
-                          if (imgSrc && imgSrc.startsWith('/uploads')) imgSrc = `http://localhost:5000${imgSrc}`;
+                          imgSrc = getImageSrc(imgSrc);
                           
                           return imgSrc ? (
                             <motion.img
@@ -375,12 +351,18 @@ function ProductGridSection({ grid, onNavigate, onAddToCart, onAddToWishlist, us
 }
 
 // ── Category Products ────────────────────────────────────────────────────────
-function CategoryProductsSection({ onNavigate, onAddToCart, user }) {
+function CategoryProductsSection({ onNavigate, onAddToCart, user, singleSection }) {
   const [cmsSections, setCmsSections] = useState([]);
-  const [activeSection, setActiveSection] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState(singleSection || null);
+  const [loading, setLoading] = useState(!singleSection);
 
   useEffect(() => {
+    // If a single section is passed (position-based rendering), skip fetch
+    if (singleSection) {
+      setActiveSection(singleSection);
+      setLoading(false);
+      return;
+    }
     cmsService.getCategoryGrids()
       .then((res) => {
         const sections = (res.data || []).filter((item) => item.status !== false).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -389,9 +371,10 @@ function CategoryProductsSection({ onNavigate, onAddToCart, user }) {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [singleSection]);
 
-  if (loading || !cmsSections.length) return null;
+  if (loading || (!singleSection && !cmsSections.length)) return null;
+  if (!activeSection) return null;
 
   const activeProducts = Array.isArray(activeSection?.products) ? activeSection.products : [];
   const activeImage = activeSection?.images?.find((image) => image.isThumbnail)?.url || activeSection?.images?.[0]?.url || '';
@@ -409,26 +392,29 @@ function CategoryProductsSection({ onNavigate, onAddToCart, user }) {
             <button onClick={() => onNavigate('/')} className="text-[10px] font-bold uppercase tracking-widest text-brand-medium hover:text-brand-dark">View All &gt;</button>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-6">
-            <div className="space-y-3">
-              {cmsSections.map((section) => (
-                <button
-                  key={section._id}
-                  onClick={() => setActiveSection(section)}
-                  className={`w-full rounded-2xl border p-4 text-left transition-all ${activeSection?._id === section._id ? 'bg-brand-dark text-white border-brand-dark shadow' : 'bg-[#FDFCFB] border-[#E6DFD4] text-brand-dark hover:border-brand-dark'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-14 w-14 overflow-hidden rounded-xl bg-[#F7F3EE] shrink-0">
-                      {section.images?.[0]?.url ? <img src={section.images[0].url} alt={section.title} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-[10px] text-brand-medium">IMG</div>}
+          <div className={`grid gap-6 ${!singleSection && cmsSections.length > 1 ? 'grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
+            {/* Sidebar nav: only show when multiple sections and no singleSection override */}
+            {!singleSection && cmsSections.length > 1 && (
+              <div className="space-y-3">
+                {cmsSections.map((section) => (
+                  <button
+                    key={section._id}
+                    onClick={() => setActiveSection(section)}
+                    className={`w-full rounded-2xl border p-4 text-left transition-all ${activeSection?._id === section._id ? 'bg-brand-dark text-white border-brand-dark shadow' : 'bg-[#FDFCFB] border-[#E6DFD4] text-brand-dark hover:border-brand-dark'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-14 w-14 overflow-hidden rounded-xl bg-[#F7F3EE] shrink-0">
+                        {section.images?.[0]?.url ? <img src={getImageSrc(section.images[0].url)} alt={section.title} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-[10px] text-brand-medium">IMG</div>}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{section.title}</p>
+                        <p className="text-xs mt-1 opacity-80">{section.category?.name || 'Category'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">{section.title}</p>
-                      <p className="text-xs mt-1 opacity-80">{section.category?.name || 'Category'}</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
 
             <AnimatePresence mode="wait">
               <motion.div
@@ -444,7 +430,7 @@ function CategoryProductsSection({ onNavigate, onAddToCart, user }) {
                     <div className="absolute inset-0">
                       <motion.img
                         key={activeImage}
-                        src={activeImage}
+                        src={getImageSrc(activeImage)}
                         alt={activeSection.title}
                         className="w-full h-full object-cover"
                         initial={{ opacity: 0, scale: 1.03 }}
@@ -478,7 +464,7 @@ function CategoryProductsSection({ onNavigate, onAddToCart, user }) {
                     {activeProducts.length ? activeProducts.slice(0, 4).map((product) => (
                       <div key={product._id} className="group cursor-pointer" onClick={() => onNavigate(`/product/${product._id}`)}>
                         <div className="aspect-square bg-white rounded-xl overflow-hidden mb-2 relative border border-[#E6DFD4]">
-                          <img src={product.images?.find((image) => image.isThumbnail)?.url || product.images?.[0]?.url || (product.image && product.image.trim() !== '' ? product.image : '') || '/wood-placeholder.png'} alt={product.name} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
+                          <img src={getImageSrc(product.images?.find((image) => image.isThumbnail)?.url || product.images?.[0]?.url || (product.image && product.image.trim() !== '' ? product.image : null))} alt={product.name} className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = '/wood-placeholder.png'; }} />
                           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-end justify-center pb-3 transition-opacity">
                             <button onClick={(e) => { e.stopPropagation(); if (!user) { onNavigate('/login'); return; } onAddToCart?.(product); }} className="bg-brand-dark text-white text-[9px] uppercase tracking-widest font-bold px-3 py-1.5">Add to Cart</button>
                           </div>
@@ -525,6 +511,8 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [featuredReviews, setFeaturedReviews] = useState(TESTIMONIALS);
   const [cmsLoaded, setCmsLoaded] = useState(false);
+  // Position-based sections: array of { type, position, data }
+  const [positionedSections, setPositionedSections] = useState([]);
 
   useEffect(() => {
     const now = new Date();
@@ -612,6 +600,15 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
 
       setCmsLoaded(true);
     });
+
+    // Also fetch homepage sections sorted by position
+    cmsService.getHomepageSections()
+      .then(res => {
+        if (res.data && res.data.length > 0) {
+          setPositionedSections(res.data);
+        }
+      })
+      .catch(() => {}); // silently fail - fall back to default ordering
   }, []);
 
   const handleAction = (type, product) => {
@@ -620,10 +617,99 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
     else onAddToWishlist?.(product);
   };
 
+  // ── Helper: render a single positioned CMS section ──
+  const renderPositionedSection = (section) => {
+    const { type, data } = section;
+    if (!data) return null;
+
+    if (type === 'heroGroup' && Array.isArray(data)) {
+      // Build slides from an array of banner data
+      const now = new Date();
+      const allSlides = [];
+      data.forEach(banner => {
+        if (!banner.status) return;
+        if (banner.startDate && banner.endDate) {
+          const start = new Date(banner.startDate); start.setHours(0,0,0,0);
+          const end = new Date(banner.endDate); end.setHours(23,59,59,999);
+          if (start > now || end < now) return;
+        }
+        const mediaSlides = [];
+        if (banner.desktopVideo || banner.mobileVideo) {
+          mediaSlides.push({ ...banner, itemType: 'video', desktopUrl: banner.desktopVideo, mobileUrl: banner.mobileVideo });
+        } else if (banner.bannerImage || banner.mobileBanner) {
+          mediaSlides.push({ ...banner, itemType: 'image', desktopUrl: banner.bannerImage, mobileUrl: banner.mobileBanner });
+        }
+        if (banner.items && banner.items.length > 0) {
+          banner.items.forEach(item => mediaSlides.push({ ...banner, itemType: item.mediaType || 'image', desktopUrl: item.desktopUrl, mobileUrl: item.mobileUrl }));
+        }
+        if (mediaSlides.length > 0) {
+          allSlides.push(...mediaSlides);
+        } else {
+          allSlides.push(banner);
+        }
+      });
+      const slides = allSlides.length > 0 ? allSlides : FALLBACK_HERO;
+      return (
+        <section key={`heroGroup-${data[0]?._id || '1'}`} className="relative w-full h-[90vh] min-h-150 overflow-hidden bg-brand-dark group">
+          <Swiper modules={[Autoplay, Pagination, EffectFade, EffectCreative, Navigation]} effect="fade"
+            autoplay={{ delay: 5000, disableOnInteraction: false }}
+            pagination={{ clickable: true, el: '.hero-dots' }}
+            navigation={{ prevEl: '.hero-prev', nextEl: '.hero-next' }}
+            loop={slides.length > 1} className="w-full h-full">
+            {slides.map((slide, i) => (
+              <SwiperSlide key={i}><div className="relative w-full h-full">
+                {slide.desktopUrl && (slide.desktopUrl.match(/\.(mp4|webm)$/i)
+                  ? <video src={getImageSrc(slide.desktopUrl)} className={`w-full h-full object-cover brightness-90 ${slide.mobileUrl ? 'hidden md:block' : ''}`} autoPlay muted loop playsInline />
+                  : <img src={getImageSrc(slide.desktopUrl)} alt={slide.title} className={`w-full h-full object-cover brightness-90 ${slide.mobileUrl ? 'hidden md:block' : ''}`} onError={e => { e.target.src = '/wood-placeholder.png'; }} />)}
+                {slide.mobileUrl && (slide.mobileUrl.match(/\.(mp4|webm)$/i)
+                  ? <video src={getImageSrc(slide.mobileUrl)} className={`w-full h-full object-cover brightness-90 ${slide.desktopUrl ? 'block md:hidden' : ''}`} autoPlay muted loop playsInline />
+                  : <img src={getImageSrc(slide.mobileUrl)} alt={slide.title} className={`w-full h-full object-cover brightness-90 ${slide.desktopUrl ? 'block md:hidden' : ''}`} onError={e => { e.target.src = '/wood-placeholder.png'; }} />)}
+                {(!slide.desktopUrl && !slide.mobileUrl) && (
+                  <img src={getImageSrc(slide.bannerImage)} alt={slide.title} className="w-full h-full object-cover brightness-90" onError={e => { e.target.src = '/wood-placeholder.png'; }} />
+                )}
+              </div></SwiperSlide>
+            ))}
+          </Swiper>
+          <button type="button" className="hero-prev absolute top-1/2 left-4 z-20 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur transition-all">
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button type="button" className="hero-next absolute top-1/2 right-4 z-20 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur transition-all">
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <div className="hero-dots absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-3" />
+        </section>
+      );
+    }
+
+    if (type === 'thirdBanner') {
+      return <DualBannerSection key={`third-${data._id}`} bannerData={data} onNavigate={onNavigate} />;
+    }
+
+    if (type === 'productGrid') {
+      return <ProductGridSection key={`grid-${data._id}`} grid={data} onNavigate={onNavigate}
+        onAddToCart={onAddToCart} onAddToWishlist={onAddToWishlist} user={user} />;
+    }
+
+    if (type === 'categoryGrid') {
+      // Render a single category section inline
+      return <CategoryProductsSection key={`cat-${data._id}`} onNavigate={onNavigate} onAddToCart={onAddToCart} user={user} singleSection={data} />;
+    }
+
+    return null;
+  };
+
+  // Determine if any sections have positions assigned
+  const hasPositionedSections = positionedSections.length > 0;
+
   return (
     <div className="bg-[#FDF9F1] font-sans text-brand-dark">
 
-      {/* ── HERO BANNER SLIDER ── */}
+      {/* ── CMS DYNAMIC SECTIONS (position-based) ── */}
+      {/* Render CMS sections in the absolute order set by admin position field */}
+      {positionedSections.map((section, idx) => renderPositionedSection({ ...section, key: idx }))}
+
+      {/* ── HERO BANNER SLIDER (STATIC FALLBACK) ── */}
+      {!positionedSections.some(s => s.type === 'heroGroup') && (
       <section className="relative w-full h-[90vh] min-h-150 overflow-hidden bg-brand-dark group">
         <Swiper
           modules={[Autoplay, Pagination, EffectFade, EffectCreative, Navigation]}
@@ -647,12 +733,12 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                       {slide.desktopUrl && (
                         isDesktopVid ? (
                           <video 
-                            src={slide.desktopUrl} 
+                            src={getImageSrc(slide.desktopUrl)} 
                             className={`w-full h-full object-cover object-center brightness-90 ${slide.mobileUrl ? 'hidden md:block' : ''}`}
                             autoPlay muted loop playsInline
                           />
                         ) : (
-                          <img src={slide.desktopUrl} alt={slide.title}
+                          <img src={getImageSrc(slide.desktopUrl)} alt={slide.title}
                             className={`w-full h-full object-cover object-center brightness-90 ${slide.mobileUrl ? 'hidden md:block' : ''}`}
                             onError={e => { e.target.src = '/wood-placeholder.png'; }} />
                         )
@@ -662,12 +748,12 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                       {slide.mobileUrl && (
                         isMobileVid ? (
                           <video 
-                            src={slide.mobileUrl} 
+                            src={getImageSrc(slide.mobileUrl)} 
                             className={`w-full h-full object-cover object-center brightness-90 ${slide.desktopUrl ? 'block md:hidden' : ''}`}
                             autoPlay muted loop playsInline
                           />
                         ) : (
-                          <img src={slide.mobileUrl} alt={slide.title}
+                          <img src={getImageSrc(slide.mobileUrl)} alt={slide.title}
                             className={`w-full h-full object-cover object-center brightness-90 ${slide.desktopUrl ? 'block md:hidden' : ''}`}
                             onError={e => { e.target.src = '/wood-placeholder.png'; }} />
                         )
@@ -675,7 +761,7 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
 
                       {/* Fallback Render */}
                       {(!slide.desktopUrl && !slide.mobileUrl) && (
-                        <img src={slide.bannerImage || '/wood-placeholder.png'} alt={slide.title}
+                        <img src={getImageSrc(slide.bannerImage)} alt={slide.title}
                           className="w-full h-full object-cover object-center brightness-90"
                           onError={e => { e.target.src = '/wood-placeholder.png'; }} />
                       )}
@@ -698,9 +784,10 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
         {/* Radio button style pagination dots */}
         <div className="hero-dots absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-3" />
       </section>
+      )}
 
       {/* ── SHOP BY CATEGORIES ── */}
-      {shopCategories.length > 0 && (
+      {!positionedSections.some(s => s.type === 'categoryGrid') && shopCategories.length > 0 && (
       <section className="py-16 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -767,7 +854,7 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                   >
                     <div className="aspect-square w-full overflow-hidden">
                       <img
-                        src={cat.image || cat.imageUrl}
+                        src={getImageSrc(cat.image || cat.imageUrl)}
                         alt={cat.title || cat.name}
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         onError={e => { e.target.src = '/wood-placeholder.png'; }}
@@ -859,7 +946,7 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
                         <div className="aspect-square relative overflow-hidden">
                           {(() => {
                             let imgSrc = p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || (typeof p.images?.[0] === 'string' ? p.images[0] : null) || p.image || '/wooden_train_set.png';
-                            if (imgSrc && imgSrc.startsWith('/uploads')) imgSrc = `http://localhost:5000${imgSrc}`;
+                            imgSrc = getImageSrc(imgSrc);
                             return (
                               <motion.img
                                 src={imgSrc}
@@ -963,19 +1050,19 @@ export default function Home({ user, onNavigate, onAddToCart, onAddToWishlist })
         </div>
       </section>
 
-      {/* ── THIRD BANNER (DUAL SLIDER) ── */}
-      {thirdBanners.map(banner => (
+      {/* ── Render remaining CMS sections that don't have a position set ── */}
+      {thirdBanners.filter(b => b.position == null).map(banner => (
         <DualBannerSection key={banner._id} bannerData={banner} onNavigate={onNavigate} />
       ))}
 
-      {/* ── DYNAMIC PRODUCT GRIDS FROM CMS ── */}
-      {productGrids.map(grid => (
+      {productGrids.filter(g => g.position == null).map(grid => (
         <ProductGridSection key={grid._id} grid={grid} onNavigate={onNavigate}
           onAddToCart={onAddToCart} onAddToWishlist={onAddToWishlist} user={user} />
       ))}
 
-      {/* ── CATEGORY-BASED PRODUCTS ── */}
-      <CategoryProductsSection onNavigate={onNavigate} onAddToCart={onAddToCart} user={user} />
+      {!positionedSections.some(s => s.type === 'categoryGrid') && (
+        <CategoryProductsSection onNavigate={onNavigate} onAddToCart={onAddToCart} user={user} />
+      )}
 
       {/* ── TESTIMONIALS ── */}
       <section className="py-24">

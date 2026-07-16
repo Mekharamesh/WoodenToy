@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productV2API } from '../api/catalogV2Service';
 import ProductReviewSection from '../components/ProductReviewSection';
+import { getImageSrc } from '../utils/imageUtils';
 
 const finishOptions = ['Natural Maple', 'Oak Tint'];
 const featureBullets = [
@@ -399,9 +400,9 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
     const pushImage = (img) => {
       if (!img || (typeof img === 'string' && img.trim() === '')) return;
       if (typeof img === 'string') {
-        imgs.push(img);
+        imgs.push(getImageSrc(img));
       } else if (typeof img === 'object' && img.url && img.url.trim() !== '') {
-        imgs.push(img.url);
+        imgs.push(getImageSrc(img.url));
       }
     };
 
@@ -416,13 +417,13 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
       pushImage(product?.image);
     }
 
-    return imgs;
+    return [...new Set(imgs)];
   }, [product, selectedVariant]);
 
   const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
-    setSelectedImage(images[0] || null);
+    setSelectedImage((current) => (current && images.includes(current) ? current : images[0] || null));
   }, [images]);
 
   const categoryName = typeof product?.category === 'object' && product.category !== null
@@ -1023,7 +1024,7 @@ export default function ProductDetails({ product: initialProduct, user, onNaviga
                   <div key={p._id} className="group cursor-pointer" onClick={() => onNavigate(`/product/${p._id}`)}>
                     <div className="aspect-square bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200">
                       <img
-                        src={p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || (p.image && p.image.trim() !== '' ? p.image : '/wood-placeholder.png') || '/wood-placeholder.png'}
+                        src={getImageSrc(p.images?.find(img => img.isThumbnail)?.url || p.images?.[0]?.url || (p.image && p.image.trim() !== '' ? p.image : null))}
                         alt={p.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         onError={(e) => { e.target.src = '/wood-placeholder.png'; }}

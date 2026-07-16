@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { reviewService } from '../api/reviewService';
+import { getImageSrc } from '../utils/imageUtils';
 import {
   Star, ThumbsUp, ThumbsDown, Image as ImageIcon, Video,
   X, Upload, MessageSquare, ChevronDown, ZoomIn, Send,
@@ -11,13 +12,10 @@ import {
    HELPERS
 ═══════════════════════════════════════════════════ */
 const fmt = (n) => Number(n || 0).toFixed(1);
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const normalizeMediaUrl = (url) => {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-  const clean = url.startsWith('/') ? url : `/${url}`;
-  return `${API_BASE_URL}${clean}`;
+  return getImageSrc(url, '');
 };
 
 const StarRow = ({ rating, size = 16, filled = 'text-amber-400', empty = 'text-gray-300' }) => (

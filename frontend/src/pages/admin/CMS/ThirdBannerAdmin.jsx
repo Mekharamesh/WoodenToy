@@ -46,7 +46,7 @@ function MultiImageUploader({ label, images, onChange }) {
 }
 
 const emptyForm = {
-  title: '', sortOrder: 0, animation: 'Slide', status: true,
+  title: '', sortOrder: 0, animation: 'Slide', status: true, position: '',
   leftImages: [], leftCtaUrl: '', leftButtonText: 'Explore Here', leftStartDate: '', leftEndDate: '',
   rightImages: [], rightCtaUrl: '', rightButtonText: 'Explore Here', rightStartDate: '', rightEndDate: '',
 };
@@ -83,8 +83,9 @@ export default function ThirdBannerAdmin() {
     if (!form.leftImages.length || !form.rightImages.length) return alert('Please add at least one image for each column.');
     setSaving(true);
     try {
-      if (editId) await cmsService.updateThirdBanner(editId, form);
-      else await cmsService.createThirdBanner(form);
+      const payload = { ...form, position: form.position === '' ? null : Number(form.position) };
+      if (editId) await cmsService.updateThirdBanner(editId, payload);
+      else await cmsService.createThirdBanner(payload);
       setShowForm(false); setForm(emptyForm); setEditId(null);
       fetchItems();
     } catch (err) { alert(err.message); }
@@ -94,6 +95,7 @@ export default function ThirdBannerAdmin() {
   const handleEdit = (item) => {
     setForm({
       title: item.title || '', sortOrder: item.sortOrder || 0, animation: item.animation || 'Slide', status: item.status,
+      position: item.position != null ? item.position : '',
       leftImages: item.leftImages || [], leftCtaUrl: item.leftCtaUrl || '', leftButtonText: item.leftButtonText || 'Explore Here',
       leftStartDate: toDateInput(item.leftStartDate), leftEndDate: toDateInput(item.leftEndDate),
       rightImages: item.rightImages || [], rightCtaUrl: item.rightCtaUrl || '', rightButtonText: item.rightButtonText || 'Explore Here',
@@ -145,6 +147,15 @@ export default function ThirdBannerAdmin() {
                   className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm bg-white">
                   {['Fade', 'Slide', 'Zoom', 'Creative'].map(a => <option key={a}>{a}</option>)}
                 </select>
+              </div>
+              <div>
+                <FieldLabel>
+                  Position <span className="text-[10px] font-normal">(Homepage order)</span>
+                </FieldLabel>
+                <input type="number" min="1" value={form.position}
+                  onChange={e => setForm(f => ({ ...f, position: e.target.value === '' ? '' : +e.target.value }))}
+                  placeholder="e.g. 1, 2, 3..."
+                  className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
 
@@ -245,6 +256,9 @@ export default function ThirdBannerAdmin() {
               <p className="font-medium text-brand-dark text-sm truncate">{item.title || 'Dual Banner'}</p>
               <p className="text-xs text-brand-medium mt-0.5">{item.leftImages?.length} left / {item.rightImages?.length} right images</p>
               <p className="text-xs text-brand-medium mt-0.5">L: "{item.leftButtonText || 'Explore Here'}" · R: "{item.rightButtonText || 'Explore Here'}"</p>
+              {item.position != null && item.position !== '' && (
+                <span className="inline-block text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700 mt-1">Pos: {item.position}</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${item.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>

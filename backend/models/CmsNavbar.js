@@ -22,6 +22,10 @@ const navbarSchema = new mongoose.Schema({
   status: {
     type: Boolean,
     default: true,
+  },
+  position: {
+    type: Number,
+    default: null,
   }
 }, { timestamps: true });
 

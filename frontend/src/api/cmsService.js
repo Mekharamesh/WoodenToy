@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:5000/api/cms';
+const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/cms`;
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
@@ -55,12 +55,21 @@ export const cmsService = {
 
   // Footer
   getFooter: () => request(`${BASE}/footer`),
-  updateFooter: (body) => request(`${BASE}/footer`, { method: 'PUT', body: JSON.stringify(body) }),
+  getFooters: () => request(`${BASE}/footers`),
+  createFooter: (body) => request(`${BASE}/footer`, { method: 'POST', body: JSON.stringify(body) }),
+  updateFooter: (id, body) => request(`${BASE}/footer/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteFooter: (id) => request(`${BASE}/footer/${id}`, { method: 'DELETE' }),
+
+  // Homepage sections sorted by position
+  getHomepageSections: () => request(`${BASE}/homepage-sections`),
+
+  // Resolve Map short links
+  resolveMapUrl: (url) => request(`${BASE}/resolve-map`, { method: 'POST', body: JSON.stringify({ url }) }),
 
   // Image Upload (uses existing catalog upload endpoint)
   uploadImages: (files) => {
     const formData = new FormData();
     files.forEach((f) => formData.append('images', f));
-    return requestForm('http://localhost:5000/api/catalog/upload', formData);
+    return requestForm(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/catalog/upload`, formData);
   },
 };

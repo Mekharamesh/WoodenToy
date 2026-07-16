@@ -43,6 +43,7 @@ import { walletService } from '../api/walletService';
 import { refundService } from '../api/refundService';
 import useCartStore from '../store/useCartStore';
 import WriteReviewModal from '../components/WriteReviewModal';
+import { getImageSrc } from '../utils/imageUtils';
 
 const modules = [
   { id: 'profile', label: 'My Profile', icon: User },
@@ -124,7 +125,16 @@ export default function CustomerProfilePage({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const profile = profileData?.user || user || {};
+  const derivedProfile = useMemo(() => {
+    if (profileData?.user && typeof profileData.user === 'object') {
+      return profileData.user;
+    }
+    if (profileData && typeof profileData === 'object' && (profileData._id || profileData.id || profileData.name || profileData.email || profileData.phone)) {
+      return profileData;
+    }
+    return user || {};
+  }, [profileData, user]);
+  const profile = derivedProfile || {};
   const { cartItems, updateQuantity, removeFromCart, getSubtotal } = useCartStore();
   const [activeModule, setActiveModule] = useState('profile');
   const [activeOrder, setActiveOrder] = useState(null);
@@ -184,7 +194,7 @@ export default function CustomerProfilePage({
     }
   }, [activeModule]);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     name: profile.name || '',
     phone: profile.phone || '',
     dateOfBirth: toInputDate(profile.dateOfBirth),
@@ -193,19 +203,20 @@ export default function CustomerProfilePage({
     preferredAgeGroup: profile.preferences?.preferredAgeGroup || 'All Ages',
     emailNotifications: profile.preferences?.emailNotifications !== false,
     addresses: profile.addresses?.length ? profile.addresses : [{ ...emptyAddress, fullName: profile.name || '', phone: profile.phone || '' }],
-  });
+  }));
 
   useEffect(() => {
-    setForm({
-      name: profile.name || '',
-      phone: profile.phone || '',
-      dateOfBirth: toInputDate(profile.dateOfBirth),
-      gender: profile.gender || '',
-      profileImage: profile.profileImage || '',
-      preferredAgeGroup: profile.preferences?.preferredAgeGroup || 'All Ages',
-      emailNotifications: profile.preferences?.emailNotifications !== false,
-      addresses: profile.addresses?.length ? profile.addresses : [{ ...emptyAddress, fullName: profile.name || '', phone: profile.phone || '' }],
-    });
+    setForm((current) => ({
+      ...current,
+      name: profile.name || current.name || '',
+      phone: profile.phone || current.phone || '',
+      dateOfBirth: toInputDate(profile.dateOfBirth) || current.dateOfBirth || '',
+      gender: profile.gender || current.gender || '',
+      profileImage: profile.profileImage || current.profileImage || '',
+      preferredAgeGroup: profile.preferences?.preferredAgeGroup || current.preferredAgeGroup || 'All Ages',
+      emailNotifications: profile.preferences?.emailNotifications !== false ? true : false,
+      addresses: profile.addresses?.length ? profile.addresses : (current.addresses?.length ? current.addresses : [{ ...emptyAddress, fullName: profile.name || '', phone: profile.phone || '' }]),
+    }));
   }, [profile._id, profile.name, profile.phone, profile.dateOfBirth, profile.gender, profile.profileImage, profile.addresses, profile.preferences]);
 
   useEffect(() => {
@@ -258,11 +269,12 @@ export default function CustomerProfilePage({
           );
 
         if (deliveredProductIds.length > 0 || deliveredReviewTargets.length > 0) {
+          const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
           const [avgEntries, userEntries] = await Promise.all([
             Promise.all(
               deliveredProductIds.map(async (productId) => {
                 try {
-                  const res = await fetch(`http://localhost:5000/api/reviews/${productId}/stats`);
+                  const res = await fetch(`${apiBaseUrl}/reviews/${productId}/stats`);
                   const stats = await res.json();
                   return [productId, stats?.avg ?? 0];
                 } catch { return [productId, 0]; }
@@ -302,15 +314,7 @@ export default function CustomerProfilePage({
   const displayPhone = profile.phone || 'Not added';
   const profileImage = form.profileImage || profile.profileImage || '/animal_balance_maze.png';
 
-  const getImageUrl = (image) => {
-    if (!image) return '/animal_balance_maze.png';
-    if (typeof image !== 'string') return '/animal_balance_maze.png';
-    if (image.startsWith('http') || image.startsWith('data:')) return image;
-    if (image.startsWith('/uploads') || image.startsWith('uploads/')) {
-      return `http://localhost:5000${image.startsWith('/') ? '' : '/'}${image}`;
-    }
-    return image;
-  };
+  const getImageUrl = (image) => getImageSrc(image, '/animal_balance_maze.png');
 
   const reviewTargets = useMemo(() => {
     return (orders || []).flatMap((order) =>
@@ -708,7 +712,7 @@ export default function CustomerProfilePage({
               {orders.map((order) => {
                 const firstItem = order.orderItems?.[0] || {};
                 const extraItemsCount = (order.orderItems?.length || 1) - 1;
-                const imageSrc = firstItem.image ? (firstItem.image.startsWith('http') || firstItem.image.startsWith('data:') ? firstItem.image : (firstItem.image.startsWith('/uploads') || firstItem.image.startsWith('uploads/')) ? `http://localhost:5000${firstItem.image.startsWith('/') ? '' : '/'}${firstItem.image}` : firstItem.image) : '/animal_balance_maze.png';
+                const imageSrc = getImageSrc(firstItem.image, '/animal_balance_maze.png');
 
                 const paidAmount = order.paymentMethod === 'COD' ? (order.codAdvance || 200) : order.totalPrice;
                 const balanceAmount = order.paymentMethod === 'COD' ? (order.balanceAmount || Math.max(0, order.totalPrice - paidAmount)) : 0;
@@ -957,7 +961,7 @@ export default function CustomerProfilePage({
             <h3 className="font-bold text-[#141225] mb-4">Products</h3>
             <div className="divide-y divide-[#E9DED3]">
               {activeOrder.orderItems?.map((item, idx) => {
-                const imageSrc = item.image ? (item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : (item.image.startsWith('/uploads') || item.image.startsWith('uploads/')) ? `http://localhost:5000${item.image.startsWith('/') ? '' : '/'}${item.image}` : item.image) : '/animal_balance_maze.png';
+                const imageSrc = getImageSrc(item.image, '/animal_balance_maze.png');
                 return (
                   <div key={idx} className="py-4 flex flex-col sm:flex-row gap-4 sm:items-center">
                     <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[8px] bg-[#F8F3EF]">
@@ -1079,7 +1083,7 @@ export default function CustomerProfilePage({
                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                  {recentlyViewed.slice(0, 3).map((item, i) => {
                    const imgUrl = typeof item.image === 'string' ? item.image : (item.image?.url || '');
-                   const imageSrc = imgUrl ? (imgUrl.startsWith('http') || imgUrl.startsWith('data:') ? imgUrl : (imgUrl.startsWith('/uploads') || imgUrl.startsWith('uploads/')) ? `http://localhost:5000${imgUrl.startsWith('/') ? '' : '/'}${imgUrl}` : imgUrl) : '/animal_balance_maze.png';
+                   const imageSrc = getImageSrc(imgUrl, '/animal_balance_maze.png');
                    return (
                      <div key={i} className="group relative overflow-hidden rounded-[12px] border border-[#E9DED3] bg-white p-3 cursor-pointer shadow-sm hover:shadow-md transition-shadow" onClick={() => onNavigate(`/product/${item.id || item._id}`)}>
                        <div className="aspect-square bg-[#F8F3EF] mb-3 rounded-lg overflow-hidden">
@@ -1120,7 +1124,7 @@ export default function CustomerProfilePage({
           {cartItems.map((item) => (
             <div key={`${item.product}-${item.variant || 'default'}`} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
               <div className="h-20 w-20 overflow-hidden rounded-[12px] bg-[#F8F3EF]">
-                {item.image ? <img src={item.image.startsWith('http') || item.image.startsWith('data:') ? item.image : (item.image.startsWith('/uploads') || item.image.startsWith('uploads/')) ? `http://localhost:5000${item.image.startsWith('/') ? '' : '/'}${item.image}` : item.image} alt={item.name} className="h-full w-full object-cover" /> : null}
+                {item.image ? <img src={getImageSrc(item.image, '/animal_balance_maze.png')} alt={item.name} className="h-full w-full object-cover" /> : null}
               </div>
               <div className="flex-1">
                 <p className="font-bold text-[#141225]">{item.name}</p>
@@ -1744,7 +1748,7 @@ export default function CustomerProfilePage({
               <div className="flex gap-4 items-center mb-5">
                 <div className="w-14 h-14 rounded-lg bg-[#F3E7D7] overflow-hidden border border-[#E9DED3] shrink-0">
                   <img 
-                    src={cancelOrderTarget.orderItems[0]?.image ? (cancelOrderTarget.orderItems[0].image.startsWith('http') || cancelOrderTarget.orderItems[0].image.startsWith('data:') ? cancelOrderTarget.orderItems[0].image : (cancelOrderTarget.orderItems[0].image.startsWith('/uploads') || cancelOrderTarget.orderItems[0].image.startsWith('uploads/')) ? `http://localhost:5000${cancelOrderTarget.orderItems[0].image.startsWith('/') ? '' : '/'}${cancelOrderTarget.orderItems[0].image}` : cancelOrderTarget.orderItems[0].image) : '/animal_balance_maze.png'} 
+                    src={getImageSrc(cancelOrderTarget.orderItems[0]?.image, '/animal_balance_maze.png')}
                     alt={cancelOrderTarget.orderItems[0]?.name} 
                     className="w-full h-full object-cover" 
                   />

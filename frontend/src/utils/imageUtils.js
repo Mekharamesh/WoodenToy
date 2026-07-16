@@ -1,4 +1,6 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const RAW_API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+const API_BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
+const FALLBACK_IMAGE = '/wood-placeholder.png';
 
 export const normalizeImageValue = (image) => {
   if (!image) return null;
@@ -19,11 +21,25 @@ export const normalizeImageValue = (image) => {
   return null;
 };
 
-export const getImageSrc = (image, fallback = '/animal_balance_maze.png') => {
+export const getImageSrc = (image, fallback = FALLBACK_IMAGE) => {
   const normalized = normalizeImageValue(image);
 
   if (!normalized) return fallback;
-  if (normalized.startsWith('http') || normalized.startsWith('data:')) return normalized;
+
+  if (normalized.startsWith('data:') || normalized.startsWith('blob:')) return normalized;
+
+  if (/^https?:\/\//i.test(normalized)) {
+    try {
+      const url = new URL(normalized);
+      if (url.pathname.startsWith('/uploads/')) {
+        return `${API_BASE_URL}${url.pathname}`;
+      }
+    } catch {
+      return fallback;
+    }
+    return normalized;
+  }
+
   if (normalized.startsWith('/uploads') || normalized.startsWith('uploads/')) {
     return `${API_BASE_URL}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
   }

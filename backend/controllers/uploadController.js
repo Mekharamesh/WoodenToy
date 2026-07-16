@@ -1,59 +1,55 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { uploadFilesToCloudinary, deleteFromCloudinary } = require('../utils/cloudinaryStorage');
 
-// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
-// Configure multer storage
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadsDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `product-${uniqueSuffix}${ext}`);
-    },
-});
-
-// File filter — images and videos
 const fileFilter = (req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'];
+    const allowedMimes = [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+    ];
+
     if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Only image and video files are allowed (jpg, png, webp, gif, mp4, webm)'), false);
+        cb(new Error('Only image and video files are allowed (jpg, png, webp, gif, mp4, webm, mov)'), false);
     }
 };
 
 const upload = multer({
-    storage,
+    storage: multer.memoryStorage(),
     fileFilter,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
+    limits: { fileSize: 50 * 1024 * 1024 },
 });
 
-// @desc    Upload one or more media files
+// @desc    Upload one or more media files to Cloudinary
 // @route   POST /api/catalog/upload
 // @access  Private/Admin
 const uploadImages = [
-    upload.array('images', 10), // max 10 files
-    (req, res) => {
+    upload.array('images', 10),
+    async (req, res) => {
         try {
             if (!req.files || req.files.length === 0) {
                 return res.status(400).json({ success: false, message: 'No files uploaded' });
             }
 
-            const baseUrl = `${req.protocol}://${req.get('host')}`;
-            const urls = req.files.map((file) => `${baseUrl}/uploads/${file.filename}`);
+            const assets = await uploadFilesToCloudinary(req.files, {
+                folder: 'woodentoy/catalog',
+            });
+            const urls = assets.map((asset) => asset.secure_url);
 
             res.status(201).json({
                 success: true,
-                message: `${req.files.length} file(s) uploaded successfully`,
-                data: { urls },
+                message: `${assets.length} file(s) uploaded to Cloudinary successfully`,
+                data: { urls, assets },
             });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -61,13 +57,21 @@ const uploadImages = [
     },
 ];
 
-// @desc    Delete an uploaded image by filename
+// @desc    Delete Cloudinary media by publicId, or legacy local media by filename
 // @route   DELETE /api/catalog/upload/:filename
 // @access  Private/Admin
-const deleteImage = (req, res) => {
+const deleteImage = async (req, res) => {
     try {
+        const publicId = req.body?.publicId || req.query?.publicId;
+        if (publicId) {
+            const result = await deleteFromCloudinary(
+                publicId,
+                req.body?.resourceType || req.query?.resourceType || 'image'
+            );
+            return res.json({ success: true, message: 'Cloudinary asset deleted', data: result });
+        }
+
         const filename = req.params.filename;
-        // Sanitize: only allow simple filenames (no path traversal)
         if (!/^[\w\-. ]+$/.test(filename)) {
             return res.status(400).json({ success: false, message: 'Invalid filename' });
         }
@@ -78,9 +82,9 @@ const deleteImage = (req, res) => {
         }
 
         fs.unlinkSync(filePath);
-        res.json({ success: true, message: 'Image deleted successfully' });
+        return res.json({ success: true, message: 'Legacy local image deleted successfully' });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 

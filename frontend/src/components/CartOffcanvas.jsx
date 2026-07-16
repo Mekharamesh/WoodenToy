@@ -1,4 +1,5 @@
 import React from 'react';
+import { getImageSrc } from '../utils/imageUtils';
 
 export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuantity, onRemove, onCheckout }) {
   if (!isOpen) return null;
@@ -38,9 +39,9 @@ export default function CartOffcanvas({ isOpen, onClose, cartItems, onUpdateQuan
             cartItems.map((item, index) => {
               let firstImage = '/wood-placeholder.png';
               if (typeof item.image === 'string' && item.image.trim() !== '') {
-                firstImage = item.image;
+                firstImage = getImageSrc(item.image);
               } else if (item.image?.url && item.image.url.trim() !== '') {
-                firstImage = item.image.url;
+                firstImage = getImageSrc(item.image.url);
               }
               
               return (

@@ -3,6 +3,7 @@ import { ChevronDown, Heart, Search, ShoppingCart, User, X, Loader2, Menu } from
 import { catalogService } from '../api/catalogService';
 import { cmsService } from '../api/cmsService';
 import { productV2API } from '../api/catalogV2Service';
+import { getImageSrc } from '../utils/imageUtils';
 
 export default function Header({
   user,
@@ -232,7 +233,7 @@ export default function Header({
                       >
                         <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-100 shrink-0">
                           {product.images && product.images[0] ? (
-                            <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                            <img src={getImageSrc(product.images[0])} alt={product.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full bg-[#E9DED3]" />
                           )}

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 
 const footerSchema = new mongoose.Schema({
+  title: { type: String, default: 'Default Footer' },
+  status: { type: Boolean, default: true },
   logo: String,
   description: String,
   email: String,
@@ -10,7 +12,23 @@ const footerSchema = new mongoose.Schema({
   youtube: String,
   twitter: String,
   copyright: String,
+  mapUrl: String,
+  mapIframe: String,
+  lists: [
+    {
+      title: String,
+      links: [
+        {
+          label: String,
+          url: String
+        }
+      ]
+    }
+  ],
+  position: {
+    type: Number,
+    default: null,
+  },
 }, { timestamps: true });
 
-// We only need one footer document typically, but defining a schema allows structured storage
 module.exports = mongoose.model('CmsFooter', footerSchema);

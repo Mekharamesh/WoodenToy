@@ -84,10 +84,10 @@ export default function WishlistPage({ wishlistItems, onRemove, onMoveToCart, on
                 const img = effectiveImages[0];
                 if (typeof img === 'string') {
                   if (img.trim() !== '') {
-                    firstImage = img;
+                    firstImage = getImageSrc(img);
                   }
                 } else if (img?.url && img.url.trim() !== '') {
-                  firstImage = img.url;
+                  firstImage = getImageSrc(img.url);
                 }
               }
               

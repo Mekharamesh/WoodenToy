@@ -3,10 +3,14 @@ import { cmsService } from '../../../api/cmsService';
 import { Pencil, Trash2, Plus, Eye, EyeOff, Upload, X } from 'lucide-react';
 
 const emptyForm = {
-  title: '', subtitle: '', description: '', buttonText: 'Shop Now',
-  ctaURL: '', animation: 'Fade', sortOrder: 0, status: true,
-  startDate: '', endDate: '', bannerImage: '', mobileBanner: '',
-  desktopVideo: '', mobileVideo: '', items: [],
+  title: '', subtitle: '', description: '',
+  buttonText: 'Shop Now', ctaURL: '',
+  animation: 'Fade', sortOrder: 0,
+  status: true, startDate: '', endDate: '',
+  bannerImage: '', mobileBanner: '',
+  desktopVideo: '', mobileVideo: '',
+  items: [{ mediaType: 'image', desktopUrl: '', mobileUrl: '' }],
+  position: '',
 };
 
 function MediaUploader({ label, value, onChange, accept = "image/*,video/mp4,video/webm" }) {
@@ -86,8 +90,12 @@ export default function HeroBannerAdmin() {
     }
     setSaving(true);
     try {
-      if (editId) await cmsService.updateHeroBanner(editId, form);
-      else await cmsService.createHeroBanner(form);
+      const payload = {
+        ...form,
+        position: form.position === '' ? null : Number(form.position),
+      };
+      if (editId) await cmsService.updateHeroBanner(editId, payload);
+      else await cmsService.createHeroBanner(payload);
       setShowForm(false); setForm(emptyForm); setEditId(null);
       fetchItems();
     } catch (err) { alert(err.message); }
@@ -102,7 +110,7 @@ export default function HeroBannerAdmin() {
       status: item.status, startDate: toDateInput(item.startDate), endDate: toDateInput(item.endDate),
       bannerImage: item.bannerImage || '', mobileBanner: item.mobileBanner || '',
       desktopVideo: item.desktopVideo || '', mobileVideo: item.mobileVideo || '',
-      items: item.items || [],
+      items: item.items || [], position: item.position != null ? item.position : '',
     });
     setEditId(item._id); setShowForm(true);
   };
@@ -152,6 +160,14 @@ export default function HeroBannerAdmin() {
               <div>
                 <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">Sort Order</label>
                 <input type="number" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: +e.target.value }))}
+                  className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-brand-medium uppercase tracking-wider block mb-1">
+                  Position <span className="text-[10px] text-brand-medium font-normal">(Homepage order)</span>
+                </label>
+                <input type="number" min="1" value={form.position} onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
+                  placeholder="e.g. 1, 2, 3..."
                   className="w-full border border-[#E6DFD4] rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
@@ -269,6 +285,11 @@ export default function HeroBannerAdmin() {
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isScheduled ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
                       {isScheduled ? 'Live' : 'Not Scheduled'}
                     </span>
+                    {item.position != null && item.position !== '' && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">
+                        Pos: {item.position}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-brand-medium mb-3">
