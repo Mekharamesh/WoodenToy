@@ -1,4 +1,5 @@
 import { authService } from './authService';
+import { dedupeRequest } from './requestDedupe';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 // Strip trailing /api and add /api/v2/catalog
@@ -45,13 +46,15 @@ const request = async (path, options = {}) => {
     return handleResponse(response);
 };
 
+const getRequest = (path) => dedupeRequest(`catalog-v2:${path}`, () => request(path));
+
 export const categoryV2API = {
     getAll: async (params = {}) => {
         const query = new URLSearchParams(params).toString();
-        return request(`/categories?${query}`);
+        return getRequest(`/categories?${query}`);
     },
     getById: async (id) => {
-        return request(`/categories/${id}`);
+        return getRequest(`/categories/${id}`);
     },
     create: async (data) => {
         return request('/categories', {
@@ -92,10 +95,10 @@ export const categoryV2API = {
 export const subCategoryV2API = {
     getAll: async (params = {}) => {
         const query = new URLSearchParams(params).toString();
-        return request(`/subcategories?${query}`);
+        return getRequest(`/subcategories?${query}`);
     },
     getById: async (id) => {
-        return request(`/subcategories/${id}`);
+        return getRequest(`/subcategories/${id}`);
     },
     create: async (data) => {
         return request('/subcategories', {
@@ -133,17 +136,17 @@ export const subCategoryV2API = {
         });
     },
     getMappedAttributes: async (subCategoryId) => {
-        return request(`/subcategories/${subCategoryId}/attributes`);
+        return getRequest(`/subcategories/${subCategoryId}/attributes`);
     },
 };
 
 export const attributeV2API = {
     getAll: async (params = {}) => {
         const query = new URLSearchParams(params).toString();
-        return request(`/attributes?${query}`);
+        return getRequest(`/attributes?${query}`);
     },
     getById: async (id) => {
-        return request(`/attributes/${id}`);
+        return getRequest(`/attributes/${id}`);
     },
     create: async (data) => {
         return request('/attributes', {
@@ -167,10 +170,10 @@ export const attributeV2API = {
 export const productV2API = {
     getAll: async (params = {}) => {
         const query = new URLSearchParams(params).toString();
-        return request(`/products?${query}`);
+        return getRequest(`/products?${query}`);
     },
     getById: async (id) => {
-        return request(`/products/${id}`);
+        return getRequest(`/products/${id}`);
     },
     create: async (data) => {
         return request('/products', {
@@ -206,6 +209,6 @@ export const productV2API = {
 export const auditV2API = {
     getAll: async (params = {}) => {
         const query = new URLSearchParams(params).toString();
-        return request(`/audit-logs?${query}`);
+        return getRequest(`/audit-logs?${query}`);
     },
 };

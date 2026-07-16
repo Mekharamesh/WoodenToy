@@ -1,4 +1,5 @@
 import { authService } from './authService';
+import { dedupeRequest } from './requestDedupe';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/catalog`;
 
@@ -6,6 +7,27 @@ const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
+
+const publicJsonRequest = async (url, options = {}) => (
+  dedupeRequest(`catalog:${url}`, async () => {
+    const response = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Request failed');
+    }
+
+    return data.data ? data.data : data;
+  })
+);
 
 // Helper for authenticated requests with retry on 401
 const authenticatedRequest = async (url, options = {}) => {
@@ -60,20 +82,7 @@ export const catalogService = {
   // Get all products
   getProducts: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/product`, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch products');
-      }
-
-      return data.data ? data.data : data;
+      return await publicJsonRequest(`${API_BASE_URL}/product`);
     } catch (error) {
       console.error('Catalog API Error:', error);
       throw error;
@@ -83,20 +92,7 @@ export const catalogService = {
   // Get a single product by id
   getProductById: async (productId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/product/${productId}`, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch product details');
-      }
-
-      return data.data ? data.data : data;
+      return await publicJsonRequest(`${API_BASE_URL}/product/${productId}`);
     } catch (error) {
       console.error('Catalog API Error:', error);
       throw error;
@@ -106,19 +102,7 @@ export const catalogService = {
   // Get all categories
   getCategories: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/category?limit=1000`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch categories');
-      }
-
-      return data.data ? data.data : data;
+      return await publicJsonRequest(`${API_BASE_URL}/category?limit=1000`, { cache: 'default' });
     } catch (error) {
       console.error('Category API Error:', error);
       throw error;
@@ -179,19 +163,7 @@ export const catalogService = {
   // Get Sub Categories
   getSubCategories: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/subcategories?limit=1000`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch subcategories');
-      }
-
-      return data.data ? data.data : data;
+      return await publicJsonRequest(`${API_BASE_URL}/subcategories?limit=1000`, { cache: 'default' });
     } catch (error) {
       console.error('Subcategory API Error:', error);
       throw error;
@@ -264,20 +236,8 @@ export const catalogService = {
   // Get shop categories (main categories for homepage display)
   getShopCategories: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/shop-categories`, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch shop categories');
-      }
-
-      return data.data ? { data: data.data } : { data: data };
+      const data = await publicJsonRequest(`${API_BASE_URL}/shop-categories`);
+      return Array.isArray(data) ? { data } : data;
     } catch (error) {
       console.error('Shop Categories API Error:', error);
       throw error;

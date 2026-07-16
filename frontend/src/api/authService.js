@@ -1,4 +1,5 @@
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth`;
+let refreshPromise = null;
 
 // Helper to get authorization headers
 const getAuthHeaders = () => {
@@ -190,8 +191,9 @@ export const authService = {
   refreshSession: async () => {
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) return false;
+    if (refreshPromise) return refreshPromise;
 
-    try {
+    refreshPromise = (async () => {
       const response = await fetch(`${API_BASE_URL}/refresh`, {
         method: 'POST',
         headers: {
@@ -205,11 +207,19 @@ export const authService = {
         localStorage.setItem('token', data.token);
         return true;
       }
+      authService.logout();
       return false;
-    } catch (error) {
-      console.error('Token Refresh Error:', error);
-      return false;
-    }
+    })()
+      .catch((error) => {
+        console.error('Token Refresh Error:', error);
+        authService.logout();
+        return false;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+
+    return refreshPromise;
   },
 
   // Store user session in localStorage

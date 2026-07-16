@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { dedupeRequest } from './requestDedupe';
 
 const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/reviews`;
 
@@ -9,18 +10,26 @@ const getAuthHeaders = () => {
 
 export const reviewService = {
   getFeaturedReviews: async (params = {}) => {
-    const res = await axios.get(`${API_URL}/featured`, { params });
-    return res.data;
+    const query = new URLSearchParams(params).toString();
+    return dedupeRequest(`reviews:featured:${query}`, async () => {
+      const res = await axios.get(`${API_URL}/featured`, { params });
+      return res.data;
+    });
   },
 
   getReviews: async (productId, params = {}) => {
-    const res = await axios.get(`${API_URL}/${productId}`, { params });
-    return res.data;
+    const query = new URLSearchParams(params).toString();
+    return dedupeRequest(`reviews:${productId}:${query}`, async () => {
+      const res = await axios.get(`${API_URL}/${productId}`, { params });
+      return res.data;
+    });
   },
 
   getGallery: async (productId) => {
-    const res = await axios.get(`${API_URL}/${productId}/gallery`);
-    return res.data;
+    return dedupeRequest(`reviews:gallery:${productId}`, async () => {
+      const res = await axios.get(`${API_URL}/${productId}/gallery`);
+      return res.data;
+    });
   },
 
   // Get the current user's own review for a product (null if none)

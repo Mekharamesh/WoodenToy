@@ -1,3 +1,5 @@
+import { dedupeRequest } from './requestDedupe';
+
 const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/cms`;
 
 const getAuthHeaders = () => {
@@ -6,10 +8,15 @@ const getAuthHeaders = () => {
 };
 
 const request = async (url, options = {}) => {
-  const res = await fetch(url, { ...options, headers: { ...getAuthHeaders(), ...(options.headers || {}) } });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Request failed');
-  return data;
+  const method = (options.method || 'GET').toUpperCase();
+  const fetchData = async () => {
+    const res = await fetch(url, { ...options, headers: { ...getAuthHeaders(), ...(options.headers || {}) } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Request failed');
+    return data;
+  };
+
+  return method === 'GET' ? dedupeRequest(`cms:${url}`, fetchData) : fetchData();
 };
 
 // Multipart (image upload) request
