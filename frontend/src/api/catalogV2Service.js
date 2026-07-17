@@ -1,7 +1,8 @@
 import { authService } from './authService';
 import { dedupeRequest } from './requestDedupe';
+import { API_URL } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = API_URL;
 // Strip trailing /api and add /api/v2/catalog
 const V2_BASE_URL = `${API_BASE_URL.replace(/\/api$/, '')}/api/v2/catalog`;
 

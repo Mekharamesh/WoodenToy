@@ -8,12 +8,13 @@ import {
   CheckCircle, XCircle, Award, Zap, ArrowUpRight, RotateCcw,
 } from "lucide-react";
 import { downloadExcelFile } from '../../../utils/exportUtils';
+import { API_URL } from '../../../config/api';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar,
 } from "recharts";
 
-const API = "http://localhost:5000/api";
+const API = API_URL;
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const getToken = () => localStorage.getItem("token");
 const authHeader = () => ({ Authorization: `Bearer ${getToken()}` });

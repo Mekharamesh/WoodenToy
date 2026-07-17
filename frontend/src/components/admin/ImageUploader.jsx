@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Upload, X, Star, ArrowUp, ArrowDown, Loader } from 'lucide-react';
 import { Button } from './CommonComponents';
+import { API_URL } from '../../config/api';
 
 export const ImageUploader = ({
     images = [],
@@ -34,7 +35,7 @@ export const ImageUploader = ({
         validImages.forEach(file => formData.append('images', file));
 
         try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const API_BASE = API_URL;
             const uploadUrl = `${API_BASE.replace(/\/api$/, '')}/api/catalog/upload`;
             const token = localStorage.getItem('token');
 

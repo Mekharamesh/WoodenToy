@@ -24,12 +24,12 @@ const getConnectionOptions = () => ({
   autoIndex: process.env.NODE_ENV !== 'production',
 });
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const getMongoURI = () => {
-  const uri =
-    process.env.MONGODB_URI ||
-    process.env.MONGO_URI ||
-    process.env.ATLAS_MONGO_URI ||
-    '';
+  const uri = isProduction
+    ? (process.env.ATLAS_MONGO_URI || process.env.MONGODB_URI || process.env.MONGO_URI || '')
+    : (process.env.MONGODB_URI || process.env.MONGO_URI || process.env.ATLAS_MONGO_URI || '');
 
   if (!uri) {
     const useLocal =
@@ -42,6 +42,10 @@ const getMongoURI = () => {
 
   return uri;
 };
+
+const isLocalMongoURI = (uri = '') => (
+  /mongodb(?:\+srv)?:\/\/(?:127\.0\.0\.1|localhost)(?::|\/)/i.test(uri)
+);
 
 const canAttemptReconnect = () => (
   !MAX_RECONNECT_ATTEMPTS || reconnectAttempts < MAX_RECONNECT_ATTEMPTS
@@ -105,7 +109,12 @@ mongoose.connection.on('connected', () => {
 
 mongoose.connection.on('disconnected', () => {
   isConnected = false;
-  logger.warn('MongoDB disconnected');
+  if (intentionalShutdown) {
+    logger.info('MongoDB disconnected during shutdown');
+    return;
+  }
+
+  logger.warn('MongoDB disconnected unexpectedly');
   scheduleReconnect();
 });
 
@@ -123,7 +132,7 @@ mongoose.connection.on('error', (err) => {
 
 mongoose.connection.on('close', () => {
   isConnected = false;
-  logger.info('MongoDB connection closed');
+  logger.info(intentionalShutdown ? 'MongoDB connection closed during shutdown' : 'MongoDB connection closed');
   scheduleReconnect();
 });
 
@@ -133,6 +142,10 @@ const connectDatabase = async () => {
   const uri = getMongoURI();
   if (!uri) {
     throw new Error('No MongoDB URI configured. Set MONGODB_URI or MONGO_URI in backend/.env.');
+  }
+
+  if (isProduction && isLocalMongoURI(uri)) {
+    throw new Error('Production cannot use a localhost MongoDB URI. Set MONGODB_URI to your MongoDB Atlas connection string.');
   }
 
   const targetLabel = uri.includes('mongodb+srv') ? 'Atlas' : 'Local';
@@ -145,7 +158,7 @@ const connectDatabase = async () => {
     logger.error('Initial MongoDB connection failed', err);
 
     const useLocal =
-      process.env.USE_LOCAL_DB === 'true' || process.env.USE_LOCAL_DB === '1';
+      !isProduction && (process.env.USE_LOCAL_DB === 'true' || process.env.USE_LOCAL_DB === '1');
     const localUri = process.env.LOCAL_MONGO_URI || 'mongodb://127.0.0.1:27017/woodentoy';
 
     if (targetLabel === 'Atlas' && useLocal) {
@@ -173,6 +186,11 @@ const closeDatabase = async () => {
   }
 
   try {
+    if (mongoose.connection.readyState === 0) {
+      logger.info('MongoDB connection already closed');
+      return;
+    }
+
     await mongoose.connection.close();
     logger.info('MongoDB connection closed gracefully');
   } catch (err) {

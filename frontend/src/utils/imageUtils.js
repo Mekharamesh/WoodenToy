@@ -1,4 +1,6 @@
-const RAW_API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+import { API_URL } from '../config/api';
+
+const RAW_API_URL = API_URL.replace(/\/$/, '');
 const API_BASE_URL = RAW_API_URL.replace(/\/api\/?$/, '');
 const FALLBACK_IMAGE = '/wood-placeholder.png';
 

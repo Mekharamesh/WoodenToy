@@ -212,10 +212,23 @@ const createApp = () => {
     res.json({ success: true, message: 'API is running...', requestId: req.id });
   });
 
+  app.get('/api', (req, res) => {
+    res.json({
+      success: true,
+      message: 'API is running...',
+      health: '/api/health',
+      ready: '/api/ready',
+      requestId: req.id,
+    });
+  });
+
   app.get(['/health', '/api/health'], (req, res) => {
+    res.status(200).json(createHealthPayload());
+  });
+
+  app.get(['/ready', '/api/ready'], (req, res) => {
     const payload = createHealthPayload();
-    const statusCode = payload.db.readyState === 1 ? 200 : 503;
-    res.status(statusCode).json(payload);
+    res.status(payload.db.readyState === 1 ? 200 : 503).json(payload);
   });
 
   app.use('/api', dbConnectionGuard);
@@ -231,18 +244,16 @@ const initializeServer = async () => {
   registerProcessHandlers();
   startResourceLogger();
 
-  try {
-    await connectDatabase();
-  } catch (err) {
-    logger.error('Server starting with MongoDB unavailable; API routes will return 503 until reconnect succeeds', err);
-  }
-
   const app = createApp();
   const PORT = Number(process.env.PORT || 5000);
   let serverStarted = false;
   const server = app.listen(PORT, () => {
     serverStarted = true;
     logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+  });
+
+  connectDatabase().catch((err) => {
+    logger.error('MongoDB unavailable after startup; API routes will return 503 until reconnect succeeds', err);
   });
 
   server.keepAliveTimeout = Number(process.env.SERVER_KEEP_ALIVE_TIMEOUT_MS || 65000);
@@ -264,11 +275,20 @@ const initializeServer = async () => {
     shuttingDown = true;
 
     logger.info(`Received ${signal}. Shutting down gracefully...`);
+    const forceExitTimer = setTimeout(() => {
+      logger.warn('Graceful shutdown timed out; forcing process exit');
+      process.exit(0);
+    }, Number(process.env.SHUTDOWN_FORCE_EXIT_MS || 10000));
+    forceExitTimer.unref?.();
+
+    server.closeIdleConnections?.();
     server.close(async () => {
       logger.info('HTTP server closed.');
       await closeDatabase();
+      clearTimeout(forceExitTimer);
       process.exit(0);
     });
+    server.closeAllConnections?.();
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));

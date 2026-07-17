@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { catalogService } from '../api/catalogService';
 import { adminService } from '../api/adminService';
+import { API_URL } from '../config/api';
 import CategoriesPage from './admin/catalog/CategoriesPage';
 import SubCategoriesPage from './admin/catalog/SubCategoriesPage';
 import AttributesPage from './admin/catalog/AttributesPage';
@@ -369,7 +370,7 @@ export default function AdminDashboard({ user, onNavigate, onLogout }) {
         await catalogService.updateCategory(editCategoryId, payload);
         setSuccessMsg('Category updated successfully!');
       } else {
-        const created = await fetch('http://localhost:5000/api/catalog/category', {
+        const created = await fetch(`${API_URL}/catalog/category`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

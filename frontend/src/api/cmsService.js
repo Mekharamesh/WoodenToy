@@ -1,6 +1,7 @@
 import { dedupeRequest } from './requestDedupe';
+import { API_URL } from '../config/api';
 
-const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/cms`;
+const BASE = `${API_URL}/cms`;
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
@@ -77,6 +78,6 @@ export const cmsService = {
   uploadImages: (files) => {
     const formData = new FormData();
     files.forEach((f) => formData.append('images', f));
-    return requestForm(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/catalog/upload`, formData);
+    return requestForm(`${API_URL}/catalog/upload`, formData);
   },
 };

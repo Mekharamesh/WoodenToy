@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { authService } from './authService';
+import { API_URL as BASE_API_URL } from '../config/api';
 
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/orders`;
+const API_URL = `${BASE_API_URL}/orders`;
 export const ORDER_STATUS_OPTIONS = [
   'Placed',
   'Packed',

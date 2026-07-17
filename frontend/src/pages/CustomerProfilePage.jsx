@@ -41,6 +41,7 @@ import { uploadAPI } from '../api/catalogAdminService';
 import { reviewService } from '../api/reviewService';
 import { walletService } from '../api/walletService';
 import { refundService } from '../api/refundService';
+import { API_URL } from '../config/api';
 import useCartStore from '../store/useCartStore';
 import WriteReviewModal from '../components/WriteReviewModal';
 import { getImageSrc } from '../utils/imageUtils';
@@ -269,7 +270,7 @@ export default function CustomerProfilePage({
           );
 
         if (deliveredProductIds.length > 0 || deliveredReviewTargets.length > 0) {
-          const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          const apiBaseUrl = API_URL;
           const [avgEntries, userEntries] = await Promise.all([
             Promise.all(
               deliveredProductIds.map(async (productId) => {

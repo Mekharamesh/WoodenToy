@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { dedupeRequest } from './requestDedupe';
+import { API_URL as BASE_API_URL } from '../config/api';
 
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/reviews`;
+const API_URL = `${BASE_API_URL}/reviews`;
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
